@@ -1,0 +1,12 @@
+# Default owner for everything
+* @csning1998
+
+[Documentation]
+/.gitlab/                           @csning1998
+CODE_OF_CONDUCT.md                  @csning1998
+LICENSE                             @csning1998
+README.md                           @csning1998
+
+[Critical Infrastructure]
+layers/00-foundation-group/   @csning1998
+layers/90-meta-self/          @csning1998

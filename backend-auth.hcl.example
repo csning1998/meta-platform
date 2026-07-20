@@ -1,0 +1,5 @@
+
+username = "csning1998"
+
+# GitLab PAT configured with the 'api' permission scope for HTTP backend authentication.
+password = ""

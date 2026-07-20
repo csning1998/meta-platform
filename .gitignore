@@ -6,3 +6,5 @@
 terraform.tfvars
 backend-auth.hcl
 runner-config/
+.env
+.env*.local
