@@ -29,3 +29,28 @@ resource "gitlab_branch_protection" "main" {
 
   allow_force_push = false
 }
+
+locals {
+  review_api_key_values = {
+    CLAUDE_API_KEY = var.claude_api_key
+    GEMINI_API_KEY = var.gemini_api_key
+  }
+
+  # for_each cannot accept a sensitive value; nonsensitive() strips the mark from the
+  # presence check only, the actual value stays sensitive via the provider's own schema.
+  review_api_key_enabled = nonsensitive({
+    for k, v in local.review_api_key_values : k => true if v != ""
+  })
+}
+
+resource "gitlab_project_variable" "review_api_key" {
+  for_each = local.review_api_key_enabled
+
+  project   = gitlab_project.this.id
+  key       = each.key
+  value     = local.review_api_key_values[each.key]
+  masked    = true
+  hidden    = true
+  raw       = true
+  protected = false
+}

@@ -2,5 +2,3 @@
 gitlab_token             = ""
 code_review_bot_token    = ""
 slack_review_webhook_url = ""
-gemini_api_key           = ""
-claude_api_key           = ""

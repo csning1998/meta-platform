@@ -8,3 +8,6 @@ backend-auth.hcl
 runner-config/
 .env
 .env*.local
+vault/tls/
+vault/data/
+vault/keys/

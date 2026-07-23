@@ -11,8 +11,6 @@ locals {
   group_variables_secret = {
     CLAUDE_MR_REVIEWER = var.code_review_bot_token
     GEMINI_MR_REVIEWER = var.code_review_bot_token
-    CLAUDE_API_KEY     = var.claude_api_key
-    GEMINI_API_KEY     = var.gemini_api_key
   }
 
   group_labels = {

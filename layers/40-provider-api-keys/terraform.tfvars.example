@@ -1,0 +1,10 @@
+
+claude_api_keys = {
+  "second-brain"                 = ""
+  "on-premise-agent"             = ""
+  "app-content-matter"           = ""
+  "monte-carlo-portfolio-trader" = ""
+  "on-premise-gitlab-deployment" = ""
+  "template-project"             = ""
+  "template-project-fullstack"   = ""
+}
