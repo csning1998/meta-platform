@@ -20,10 +20,12 @@ resource "gitlab_group_variable" "review_secret" {
   protected = false
 }
 
-resource "gitlab_group_variable" "slack_review_webhook" {
+resource "gitlab_group_variable" "plain" {
+  for_each = local.group_variables_plain
+
   group     = data.terraform_remote_state.group_topology.outputs.top_group_id
-  key       = "SLACK_REVIEW_WEBHOOK_URL"
-  value     = var.slack_review_webhook_url
-  masked    = length(var.slack_review_webhook_url) >= 8
+  key       = each.key
+  value     = each.value
+  masked    = false
   protected = false
 }

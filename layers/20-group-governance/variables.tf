@@ -11,14 +11,8 @@ variable "code_review_bot_token" {
   sensitive   = true
 }
 
-variable "slack_review_webhook_url" {
-  description = "Populates the SLACK_REVIEW_WEBHOOK_URL group variable consumed by gitlab-ci-with-code-reviewer. Posts AI review notifications to the #gitlab-code-review Slack channel."
+variable "vault_token" {
+  description = "Authenticates the vault provider against the self-hosted Vault instance."
   type        = string
-  default     = ""
   sensitive   = true
-
-  validation {
-    condition     = var.slack_review_webhook_url == "" || can(regex("^https://hooks\\.slack\\.com/", var.slack_review_webhook_url))
-    error_message = "slack_review_webhook_url must be empty or a Slack Incoming Webhook URL starting with https://hooks.slack.com/."
-  }
 }

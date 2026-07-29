@@ -6,6 +6,10 @@ terraform {
       source  = "gitlabhq/gitlab"
       version = "19.2.0"
     }
+    vault = {
+      source  = "hashicorp/vault"
+      version = "5.5.0"
+    }
   }
 
   backend "http" {
@@ -20,4 +24,10 @@ terraform {
 
 provider "gitlab" {
   token = var.gitlab_token
+}
+
+provider "vault" {
+  address      = "https://127.0.0.1:8222"
+  ca_cert_file = "${path.module}/../../vault/tls/ca.pem"
+  token        = var.vault_token
 }

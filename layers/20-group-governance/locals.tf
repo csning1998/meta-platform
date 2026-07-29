@@ -11,6 +11,13 @@ locals {
   group_variables_secret = {
     CLAUDE_MR_REVIEWER = var.code_review_bot_token
     GEMINI_MR_REVIEWER = var.code_review_bot_token
+    SONAR_TOKEN        = data.vault_kv_secret_v2.sonar_token.data["token"]
+  }
+
+  # Job containers connect to SonarQube through the sonarqube compose service endpoint
+  # on the sonarqube-ci-net bridge network configured in the runner network mode.
+  group_variables_plain = {
+    SONAR_HOST_URL = "http://sonarqube:9000"
   }
 
   group_labels = {

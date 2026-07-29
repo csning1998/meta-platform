@@ -27,7 +27,7 @@
 
 ### Verification
 
-- [ ] **Cluster Status**: Verify node status (e.g., `vault operator raft list-peers`).
-- [ ] **Failover**: Verify high availability behavior.
-- [ ] **VIP Access**: Verify connectivity via Load Balancer/VIP.
-- [ ] **Idempotency**: Verify repeated execution does not corrupt state.
+- [ ] **Plan Convergence**: `terraform plan` reports no unexpected changes across the affected layers.
+- [ ] **Governance Propagation**: Group and project settings, labels, and CI/CD variables reflect the declared state on GitLab.
+- [ ] **Service Health**: SonarQube, Vault, and runner containers report healthy status after the change.
+- [ ] **Idempotency**: Repeated `terraform apply` execution does not alter existing resource state.

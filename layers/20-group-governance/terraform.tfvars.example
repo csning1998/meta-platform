@@ -1,4 +1,4 @@
 
-gitlab_token             = ""
-code_review_bot_token    = ""
-slack_review_webhook_url = ""
+gitlab_token          = ""
+code_review_bot_token = ""
+vault_token           = "" # Root or sufficiently-privileged Vault token; matches VAULT_TOKEN in .env.

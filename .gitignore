@@ -11,3 +11,9 @@ runner-config/
 vault/tls/
 vault/data/
 vault/keys/
+sonarqube
+merge-request.md
+
+# SELinux policy build artifacts
+selinux/*.mod
+selinux/*.pp

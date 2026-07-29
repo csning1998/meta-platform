@@ -1,0 +1,3 @@
+
+sonarqube_admin_password = "" # Built-in admin account password; "admin" before the first UI-driven password change.
+vault_token              = "" # Root or sufficiently-privileged Vault token; matches VAULT_TOKEN in .env.

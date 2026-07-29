@@ -17,3 +17,4 @@ check_interval = 0
     disable_cache                = false
     volumes                      = ["/cache"]
     shm_size                     = 0
+    network_mode                 = "sonarqube-ci-net" # Joins the shared bridge network so job containers reach SonarQube by service name.

@@ -1,6 +1,7 @@
 
 resource "gitlab_project" "this" {
   name             = var.name
+  path             = var.name
   description      = var.description
   visibility_level = var.visibility
   namespace_id     = var.namespace_id

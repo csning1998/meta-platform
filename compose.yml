@@ -1,4 +1,14 @@
 ---
+networks:
+  sonarqube-internal:
+    driver: bridge
+  # The external name is fixed to a literal value, enabling gitlab-runner's [runners.docker]
+  # network_mode setting to reference this network directly and job containers to reach SonarQube
+  # by service name without host port exposure.
+  sonarqube-ci-net:
+    name: sonarqube-ci-net
+    driver: bridge
+
 services:
   vault-server:
     image: docker.io/hashicorp/vault:2.0
@@ -6,14 +16,15 @@ services:
     entrypoint: "vault"
     command: server -config=/opt/vault/vault.hcl
     volumes:
-      - ./vault/vault.hcl:/opt/vault/vault.hcl:z
-      - ./vault/data:/opt/vault/data:z
-      - ./vault/tls:/opt/vault/tls:z
+      - ./vault/vault.hcl:/opt/vault/vault.hcl
+      - ./vault/data:/opt/vault/data
+      - ./vault/tls:/opt/vault/tls
     user: "${HOST_UID}:${HOST_GID}"
     cap_add:
       - IPC_LOCK
     network_mode: "host"
     userns_mode: keep-id
+    restart: always
     environment:
       - SKIP_SETCAP=true
       - VAULT_ADDR=https://127.0.0.1:8222
@@ -32,8 +43,49 @@ services:
     container_name: gitlab-runner-csning1998-lab-shared
     network_mode: "host"
     restart: always
+    # Reaching the rootless podman socket requires the connectto rule carried by the
+    # gitlab_runner_podman policy module, which grants it to this type alone.
     security_opt:
-      - label=disable
+      - label=type:container_engine_t
     volumes:
-      - ./runner-config:/etc/gitlab-runner:z
-      - /run/user/${HOST_UID}/podman/podman.sock:/run/podman/podman.sock:z
+      - ./runner-config:/etc/gitlab-runner
+      - /run/user/${HOST_UID}/podman/podman.sock:/run/podman/podman.sock
+
+  sonarqube-db:
+    image: docker.io/library/postgres:18-alpine3.24
+    container_name: meta-provision-sonarqube-db
+    networks:
+      - sonarqube-internal
+    environment:
+      - POSTGRES_USER=sonarqube
+      - POSTGRES_PASSWORD=${SONAR_DB_PASSWORD}
+      - POSTGRES_DB=sonarqube
+    volumes:
+      - ./sonarqube/postgres-data:/var/lib/postgresql
+    restart: always
+
+  sonarqube:
+    image: docker.io/library/sonarqube:26.7.0.124771-community
+    container_name: meta-provision-sonarqube
+    depends_on:
+      - sonarqube-db
+    userns_mode: keep-id
+    networks:
+      - sonarqube-internal
+      - sonarqube-ci-net
+    ports:
+      - "127.0.0.1:9000:9000"
+    environment:
+      - SONAR_JDBC_URL=jdbc:postgresql://sonarqube-db:5432/sonarqube
+      - SONAR_JDBC_USERNAME=sonarqube
+      - SONAR_JDBC_PASSWORD=${SONAR_DB_PASSWORD}
+    volumes:
+      - ./sonarqube/data:/opt/sonarqube/data
+      - ./sonarqube/extensions:/opt/sonarqube/extensions
+      - ./sonarqube/logs:/opt/sonarqube/logs
+    restart: always
+    ulimits:
+      nofile:
+        soft: 131072
+        hard: 131072
+      nproc: 8192
