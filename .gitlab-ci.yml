@@ -17,3 +17,8 @@ include:
       module_dir: "${CI_PROJECT_DIR}/modules/project-baseline"
       module_name: "project-baseline"
       module_system: "gitlab"
+  - component: $CI_SERVER_FQDN/csning1998/gitlab-ci-with-code-reviewer/iac-terraform-module@1.4.0
+    inputs:
+      module_dir: "${CI_PROJECT_DIR}/modules/service-catalog"
+      module_name: "service-catalog"
+      module_system: "gitlab"
