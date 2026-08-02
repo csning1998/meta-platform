@@ -1,4 +1,9 @@
 
+variable "scripts_root_path" {
+  description = "Absolute path to the consuming repository's scripts/ directory, supplied by the calling layer via path.root. A module-relative path.module lookup breaks once this module is fetched from the Terraform Module Registry."
+  type        = string
+}
+
 variable "config_name" {
   description = "A unique name for this SSH configuration set (e.g., 'kubeadm-cluster')."
   type = object({

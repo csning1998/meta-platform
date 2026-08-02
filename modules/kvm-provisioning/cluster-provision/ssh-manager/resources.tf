@@ -51,13 +51,13 @@ resource "null_resource" "ssh_config_include" {
   }
 
   provisioner "local-exec" {
-    command     = ". ${path.module}/../../../../scripts/utils_ssh.sh && ssh_config_bootstrapper ${self.triggers.config_path}"
+    command     = ". ${var.scripts_root_path}/utils_ssh.sh && ssh_config_bootstrapper ${self.triggers.config_path}"
     interpreter = ["/bin/bash", "-c"]
   }
 
   provisioner "local-exec" {
     when        = destroy
-    command     = ". ${path.module}/../../../../scripts/utils_ssh.sh && ssh_config_include_unbootstrapper ${self.triggers.config_path}"
+    command     = ". ${var.scripts_root_path}/utils_ssh.sh && ssh_config_include_unbootstrapper ${self.triggers.config_path}"
     interpreter = ["/bin/bash", "-c"]
   }
 }
@@ -79,7 +79,7 @@ resource "null_resource" "prepare_ssh_access" {
   provisioner "local-exec" {
     command     = <<-EOT
       set -e
-      . ${path.module}/../../../../scripts/utils_ssh.sh
+      . ${var.scripts_root_path}/utils_ssh.sh
       log_print "STEP" "Verifying VM liveness and preparing SSH access..."
       known_hosts_bootstrapper "${local.cluster_name}" ${join(" ", [for node in var.nodes : node.ip])}
       log_print "OK" "Liveness check passed. SSH access is ready."
