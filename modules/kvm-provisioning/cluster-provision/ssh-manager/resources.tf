@@ -48,6 +48,7 @@ resource "null_resource" "ssh_config_include" {
   triggers = {
     ssh_config_content = local_file.ssh_config.content
     config_path        = local.ssh_config_path
+    scripts_root_path  = var.scripts_root_path
   }
 
   provisioner "local-exec" {
@@ -55,9 +56,11 @@ resource "null_resource" "ssh_config_include" {
     interpreter = ["/bin/bash", "-c"]
   }
 
+  # Destroy-time provisioners may only reference `self`, so the path is read back from triggers
+  # instead of `var.scripts_root_path` directly.
   provisioner "local-exec" {
     when        = destroy
-    command     = ". ${var.scripts_root_path}/utils_ssh.sh && ssh_config_include_unbootstrapper ${self.triggers.config_path}"
+    command     = ". ${self.triggers.scripts_root_path}/utils_ssh.sh && ssh_config_include_unbootstrapper ${self.triggers.config_path}"
     interpreter = ["/bin/bash", "-c"]
   }
 }

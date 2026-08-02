@@ -34,8 +34,9 @@ module "ansible_inventory" {
 }
 
 module "ssh_manager" {
-  source         = "../cluster-provision/ssh-manager"
-  status_trigger = module.hypervisor_kvm.guest_status_trigger
+  source            = "../cluster-provision/ssh-manager"
+  scripts_root_path = var.scripts_root_path
+  status_trigger    = module.hypervisor_kvm.guest_status_trigger
 
   nodes          = module.interface_planner.nodes_list_for_ssh
   credentials_vm = local.credentials_vm_for_ssh

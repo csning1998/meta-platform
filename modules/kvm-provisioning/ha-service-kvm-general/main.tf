@@ -11,8 +11,9 @@ module "hypervisor_kvm" {
 }
 
 module "ssh_manager" {
-  source         = "../cluster-provision/ssh-manager"
-  status_trigger = module.hypervisor_kvm.guest_status_trigger
+  source            = "../cluster-provision/ssh-manager"
+  scripts_root_path = var.scripts_root_path
+  status_trigger    = module.hypervisor_kvm.guest_status_trigger
 
   nodes = [
     for k, v in local.flat_node_map : {
