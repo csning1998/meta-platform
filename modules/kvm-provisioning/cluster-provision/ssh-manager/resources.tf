@@ -48,7 +48,6 @@ resource "null_resource" "ssh_config_include" {
   triggers = {
     ssh_config_content = local_file.ssh_config.content
     config_path        = local.ssh_config_path
-    scripts_root_path  = var.scripts_root_path
   }
 
   provisioner "local-exec" {
@@ -56,11 +55,12 @@ resource "null_resource" "ssh_config_include" {
     interpreter = ["/bin/bash", "-c"]
   }
 
-  # Destroy-time provisioners may only reference `self`, so the path is read back from triggers
-  # instead of `var.scripts_root_path` directly.
+  # Destroy-time provisioners cannot reference input variables or relative module paths,
+  # precluding the sourcing of external helper scripts such as utils_ssh.sh.
+  # The removal operation is therefore inlined below as a single sed command.
   provisioner "local-exec" {
     when        = destroy
-    command     = ". ${self.triggers.scripts_root_path}/utils_ssh.sh && ssh_config_include_unbootstrapper ${self.triggers.config_path}"
+    command     = "sed -i \"\\|Include ${self.triggers.config_path}|d\" \"$HOME/.ssh/config\""
     interpreter = ["/bin/bash", "-c"]
   }
 }
