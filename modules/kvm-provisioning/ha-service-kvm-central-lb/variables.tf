@@ -67,9 +67,9 @@ variable "network_service_segments" {
     runtime        = optional(string)
     mtu            = optional(number)
     mss            = optional(number)
-    node_ips       = optional(map(string))
+    node_ips       = map(string)
 
-    ports = optional(map(object({
+    ports = map(object({
       frontend_port            = number
       backend_port             = number
       health_check_type        = optional(string, "tcp")
@@ -79,12 +79,12 @@ variable "network_service_segments" {
       health_check_sni         = optional(string)
       health_check_port        = optional(number)
       send_proxy_v2            = optional(bool, false)
-    })))
+    }))
 
-    backend_servers = optional(list(object({
+    backend_servers = list(object({
       name = string
       ip   = string
-    })))
+    }))
   }))
 }
 
