@@ -1,4 +1,4 @@
-# csning1998-lab-governance
+# Meta-Platform Repository
 
 This repository provides group-scoped governance through several Terraform layers, container services, and shell entry points that provision the GitLab group topology, the shared runner, the SonarQube instance, and the Vault instance supporting this namespace.
 
@@ -49,10 +49,10 @@ Only `gitlab_runner_podman.te` is tracked in version control. The compiled `.mod
 1. Each container MUST report a non-empty process label. An empty value indicates that label separation is disabled.
 
     ```bash
-    for c in meta-provision-vault-server meta-provision-sonarqube-db \
-            meta-provision-sonarqube gitlab-runner-csning1998-lab-shared; do
-      printf '%s\t' "$c"
-      podman inspect "$c" --format '{{.ProcessLabel}}'
+    for c in meta-platform-vault-server meta-platform-sonarqube-db \
+            meta-platform-sonarqube meta-platform-gitlab-runner; do
+        printf '%s\t' "$c"
+        podman inspect "$c" --format '{{.ProcessLabel}}'
     done
     ```
 
@@ -65,7 +65,7 @@ Only `gitlab_runner_podman.te` is tracked in version control. The compiled `.mod
 3. The runner MUST be able to reach the Podman socket. The following request confirms access through an HTTP status of 200.
 
     ```bash
-    podman exec gitlab-runner-csning1998-lab-shared \
+    podman exec meta-platform-gitlab-runner \
         curl -s -o /dev/null -w '%{http_code}\n' \
         --unix-socket /run/podman/podman.sock http://d/v1.41/_ping
     ```
@@ -99,3 +99,61 @@ This failure was traced to `.githooks/pre-commit` and `.githooks/commit-msg`, ea
 Both hooks read the repository without writing to it and therefore require no relabeling at all. The fix replaces `:Z` with `--security-opt label=disable`, scoped to these two short-lived, non-secret-holding containers, which presents a different risk profile from disabling confinement on a long-running service such as `vault-server`.
 
 Any future local tool that mounts the repository root, or any ancestor of `vault/`, `sonarqube/`, or `runner-config/`, MUST avoid `:z` and `:Z` for the same reason.
+
+### Item G. Relabeling After Repository Relocation
+
+The registration in Item B binds `container_file_t` to a literal path pattern rather than to the repository as a logical entity. Moving or renaming the repository directory leaves the registered rule pointing at a path that no longer exists, while the new path falls back to the parent directory's default type, `user_home_t`, on the next `restorecon` invocation. The policy module installed in Item C is unaffected by relocation, because it grants a permission to the SELinux type `container_engine_t` rather than to any filesystem path.
+
+1. Confirm the current registration before removing it because the deletion in the next step requires a string that matches the one supplied in Item B exactly.
+
+    ```bash
+    sudo semanage fcontext -l | grep <PREVIOUS_PATH>
+    ```
+
+2. Remove the rule bound to the previous path and register the current path in its place. `<PREVIOUS_PATH>` denotes the absolute path under which the repository resided before relocation.
+
+    ```bash
+    sudo semanage fcontext -d -t container_file_t \
+        "<PREVIOUS_PATH>/(vault|sonarqube|runner-config)(/.*)?"
+    sudo semanage fcontext -a -t container_file_t \
+        "$PWD/(vault|sonarqube|runner-config)(/.*)?"
+    ```
+
+3. Apply the current registration to the relocated files.
+
+    ```bash
+    sudo restorecon -RFv "$PWD/vault" "$PWD/sonarqube" "$PWD/runner-config"
+    ```
+
+4. Note that an intra-filesystem move operation (`mv`) MUST preserve the security context associated with each affected inode. Consequently, active containers operating at the time of relocation SHALL continue execution without interruption. Appropriate relabeling MUST be performed prior to any subsequent container recreation, manual execution of `restorecon`, or system-wide SELinux relabel event. In the absence of such relabeling, these operations SHALL resolve paths against the stale registry entries referenced in Item B.
+
+### Item H. Cross-Repository Label Mapping
+
+The conventions specified in Items A through G SHALL apply universally to all local repositories where `.githooks/pre-commit` or `.githooks/commit-msg` access Git metadata under SELinux enforcement. Compliant repositories MUST adhere to a uniform specification by omitting dynamic relabel flags (`:z`/`:Z`), prohibiting `label=disable`, and maintaining a persistent `container_file_t` context registration scoped strictly to the paths required by the container. The table below consolidates all active registrations on this host, sourced from `/etc/selinux/targeted/contexts/files/file_contexts.local`, which ANY local user account MAY read without elevated privileges.
+
+| Repository                              | Registered Path Pattern                                                                               | SELinux Type       | Consumed By                                                  |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------ | ------------------------------------------------------------ |
+| `meta-platform`                         | `` `(vault\|sonarqube\|runner-config)(/.*)?` ``                                                       | `container_file_t` | `vault-server`, `sonarqube`, `sonarqube-db`, `gitlab-runner` |
+| `meta-platform`                         | `.git(/.*)?`                                                                                          | `container_file_t` | `.githooks/pre-commit`, `.githooks/commit-msg`               |
+| `gitlab-ci-with-code-reviewer`          | `runner-config(/.*)?`                                                                                 | `container_file_t` | `gitlab-runner`                                              |
+| `gitlab-ci-with-code-reviewer`          | `.git(/.*)?`                                                                                          | `container_file_t` | `.githooks/pre-commit`, `.githooks/commit-msg`               |
+| `personal/on-premise-gitlab-deployment` | `vault(/.*)?`                                                                                         | `container_file_t` | `iac-vault-server`                                           |
+| `personal/on-premise-gitlab-deployment` | `.git(/.*)?`                                                                                          | `container_file_t` | `.githooks/pre-commit`, `.githooks/commit-msg`               |
+| `personal/on-premise-agent`             | `` `(vault\|ollama_data\|open-webui_data\|searxng_data\|pipelines\|openclaw\|openclaw_data)(/.*)?` `` | `container_file_t` | Local service bind mounts                                    |
+| `personal/on-premise-agent`             | `.git(/.*)?`                                                                                          | `container_file_t` | `.githooks/pre-commit`, `.githooks/commit-msg`               |
+| `personal/second-brain`                 | `` `(postgres-data\|db/migrations)(/.*)?` ``                                                          | `container_file_t` | Postgres bind mounts                                         |
+| `personal/second-brain`                 | `.git(/.*)?`                                                                                          | `container_file_t` | `.githooks/pre-commit`, `.githooks/commit-msg`               |
+| `personal/app-content-matter`           | `.git(/.*)?`                                                                                          | `container_file_t` | `.githooks/pre-commit`, `.githooks/commit-msg`               |
+| `personal/LaTeX_Documents`              | `.git(/.*)?`                                                                                          | `container_file_t` | `.githooks/pre-commit`, `.githooks/commit-msg`               |
+| `personal/monte-carlo-portfolio-trader` | `.git(/.*)?`                                                                                          | `container_file_t` | `.githooks/pre-commit`, `.githooks/commit-msg`               |
+| `template/template-project`             | `.git(/.*)?`                                                                                          | `container_file_t` | `.githooks/pre-commit`, `.githooks/commit-msg`               |
+| `template/template-project-fullstack`   | `.git(/.*)?`                                                                                          | `container_file_t` | `.githooks/pre-commit`, `.githooks/commit-msg`               |
+| N/A, system-wide                        | `/run/user/1000/podman/podman.sock`                                                                   | `container_file_t` | Rootless Podman socket, independent of any single repository |
+
+Two repositories (`meta-platform` and `gitlab-ci-with-code-reviewer`) declare the `gitlab_runner_podman` policy module defined in Item C. Each repository MUST maintain an identical module name and version to guarantee standalone deployability independent of pre-existing host-level modules. Accordingly, the `gitlab-runner` service in both repositories SHALL configure `label=type:container_engine_t` rather than disabling security labels.
+
+Repositories lacking a `compose.yml` file SHALL limit context registrations exclusively to `.git(/.*)?`, restricting container execution scope solely to ephemeral Git lifecycle hooks.
+
+The `iac-runner` service within `personal/on-premise-gitlab-deployment` IS EXEMPT from this mapping specification. Due to the operational requirement of bind-mounting `${PROJECT_ROOT}` in its entirety for arbitrary Infrastructure-as-Code (IaC) execution, path-restricted scoping is technically unfeasible; the service MUST retain `security_opt: label=disable`.
+
+Omission of an explicit `restorecon` execution upon removing dynamic relabel flags (`:z`/`:Z`) leaves target files with lingering Multi-Category Security (MCS) attributes rather than restoring the baseline `container_file_t:s0` context. For example, `gitlab-ci-with-code-reviewer/runner-config` previously relied on the `:z` flag; substituting `:z` with `label=type:container_engine_t` caused `config.toml` to retain stale categories (`container_file_t:s0:c206,c409`), resulting in startup permission denials and runner failure. Executing `sudo restorecon -RFv runner-config` resolves this context drift. Consequently, initial migration away from dynamic flags REQUIRES an explicit context restoration alongside the registration procedure specified in Item B.

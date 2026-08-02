@@ -12,7 +12,7 @@ networks:
 services:
   vault-server:
     image: docker.io/hashicorp/vault:2.0
-    container_name: meta-provision-vault-server
+    container_name: meta-platform-vault-server
     entrypoint: "vault"
     command: server -config=/opt/vault/vault.hcl
     volumes:
@@ -40,11 +40,11 @@ services:
 
   gitlab-runner:
     image: docker.io/gitlab/gitlab-runner:v19.0.1
-    container_name: gitlab-runner-csning1998-lab-shared
+    container_name: meta-platform-gitlab-runner
     network_mode: "host"
     restart: always
-    # Reaching the rootless podman socket requires the connectto rule carried by the
-    # gitlab_runner_podman policy module, which grants it to this type alone.
+    # Reaching the rootless podman socket requires the connectto permission that the
+    # gitlab_runner_podman policy module grants exclusively to this SELinux type.
     security_opt:
       - label=type:container_engine_t
     volumes:
@@ -53,7 +53,7 @@ services:
 
   sonarqube-db:
     image: docker.io/library/postgres:18-alpine3.24
-    container_name: meta-provision-sonarqube-db
+    container_name: meta-platform-sonarqube-db
     networks:
       - sonarqube-internal
     environment:
@@ -66,7 +66,7 @@ services:
 
   sonarqube:
     image: docker.io/library/sonarqube:26.7.0.124771-community
-    container_name: meta-provision-sonarqube
+    container_name: meta-platform-sonarqube
     depends_on:
       - sonarqube-db
     userns_mode: keep-id

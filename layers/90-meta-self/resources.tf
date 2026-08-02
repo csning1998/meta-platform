@@ -2,8 +2,8 @@
 module "baseline" {
   source = "../../modules/project-baseline"
 
-  name         = "csning1998-lab-governance"
-  description  = "Meta-provisioning project for the csning1998-lab GitLab group."
+  name         = "meta-platform"
+  description  = "Shared platform infrastructure and GitLab group governance for the csning1998-lab group."
   visibility   = "public"
   namespace_id = data.terraform_remote_state.foundation_group.outputs.group_id
 

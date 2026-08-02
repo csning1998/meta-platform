@@ -13,8 +13,8 @@ readonly DEV_KEYS_DIR="${SCRIPT_DIR}/vault/keys"
 readonly DEV_TLS_DIR="${SCRIPT_DIR}/vault/tls"
 readonly DEV_INIT_FILE="${DEV_KEYS_DIR}/init-output.json"
 readonly DEV_UNSEAL_KEY_FILE="${DEV_KEYS_DIR}/unseal.key"
-readonly DEV_ROOT_TOKEN_FILE="$HOME/.vault-token-meta-provision"
-readonly DEV_VAULT_CONTAINER="meta-provision-vault-server"
+readonly DEV_ROOT_TOKEN_FILE="$HOME/.vault-token-meta-platform"
+readonly DEV_VAULT_CONTAINER="meta-platform-vault-server"
 
 # Status Reporting
 vault_status_reporter() {
