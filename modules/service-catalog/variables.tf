@@ -108,10 +108,10 @@ variable "service_catalog" {
   validation {
     condition = alltrue(flatten([
       for s in var.service_catalog : [
-        for c in s.components : c.cidr_index > 124 && c.cidr_index < 255
+        for c in s.components : c.cidr_index > 124 && c.cidr_index < 249
       ]
     ]))
-    error_message = "Component cidr_index must be in range [125, 254]."
+    error_message = "Component cidr_index must be in range [125, 248]."
   }
 
   # Validate Global CIDR Index Uniqueness
@@ -154,6 +154,34 @@ variable "service_catalog" {
       for k, v in var.service_catalog : can(regex("^[a-z0-9-]+$", k))
     ])
     error_message = "Service names (keys) must only contain lowercase letters, numbers, and hyphens (DNS safe)."
+  }
+
+  # Validate Component Key Format (DNS Safe: lowercase, numbers, hyphens)
+  validation {
+    condition = alltrue(flatten([
+      for k, v in var.service_catalog : [
+        for c_k, c_v in v.components : can(regex("^[a-z0-9-]+$", c_k))
+      ]
+    ]))
+    error_message = "Component names (keys) must only contain lowercase letters, numbers, and hyphens (DNS safe)."
+  }
+
+  # Validate Composite Key Uniqueness. _flat_catalog concatenates service and component
+  # names as "${s_name}-${c_name}" with no delimiter, letting "a-b" plus "c" collide with
+  # "a" plus "b-c". The rule above only bounds characters and does not catch this case.
+  validation {
+    condition = (
+      length(flatten([
+        for k, v in var.service_catalog : [
+          for c_k, c_v in v.components : "${k}-${c_k}"
+        ]
+        ])) == length(distinct(flatten([
+          for k, v in var.service_catalog : [
+            for c_k, c_v in v.components : "${k}-${c_k}"
+          ]
+      ])))
+    )
+    error_message = "Two (service, component) pairs produce the same composite key after concatenation. Rename one of the colliding service or component names to remove the ambiguity."
   }
 
   # Validate Project Code Format
