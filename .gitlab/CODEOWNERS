@@ -8,5 +8,5 @@ LICENSE                             @csning1998
 README.md                           @csning1998
 
 [Critical Infrastructure]
-layers/00-foundation-group/   @csning1998
-layers/90-meta-self/          @csning1998
+layers/group-foundation/      @csning1998
+layers/meta-self/             @csning1998
