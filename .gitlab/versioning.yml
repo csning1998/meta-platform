@@ -1,0 +1,14 @@
+---
+# Schema consumed by gitlab-ci-with-code-reviewer's auto-tag component (tools/ci/internal/versiontag).
+# tag_prefix defaults to "<name>-" and is omitted here since it matches the existing tag convention.
+modules:
+  - name: project-baseline
+    dir: terraform/modules/project-baseline
+  - name: service-catalog
+    dir: terraform/modules/service-catalog
+  - name: kvm-provisioning
+    dir: terraform/modules/kvm-provisioning
+  - name: vault-credential
+    dir: terraform/modules/vault-provisioning/vault-credential
+  - name: vault-workload-identity
+    dir: terraform/modules/vault-provisioning/vault-workload-identity

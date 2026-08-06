@@ -1,11 +1,11 @@
 ---
 include:
-  - component: $CI_SERVER_FQDN/csning1998/gitlab-ci-with-code-reviewer/core@1.4.0
+  - component: $CI_SERVER_FQDN/csning1998/gitlab-ci-with-code-reviewer/core@1.5.1
     inputs:
-      reviewer_image: $CI_REGISTRY/csning1998/gitlab-ci-with-code-reviewer/reviewer:1.4.0
+      reviewer_image: $CI_REGISTRY/csning1998/gitlab-ci-with-code-reviewer/reviewer:1.5.1
       claude_model: claude-sonnet-5
       enable_sonarqube: true
-  - component: $CI_SERVER_FQDN/csning1998/gitlab-ci-with-code-reviewer/iac-terraform@1.4.0
+  - component: $CI_SERVER_FQDN/csning1998/gitlab-ci-with-code-reviewer/iac-terraform@1.5.1
     inputs:
       # CKV_GLB_1, CKV_GLB_3, and CKV_GLB_4 require GitLab merge request approval rules and push rules.
       # Both features are gated to the Premium/Ultimate tiers and are unavailable to the Free tier group.
