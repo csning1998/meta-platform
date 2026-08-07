@@ -1,20 +1,78 @@
 #!/bin/bash
 
-# Scans project directories to discover Terraform configuration layers.
+# Scans project directories to discover Terraform and Packer configuration layers.
 iac_layer_discoverer() {
-  log_print "STEP" "Discovering Terraform layers..."
+  log_print "STEP" "Discovering Packer Base and Terraform layers..."
   cd "${SCRIPT_DIR}" || return 1
 
-  # Discovers Terraform configuration layers located within the root layers directory.
+  # Discovers Packer base image layers.
+  local packer_layers_str=""
+  if [ -d "${PACKER_DIR}" ]; then
+    packer_layers_str=$(find "${PACKER_DIR}" -mindepth 2 -maxdepth 2 -name "*.pkrvars.hcl" ! -name "values.pkrvars.hcl" -printf '%f\n' | \
+      sed 's/\.pkrvars\.hcl//g' | \
+      sort | \
+      tr '\n' ' ')
+  fi
+  env_var_mutator "ALL_PACKER_BASES" "${packer_layers_str% }"
+
+  # Discovers Terraform configuration layers located within terraform/layers.
   local terraform_layers_str=""
-  if [ -d "layers" ]; then
-    terraform_layers_str=$(find "layers" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | \
+  if [ -d "${TERRAFORM_DIR}/layers" ]; then
+    terraform_layers_str=$(find "${TERRAFORM_DIR}/layers" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | \
       sort | \
       tr '\n' ' ')
   fi
   env_var_mutator "ALL_TERRAFORM_LAYERS" "${terraform_layers_str% }"
 
-  log_print "INFO" "Layer discovery complete."
+  log_print "INFO" "Layer discovery complete and .env updated."
+}
+
+# Function: Check the host operating system family.
+host_os_detail_handler() {
+  if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    if [[ "$ID" == *"fedora"* || "$ID" == "fedora" || "$ID" == "rhel" || "$ID" == "centos" ]]; then
+      export HOST_OS_FAMILY="rhel"
+    elif [[ "$ID" == *"debian"* || "$ID" == "ubuntu" || "$ID" == "debian" ]]; then
+      export HOST_OS_FAMILY="debian"
+    else
+      export HOST_OS_FAMILY="unknown"
+    fi
+    export HOST_OS_VERSION_ID="${VERSION_ID%%.*}"
+  else
+    export HOST_OS_FAMILY="unknown"
+    export HOST_OS_VERSION_ID="unknown"
+  fi
+}
+
+# Function: Check for CPU hardware virtualization support (VT-x or AMD-V).
+cpu_virt_support_checker() {
+  if grep -E -q '^(vmx|svm)' /proc/cpuinfo; then
+    export VIRT_SUPPORTED="true"
+  else
+    export VIRT_SUPPORTED="false"
+  fi
+}
+
+# Function: Configure Packer network settings based on the guest-VM provisioning strategy.
+packer_net_configurator() {
+  local strategy="${1:-$ENVIRONMENT_STRATEGY}"
+  local bridge_val=""
+  local device_val="virtio-net"
+
+  if [[ "$strategy" == "container" ]]; then
+    log_print "WARN" "Container strategy detected. Forcing User Mode Networking (SLIRP) for Packer."
+    bridge_val=""
+  elif ip link show virbr0 >/dev/null 2>&1; then
+    bridge_val="virbr0"
+    log_print "INFO" "Network Mode: Bridge detected (virbr0). Using performance networking."
+  else
+    log_print "WARN" "'virbr0' bridge not found. Defaulting to user-mode/SLIRP networking."
+    bridge_val=""
+  fi
+
+  env_var_mutator "PKR_VAR_NET_BRIDGE" "${bridge_val}"
+  env_var_mutator "PKR_VAR_NET_DEVICE" "${device_val}"
 }
 
 env_file_bootstrapper() {
@@ -25,6 +83,14 @@ env_file_bootstrapper() {
   local current_gid=$(id -g)
   local current_uname=$(whoami)
 
+  local current_libvirt_gid
+  if getent group libvirt > /dev/null 2>&1; then
+    current_libvirt_gid=$(getent group libvirt | cut -d: -f3)
+  else
+    log_print "WARN" "'libvirt' group not found on host. Using default GID 999."
+    current_libvirt_gid=999
+  fi
+
   if [[ ! -f "$env_path" ]]; then
     log_print "INFO" "Creating new .env file..."
 
@@ -32,11 +98,15 @@ env_file_bootstrapper() {
 # Project Root
 PROJECT_ROOT="${detected_root}"
 
+# Core Strategy Selection: "container" or "native", governs guest-VM provisioning only.
+ENVIRONMENT_STRATEGY="native"
+
 # Discovered Layers
+ALL_PACKER_BASES=""
 ALL_TERRAFORM_LAYERS=""
 
 # Vault Configuration
-DEV_VAULT_ADDR="https://127.0.0.1:8222"
+DEV_VAULT_ADDR="https://127.0.0.1:8200"
 DEV_VAULT_CACERT="\${PROJECT_ROOT}/vault/tls/ca.pem"
 VAULT_TOKEN=""
 
@@ -45,15 +115,33 @@ HOST_UID=${current_uid}
 HOST_GID=${current_gid}
 UNAME=${current_uname}
 UHOME=\${HOME}
+
+# For Unpriviledged Podman
+PKR_VAR_NET_BRIDGE=""
+PKR_VAR_NET_DEVICE="virtio-net"
+
+# For Podman on Ubuntu/Fedora/RHEL to get the GID of the libvirt group
+LIBVIRT_GID=${current_libvirt_gid}
 EOF
   else
     # Update critical host info
     env_var_mutator "HOST_UID" "${current_uid}"
     env_var_mutator "HOST_GID" "${current_gid}"
     env_var_mutator "PROJECT_ROOT" "${detected_root}"
+    env_var_mutator "LIBVIRT_GID" "${current_libvirt_gid}"
+
+    # Backfill keys introduced after this .env file was first created, without
+    # overwriting a value the user may have already switched away from the default.
+    if ! grep -q "^ENVIRONMENT_STRATEGY=" "$env_path"; then
+      env_var_mutator "ENVIRONMENT_STRATEGY" "native"
+    fi
   fi
 
   iac_layer_discoverer
+
+  local current_strategy
+  current_strategy=$(grep "^ENVIRONMENT_STRATEGY=" "$env_path" | cut -d'=' -f2 | tr -d '"')
+  packer_net_configurator "${current_strategy:-native}"
 }
 
 # Updates or appends a key value pair within the .env file.
@@ -72,4 +160,29 @@ env_var_mutator() {
   else
     echo "${key}=\"${value}\"" >> "$env_file"
   fi
+}
+
+# Function to handle the interactive strategy switching, restarting entry.sh under the new value.
+switch_strategy() {
+  local var_name="$1"
+  local new_value="$2"
+
+  env_var_mutator "$var_name" "$new_value"
+  log_print "INFO" "Strategy '${var_name}' in .env updated to '${new_value}'."
+  cd "${SCRIPT_DIR}" && exec ./entry.sh
+}
+
+strategy_switch_handler() {
+  echo
+  log_print "INFO" "Switching strategy..."
+  log_print "INFO" "Cleaning Terraform plugins/cache (keeping state)..."
+  (cd "${TERRAFORM_DIR}" && rm -rf .terraform .terraform.lock.hcl)
+
+  log_divider
+
+  local new_strategy
+  new_strategy=$([[ "$ENVIRONMENT_STRATEGY" == "container" ]] && echo "native" || echo "container")
+
+  packer_net_configurator "${new_strategy}"
+  switch_strategy "ENVIRONMENT_STRATEGY" "$new_strategy"
 }

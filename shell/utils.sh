@@ -56,3 +56,92 @@ run_command() {
   # Native Mode: Execute the command directly on the host.
   (cd "${host_work_dir}" && bash -c "${cmd_string}")
 }
+
+# Function: Fix ownership on directories that guest-VM provisioning tooling writes to.
+check_and_fix_permissions() {
+  local current_user
+  current_user=$(whoami)
+
+  local directories_to_check=(
+    "${SCRIPT_DIR}"
+    "${HOME}/.cache/packer"
+    "${HOME}/.ssh"
+  )
+
+  log_print "INFO" "Checking directory ownership for user '${current_user}'."
+
+  local needs_fix=false
+  local return_code=0
+
+  for dir in "${directories_to_check[@]}"; do
+    if [ ! -d "${dir}" ]; then
+      log_print "INFO" "Skipping non-existent directory: ${dir}"
+      continue
+    fi
+
+    local incorrect_owner_path
+    incorrect_owner_path=$(find "${dir}" -not -user "${current_user}" -print -quit)
+
+    if [ -n "${incorrect_owner_path}" ]; then
+      needs_fix=true
+      log_print "WARN" "Incorrect ownership detected in '${dir}'."
+      log_print "WARN" "      Example path with incorrect owner: ${incorrect_owner_path}"
+
+      local fix_cmd="sudo chown -R ${current_user}:${current_user} ${dir}"
+      log_print "TASK" "Executing: ${fix_cmd}"
+
+      if eval "${fix_cmd}"; then
+        log_print "OK" "Successfully corrected ownership for '${dir}'."
+      else
+        log_print "FATAL" "Failed to correct ownership for '${dir}'. Please check sudo permissions."
+        return_code=1
+      fi
+    else
+      log_print "INFO" "Ownership verified for '${dir}'."
+    fi
+  done
+
+  if ! ${needs_fix}; then
+    log_print "OK" "All checked directories have correct ownership."
+  else
+    if [ "${return_code}" -eq 0 ]; then
+      log_print "OK" "Permission check and correction process completed successfully."
+    else
+      log_print "ERROR" "The permission fix process encountered one or more errors."
+    fi
+  fi
+
+  return ${return_code}
+}
+
+# Function: Report elapsed wall-clock time since START_TIME was set.
+execution_time_reporter() {
+  local END_TIME DURATION MINUTES SECONDS
+  END_TIME=$(date +%s)
+  DURATION=$((END_TIME - START_TIME))
+  MINUTES=$((DURATION / 60))
+  SECONDS=$((DURATION % 60))
+
+  log_divider
+  log_print "INFO" "Execution time: ${MINUTES}m ${SECONDS}s"
+  log_divider
+}
+
+# Function: Require explicit Y/y confirmation before a destructive operation proceeds.
+manual_confirmation_prompter() {
+  local target_desc="${1:-resources}"
+
+  log_divider "!"
+  log_print "WARN" "WARNING: You are about to DESTROY ALL ${target_desc}."
+  log_print "WARN" "This action is IRREVERSIBLE and will wipe the selected environment data."
+  log_divider "!"
+
+  log_print "INPUT" "Type 'Y' or 'y' to confirm execution: "
+  read -r confirmation
+
+  if [[ ! "$confirmation" =~ ^[Yy]$ ]]; then
+    log_print "INFO" "Operation aborted by user."
+    return 1
+  fi
+  return 0
+}

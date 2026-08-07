@@ -1,24 +1,85 @@
 
+# Terraform
 .terraform/
 .terraform.lock.hcl
+.terraform.tfstate.lock.info
 *.tfstate
 *.tfstate.*
-terraform.tfvars
+*.tfvars
+terraform/*.tf.bak
+terraform/layers/**/*.output.json
+terraform/layers/**/ansible.cfg
+
+# GitLab HTTP Backend credentials
 backend-auth.hcl
-runner-config/
-.env
-.env*.local
-vault/tls/
-vault/data/
+terraform/backend-state.json
+
+# Packer
+packer/secret.auto.pkrvars.hcl
+packer/output
+
+# Ansible
+.ansible
+ansible/group_vars/all.yaml
+ansible/logs
+ansible/inventory-*.yaml
+ansible/packer-provisioner-ansible*
+ansible/fetched/
+ansible-log*.log
+
+# HashiCorp Vault
+unseal.key
+vault_pass.txt
+vault/data/*
+!vault/data/README.md
 vault/keys/
-sonarqube
-merge-request.md
+
+# TLS material
+**/tls
+**/*.tls
+**/*.pem
+**/*.srl
+**/*.key
+**/*.crt
+**/*.der
 
 # SELinux policy build artifacts
 selinux/*.mod
 selinux/*.pp
 
-## BLOB
+# Locally built CI tool binaries
 fmt-commit-pusher
 claude-review
 
+# GitLab Runner configuration
+runner-config/
+
+# Environment files
+.env
+.env*.local
+
+# Golang
+/iac-tool
+
+# IDEs
+.vscode
+.idea
+
+# JetBrains default ignored files
+/shelf/
+/workspace.xml
+# Editor-based HTTP Client requests
+/httpRequests/
+# Environment-dependent path to Maven home directory
+/mavenHomeManager.xml
+# Datasource local storage ignored files
+/dataSources/
+/dataSources.local.xml
+
+# Local-only project files
+sonarqube
+backup
+commit-message.md
+merge-request.md
+note.md
+*.bak

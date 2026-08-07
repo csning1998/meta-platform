@@ -1,0 +1,49 @@
+#cloud-config
+autoinstall:
+  version: 1
+  locale: en_US.UTF-8
+  keyboard:
+    layout: us
+
+  # Storage Configuration
+  storage:
+    layout:
+      name: direct
+
+  refresh-installer:
+    # To prevent Exit 100 during packer build
+    update: no
+
+  apt:
+    geoip: false
+    fallback: offline-install
+    primary: []
+    disable_suites: [security, updates, backports, proposed]
+
+  network:
+    version: 2
+    ethernets:
+      default:
+        match:
+          name: e*
+        dhcp4: true
+
+  # User and Hostname Configuration
+  identity:
+    hostname: ${hostname}
+    username: ${username}
+    password: ${password_hash}
+
+  # SSH Server Configuration
+  ssh:
+    install-server: true
+    allow-pw: true
+
+  # Package Management Configuration
+  package_upgrade: false
+
+  late-commands:
+    - curtin in-target -- /bin/bash -c "echo '${username} ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/99-packer-user"
+    - curtin in-target -- /bin/bash -c "chmod 0440 /etc/sudoers.d/99-packer-user"
+    - curtin in-target -- /bin/bash -c "systemctl enable ssh"
+    - curtin in-target -- /bin/bash -c "systemctl start ssh"
