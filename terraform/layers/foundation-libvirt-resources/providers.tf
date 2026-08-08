@@ -1,0 +1,22 @@
+
+terraform {
+  required_version = ">= 1.14.0"
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "0.9.7"
+    }
+  }
+  backend "http" {
+    address        = "https://gitlab.com/api/v4/projects/84608830/terraform/state/foundation-libvirt-resources"
+    lock_address   = "https://gitlab.com/api/v4/projects/84608830/terraform/state/foundation-libvirt-resources/lock"
+    unlock_address = "https://gitlab.com/api/v4/projects/84608830/terraform/state/foundation-libvirt-resources/lock"
+    lock_method    = "POST"
+    unlock_method  = "DELETE"
+    retry_wait_min = 5
+  }
+}
+
+provider "libvirt" {
+  uri = "qemu:///system"
+}

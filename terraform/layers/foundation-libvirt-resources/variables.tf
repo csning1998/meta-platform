@@ -42,3 +42,22 @@ variable "network_baseline" {
     error_message = "IP offsets must be less than 255 to fit within a /24 subnet."
   }
 }
+
+variable "service_catalog_module" {
+  description = "Source and version pin for the service-catalog module published to the GitLab Terraform Module Registry."
+  type = object({
+    source  = string
+    version = string
+  })
+  const = true
+}
+
+variable "service_catalog" {
+  description = "The Single Source of Truth (SSoT) for all services, component, ingress, and dependencies, passed through to the service_catalog module for validation."
+  type        = any
+}
+
+variable "harbor_registry_proxies" {
+  description = "Harbor upstream registry proxy caches and OCI project definitions."
+  type        = any
+}

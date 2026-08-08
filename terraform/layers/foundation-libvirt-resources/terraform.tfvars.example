@@ -1,0 +1,176 @@
+
+domain_suffix = "iac.local"
+
+network_baseline = {
+  cidr_block         = "172.16.0.0/16"
+  vip_offset         = 250
+  node_ip_start      = 200
+  mac_prefix         = "52:54:00"
+  global_mtu         = 1450
+  global_mss         = 1360
+  node_exporter_port = 9100
+}
+
+pki_config = {
+  root_ca_common_name         = "On-prem Infrastructure Root CA"
+  intermediate_ca_common_name = "On-prem Infrastructure Intermediate CA"
+}
+
+service_catalog_module = {
+  source  = "gitlab.com/csning1998-lab/service-catalog/gitlab"
+  version = "0.1.2"
+}
+
+# Harbor upstream registry proxy caches and OCI project definitions
+harbor_registry_proxies = {
+  proxy_oci = {
+    helm_charts = {
+      name = "helm-charts"
+    }
+  }
+  proxy_caches = {
+    docker_hub = {
+      registry_name = "hub.docker.com"
+      endpoint_url  = "https://hub.docker.com"
+      provider_name = "docker-hub"
+      project_name  = "docker-proxy"
+    }
+    k8s_io = {
+      registry_name = "registry.k8s.io"
+      endpoint_url  = "https://registry.k8s.io"
+      provider_name = "docker-registry"
+      project_name  = "k8s-proxy"
+    }
+    quay_io = {
+      registry_name = "quay.io"
+      endpoint_url  = "https://quay.io"
+      provider_name = "docker-registry"
+      project_name  = "quay-proxy"
+    }
+    gitlab_com = {
+      registry_name = "registry.gitlab.com"
+      endpoint_url  = "https://registry.gitlab.com"
+      provider_name = "docker-registry"
+      project_name  = "gitlab-proxy"
+    }
+    gcr_io = {
+      registry_name = "gcr.io"
+      endpoint_url  = "https://gcr.io"
+      provider_name = "docker-registry"
+      project_name  = "gcr-proxy"
+    }
+    ghcr_io = {
+      registry_name = "ghcr.io"
+      endpoint_url  = "https://ghcr.io"
+      provider_name = "docker-registry"
+      project_name  = "ghcr-proxy"
+    }
+  }
+}
+
+service_catalog = {
+  "central-lb" = {
+    owner        = "devops"
+    project_code = "platform"
+    stage        = "production"
+    components = {
+      "frontend" = {
+        provider   = "kvm"
+        runtime    = "baremetal"
+        cidr_index = 125
+        tags       = []
+
+        ip_range = { start_ip = 200, end_ip = 202 }
+        ports = {
+          "stats" = { frontend_port = 8404, backend_port = 8404 } # HAProxy Stats (Self)
+        }
+        ingress = {}
+      }
+    }
+  },
+  "vault" = {
+    owner        = "secops"
+    project_code = "platform"
+    stage        = "production"
+    components = {
+      "frontend" = {
+        provider   = "kvm"
+        runtime    = "baremetal"
+        cidr_index = 136
+        tags       = []
+        ip_range   = { start_ip = 200, end_ip = 202 }
+        ports = {
+          "api" = {
+            frontend_port            = 443,
+            backend_port             = 8200
+            health_check_type        = "http"
+            health_check_http_path   = "/v1/sys/health"
+            health_check_http_expect = "rstatus (200|429)"
+            health_check_ssl         = true
+          }
+        }
+        data_disks = [{ name_suffix = "raft-data" }]
+        ingress = {
+          "raft" = { subdomains = ["vault"] }
+        }
+      }
+    }
+  },
+  "keycloak" = {
+    owner        = "secops"
+    project_code = "platform"
+    stage        = "production"
+    components = {
+      "frontend" = {
+        provider   = "kvm"
+        runtime    = "docker"
+        cidr_index = 142
+        tags       = []
+        ip_range   = { start_ip = 200, end_ip = 200 }
+        ports = {
+          "https" = {
+            frontend_port     = 443,
+            backend_port      = 8080,
+            health_check_port = 9000,
+            health_check_type = "tcp",
+            health_check_ssl  = false
+          }
+          "mgmt" = {
+            frontend_port     = 9000,
+            backend_port      = 9000,
+            health_check_type = "tcp",
+            health_check_ssl  = false
+          }
+
+        }
+        data_disks = [{ name_suffix = "data", capacity_gib = 20 }]
+        ingress = {
+          "frontend" = { subdomains = ["sso"] }
+        }
+      }
+    }
+  },
+  "harbor-bootstrapper" = {
+    owner        = "devops"
+    project_code = "platform"
+    stage        = "production"
+    components = {
+      "frontend" = {
+        provider   = "kvm"
+        runtime    = "docker"
+        cidr_index = 137
+        tags       = []
+        ip_range   = { start_ip = 200, end_ip = 200 }
+        ports = {
+          "http"    = { frontend_port = 80, backend_port = 80 }
+          "https"   = { frontend_port = 443, backend_port = 443 }
+          "metrics" = { frontend_port = 9090, backend_port = 9090 }
+        }
+        data_disks = [{ name_suffix = "data", capacity_gib = 50 }]
+        ingress = {
+          "frontend" = { subdomains = ["harbor-bootstrapper"] }
+        }
+      }
+    }
+  }
+}

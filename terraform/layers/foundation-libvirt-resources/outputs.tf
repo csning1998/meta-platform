@@ -1,0 +1,65 @@
+
+output "infrastructure_map" {
+  description = "Physical realization bridging foundation-metadata Math and HAProxy VIPs, mapped perfectly to O(1) SSoT Identity keys. Consumed by all shared-*-frontend and provision-* layers."
+  value       = module.foundation_libvirt_resources.infrastructure_map
+}
+
+output "central_lb_info" {
+  description = "Physical network configuration for the Central LB's own segment."
+  value       = module.foundation_libvirt_resources.central_lb_info
+}
+
+output "service_segments" {
+  description = "Stable map of service segments, consumed by shared-load-balancer-frontend for HAProxy and Keepalived configuration."
+  value       = module.foundation_libvirt_resources.service_segments
+}
+
+output "dns_mapping" {
+  description = "SSoT DNS mapping for verification of Grouping and Sorting logic."
+  value       = module.foundation_libvirt_resources.dns_mapping
+}
+
+output "storage_infrastructure_map" {
+  description = "Physical realization of the global volume map. Ready to be plugged into KVM instances."
+  value       = module.foundation_libvirt_resources.storage_infrastructure_map
+}
+
+output "global_topology_identity" {
+  description = "Pass-through of foundation-metadata topology identity map; consumed by shared-load-balancer-frontend to build segments_map without reading foundation-metadata directly."
+  value       = module.foundation_libvirt_resources.global_topology_identity
+}
+
+output "global_topology_network" {
+  description = "Pass-through of foundation-metadata topology network map; consumed by shared-load-balancer-frontend to build segments_map without reading foundation-metadata directly."
+  value       = module.foundation_libvirt_resources.global_topology_network
+}
+
+output "global_network_baseline" {
+  description = "Pass-through of foundation-metadata global network baseline (global_mtu, global_mss); consumed by shared-load-balancer-frontend for Ansible extra vars."
+  value       = module.foundation_libvirt_resources.global_network_baseline
+}
+
+output "global_domain_suffix" {
+  description = "Pass-through of foundation-metadata root domain suffix; consumed by shared-load-balancer-frontend for Ansible template service_domain."
+  value       = module.foundation_libvirt_resources.global_domain_suffix
+}
+
+output "global_pki_config" {
+  description = "Global PKI identity settings for downstream layers (e.g. Vault PKI)."
+  value       = module.foundation_libvirt_resources.global_pki_config
+}
+
+output "global_volume_map" {
+  description = "Pure MECE mapping of calculated storage volume attributes (Pools and physical Data Disks)."
+  value       = module.foundation_libvirt_resources.global_volume_map
+}
+
+output "global_pki_map" {
+  description = "Pure mapping of DNS SANs and organizational context for certificate generation."
+  value       = module.foundation_libvirt_resources.global_pki_map
+}
+
+output "global_dns_records" {
+  description = "SSoT mapping of all infrastructure hostnames to their respective VIPs."
+  value       = module.foundation_libvirt_resources.global_dns_records
+}

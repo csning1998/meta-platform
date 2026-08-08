@@ -6,12 +6,16 @@ terraform {
       source  = "gitlabhq/gitlab"
       version = "19.2.0"
     }
+    vault = {
+      source  = "hashicorp/vault"
+      version = "5.5.0"
+    }
   }
 
   backend "http" {
-    address        = "https://gitlab.com/api/v4/projects/84608830/terraform/state/00-foundation-group"
-    lock_address   = "https://gitlab.com/api/v4/projects/84608830/terraform/state/00-foundation-group/lock"
-    unlock_address = "https://gitlab.com/api/v4/projects/84608830/terraform/state/00-foundation-group/lock"
+    address        = "https://gitlab.com/api/v4/projects/84608830/terraform/state/group-foundation"
+    lock_address   = "https://gitlab.com/api/v4/projects/84608830/terraform/state/group-foundation/lock"
+    unlock_address = "https://gitlab.com/api/v4/projects/84608830/terraform/state/group-foundation/lock"
     lock_method    = "POST"
     unlock_method  = "DELETE"
     retry_wait_min = 5
@@ -19,5 +23,11 @@ terraform {
 }
 
 provider "gitlab" {
-  token = var.gitlab_token
+  token = ephemeral.vault_kv_secret_v2.state_backend.data["token"]
+}
+
+provider "vault" {
+  address      = "https://127.0.0.1:8200"
+  ca_cert_file = "${path.module}/../../../vault/tls/ca.pem"
+  token        = local.vault_token
 }
