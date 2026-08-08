@@ -1,20 +1,13 @@
 #!/bin/sh
-# Validates local commit messages against the conventional commit specification using the
-# shared reviewer container image, eliminating local Node.js dependency requirements.
-# Activation command: git config core.hooksPath .githooks
+# Validates commit messages against Conventional Commits specification via meta-platform compose service.
+# Activation: git config core.hooksPath .githooks
 
 set -e
 
-IMAGE="registry.gitlab.com/csning1998/gitlab-ci-with-code-reviewer/reviewer:edge"
-MSG_FILE="$1"
+META_PLATFORM="/home/csning1998/GitLab/meta-platform"
 REPO_ROOT="$(git rev-parse --show-toplevel)"
+MSG_FILE="$(realpath "$1")"
+export REPO_GIT_DIR="${REPO_ROOT}/.git"
+export MSG_FILE
 
-# commitlint resolves Git repository metadata from its container working directory (/repo),
-# which requires only .git/ rather than the full working tree. MSG_FILE already resolves to a
-# path beneath .git/ (COMMIT_EDITMSG). No source outside .git/ needs to be mounted.
-podman run --rm \
-    -v "${REPO_ROOT}/.git":/repo/.git:ro \
-    -v "$(realpath "${MSG_FILE}")":/repo/.git/COMMIT_EDITMSG_HOOK:ro \
-    -w /repo \
-    "$IMAGE" \
-    commitlint --config /etc/commitlint/commitlint.config.cjs --cwd /repo --edit .git/COMMIT_EDITMSG_HOOK
+podman compose -f "${META_PLATFORM}/compose.yml" run --rm commitlint
