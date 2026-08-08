@@ -13,28 +13,3 @@ locals {
   # during initialization.
   vault_token = trimspace(file(pathexpand("~/.vault-token")))
 }
-
-locals {
-  subgroups = {
-    template = {
-      name        = "Template"
-      description = "Project templates and boilerplate code."
-      visibility  = "public"
-    }
-    personal = {
-      name        = "Personal"
-      description = "Personal projects and archives."
-      visibility  = "public"
-    }
-    rug = {
-      name        = "RUG"
-      description = "RUG course assignments and side projects."
-      visibility  = "private"
-    }
-    "fjcu-colab" = {
-      name        = "FJCU-colab"
-      description = "Collaborative projects and joint research initiatives."
-      visibility  = "public"
-    }
-  }
-}

@@ -7,6 +7,6 @@ module "baseline" {
   visibility   = "public"
   namespace_id = data.terraform_remote_state.foundation_group.outputs.group_id
 
-  claude_api_key = var.claude_api_key
-  gemini_api_key = var.gemini_api_key
+  claude_api_key = data.vault_kv_secret_v2.claude_keys.data["meta-platform"]
+  # gemini_api_key = data.vault_kv_secret_v2.gemini_keys.data["meta-platform"] # Temporarily comment out since unused
 }
