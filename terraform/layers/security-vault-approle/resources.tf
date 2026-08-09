@@ -1,5 +1,5 @@
 
-# A Vault instance rebuilt from an empty raft store provides no default KV mount.
+# Enable KV v2 engine for uninitialized Raft storage backends lacking default mounts.
 resource "vault_mount" "kv" {
   provider = vault.production
   path     = "secret"
@@ -56,53 +56,43 @@ resource "vault_approle_auth_backend_role_secret_id" "production_admin" {
   role_name = vault_approle_auth_backend_role.production_admin.role_name
 }
 
-# Production Issuing Intermediate. The CSR is generated and its key retained inside the
-# production Vault; only the CSR itself crosses to the Bootstrap Vault for signing, mirroring
-# foundation-vault-bastion's own root-to-intermediate flow one tier down.
-resource "vault_mount" "pki_int" {
-  provider    = vault.production
-  path        = "pki_int"
-  type        = "pki"
-  description = "Production Issuing Intermediate, signed by the Bootstrap Issuing Intermediate."
+# Configure production Issuing Intermediate, per-service PKI roles, and AppRole authentication.
+# Generates and retains the private key locally within production Vault; transmits only the CSR
+# to Bootstrap Vault for signing.
+module "vault_pki_setup" {
+  source  = var.vault_pki_setup_module.source
+  version = var.vault_pki_setup_module.version
+  providers = {
+    vault.production = vault.production
+    vault.bootstrap  = vault.bastion
+  }
 
-  default_lease_ttl_seconds = 60 * 60 * 24 * 365
-  max_lease_ttl_seconds     = 60 * 60 * 24 * 365
+  vault_endpoint = local.production_vault_endpoint
+  pki_settings   = data.terraform_remote_state.foundation.outputs.global_pki_config
+  pki_roles      = local.pki_roles
+  pki_engine_config = {
+    path                      = "pki_int"
+    default_lease_ttl_seconds = local.pki_lease_ttl_seconds
+    max_lease_ttl_seconds     = local.pki_lease_ttl_seconds
+  }
+  bootstrap_pki_mount_path          = local.state.bootstrapper.bootstrap_pki_mount_path
+  bootstrap_root_ca_certificate_pem = local.state.bootstrapper.bootstrap_root_ca_certificate_pem
 }
 
-resource "vault_pki_secret_backend_intermediate_cert_request" "production_int_csr" {
-  provider = vault.production
-  backend  = vault_mount.pki_int.path
+# Provision individual workload AppRoles scoped to corresponding PKI roles defined in `global_pki_map`.
+module "vault_workload_identity_approle" {
+  source  = var.vault_workload_identity_module.source
+  version = var.vault_workload_identity_module.version
+  providers = {
+    vault = vault.production
+  }
+  depends_on = [module.vault_pki_setup]
 
-  type        = "internal"
-  common_name = "meta-platform Production Intermediate CA"
-  key_type    = "rsa"
-  key_bits    = 4096
-}
-
-resource "vault_pki_secret_backend_root_sign_intermediate" "production_int_signed" {
-  provider = vault.bastion
-  backend  = local.state.bootstrapper.bootstrap_pki_mount_path
-
-  csr                  = vault_pki_secret_backend_intermediate_cert_request.production_int_csr.csr
-  common_name          = "meta-platform Production Intermediate CA"
-  format               = "pem"
-  ttl                  = 60 * 60 * 24 * 365
-  exclude_cn_from_sans = true
-}
-
-# Importing only the certificate lets Vault match it back to the key generated above by
-# public key, avoiding a keyless issuer.
-resource "vault_pki_secret_backend_intermediate_set_signed" "production_int_set" {
-  provider    = vault.production
-  backend     = vault_mount.pki_int.path
-  certificate = vault_pki_secret_backend_root_sign_intermediate.production_int_signed.certificate
-}
-
-resource "vault_pki_secret_backend_config_issuers" "production_int_default" {
-  provider                      = vault.production
-  backend                       = vault_mount.pki_int.path
-  default                       = vault_pki_secret_backend_intermediate_set_signed.production_int_set.imported_issuers[0]
-  default_follows_latest_issuer = true
+  for_each           = local.pki_roles
+  name               = each.key
+  vault_role_name    = each.value.name
+  approle_mount_path = module.vault_pki_setup.auth_backend_paths["approle"]
+  pki_mount_path     = module.vault_pki_setup.vault_pki_path
 }
 
 # Listener CA (`MetaProvisionVaultCA`) for Bastion Vault TLS endpoints. Distinct from PKI secrets engine roots.
@@ -111,12 +101,12 @@ data "local_file" "bastion_listener_ca" {
 }
 
 # Combined certificate chain (Bastion Listener CA, Bootstrap Root/Intermediate, Production Intermediate)
-# for local trust store installation. Requires manual import; not managed by system trust utilities.
+# for local trust store installation.
 resource "local_file" "trust_bundle" {
   content = join("\n", [
     chomp(data.local_file.bastion_listener_ca.content),
     chomp(local.bootstrap_ca_chain_pem),
-    chomp(vault_pki_secret_backend_root_sign_intermediate.production_int_signed.certificate),
+    chomp(base64decode(module.vault_pki_setup.pki_intermediate_ca_certificate_b64)),
   ])
   filename = "${path.module}/tls/trust-bundle.crt"
 }

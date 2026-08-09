@@ -39,3 +39,9 @@ include:
       module_name: "vault-workload-identity"
       module_system: "gitlab"
       tag_prefix: "vault-workload-identity-"
+  - component: $CI_SERVER_FQDN/csning1998/gitlab-ci-with-code-reviewer/iac-terraform-module@1.5.4
+    inputs:
+      module_dir: "${CI_PROJECT_DIR}/terraform/modules/vault-provisioning/vault-pki-setup"
+      module_name: "vault-pki-setup"
+      module_system: "gitlab"
+      tag_prefix: "vault-pki-setup-"

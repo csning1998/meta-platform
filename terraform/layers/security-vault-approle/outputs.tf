@@ -22,7 +22,7 @@ output "kv_mount_path" {
 
 output "pki_mount_path" {
   description = "Mount path of the Production Issuing Intermediate PKI engine."
-  value       = vault_mount.pki_int.path
+  value       = module.vault_pki_setup.vault_pki_path
 }
 
 output "production_vault_endpoint" {
@@ -33,4 +33,57 @@ output "production_vault_endpoint" {
 output "trust_bundle_path" {
   description = "Absolute path to the combined CA trust bundle, for manual import into a local OS/browser trust store."
   value       = abspath(local_file.trust_bundle.filename)
+}
+
+output "vault_service_vip" {
+  description = "Export production Vault Virtual IP address from `shared-vault-frontend` state for downstream consumed layers."
+  value       = data.terraform_remote_state.vault_production.outputs.service_vip
+}
+
+output "global_pki_map" {
+  description = "Export PKI role mapping schema (DNS SANs, role names, authentication settings) for downstream layer TLS configuration."
+  value       = data.terraform_remote_state.foundation.outputs.global_pki_map
+}
+
+output "global_credential_paths" {
+  description = "Export credential path mappings for downstream Vault KV path construction."
+  value       = data.terraform_remote_state.foundation.outputs.global_credential_paths
+}
+
+output "vault_kv_namespace" {
+  description = "Export Vault KV namespace prefix for downstream path resolution."
+  value       = data.terraform_remote_state.foundation.outputs.vault_kv_namespace
+}
+
+output "bootstrap_ca_b64" {
+  description = "Export CA trust bundle file path and Base64-encoded string representation for inline consumption."
+  value = {
+    path        = abspath(local_file.trust_bundle.filename)
+    content_b64 = base64encode(local_file.trust_bundle.content)
+  }
+}
+
+output "pki_configuration" {
+  description = "Export production PKI mount point, TTL lease profiles, and service role mappings."
+  value = {
+    path      = module.vault_pki_setup.vault_pki_path
+    pki_roles = module.vault_pki_setup.pki_roles
+    lease_durations = {
+      default = "${local.pki_lease_ttl_seconds / 3600}h"
+      max     = "${local.pki_lease_ttl_seconds / 3600}h"
+      agent   = var.vault_agent_lease_ttl
+    }
+  }
+}
+
+output "workload_identities_approle" {
+  description = "Export workload AppRole authentication parameters indexed by service name."
+  sensitive   = true
+  value = {
+    for service_name, mod in module.vault_workload_identity_approle : service_name => {
+      role_id   = mod.approle_role_id
+      role_name = mod.approle_name
+      auth_path = module.vault_pki_setup.auth_backend_paths["approle"]
+    }
+  }
 }

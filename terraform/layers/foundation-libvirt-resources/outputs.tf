@@ -64,6 +64,11 @@ output "global_dns_records" {
   value       = module.foundation_libvirt_resources.global_dns_records
 }
 
+output "vault_kv_namespace" {
+  description = "Pass-through of the Vault KV mount-relative namespace prefix; consumed by security-vault-approle for credential path construction without reading this layer directly."
+  value       = var.vault_kv_namespace
+}
+
 output "global_credential_paths" {
   description = "Mount-relative Vault KV paths for all service component credentials, derived from the service catalog."
   value       = module.foundation_libvirt_resources.global_credential_paths

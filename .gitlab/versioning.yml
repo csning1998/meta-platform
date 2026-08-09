@@ -14,3 +14,5 @@ modules:
     dir: terraform/modules/vault-provisioning/vault-credential
   - name: vault-workload-identity
     dir: terraform/modules/vault-provisioning/vault-workload-identity
+  - name: vault-pki-setup
+    dir: terraform/modules/vault-provisioning/vault-pki-setup

@@ -9,6 +9,11 @@ data "terraform_remote_state" "vault_production" {
   config  = { address = "${local._state_base}/shared-vault-frontend" }
 }
 
+data "terraform_remote_state" "foundation" {
+  backend = "http"
+  config  = { address = "${local._state_base}/foundation-libvirt-resources" }
+}
+
 data "vault_kv_secret_v2" "bootstrap_credentials" {
   provider = vault.bastion
   mount    = "secret"

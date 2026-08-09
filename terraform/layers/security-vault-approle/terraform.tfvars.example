@@ -1,0 +1,10 @@
+
+vault_workload_identity_module = {
+  source  = "gitlab.com/csning1998-lab/vault-workload-identity/gitlab"
+  version = "0.1.5"
+}
+
+vault_pki_setup_module = {
+  source  = "gitlab.com/csning1998-lab/vault-pki-setup/gitlab"
+  version = "0.1.5"
+}
