@@ -31,3 +31,13 @@ output "dns_records" {
   description = "Mapping of all component hostnames to their respective VIPs."
   value       = local.dns_records
 }
+
+output "credential_paths" {
+  description = "Mount-relative Vault KV paths for all service component credentials, nested by service and component."
+  value = {
+    for s_name, s in var.service_catalog : s_name => {
+      for c_name, c in s.components : c_name =>
+      "${var.vault_kv_namespace}/${s_name}/${c_name}"
+    }
+  }
+}

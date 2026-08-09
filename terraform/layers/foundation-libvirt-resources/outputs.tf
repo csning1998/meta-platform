@@ -63,3 +63,8 @@ output "global_dns_records" {
   description = "SSoT mapping of all infrastructure hostnames to their respective VIPs."
   value       = module.foundation_libvirt_resources.global_dns_records
 }
+
+output "global_credential_paths" {
+  description = "Mount-relative Vault KV paths for all service component credentials, derived from the service catalog."
+  value       = module.foundation_libvirt_resources.global_credential_paths
+}

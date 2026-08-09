@@ -91,3 +91,8 @@ output "global_dns_records" {
   description = "SSoT mapping of all infrastructure hostnames to their respective VIPs."
   value       = module.service_catalog.dns_records
 }
+
+output "global_credential_paths" {
+  description = "Mount-relative Vault KV paths for all service component credentials, nested by service and component."
+  value       = module.service_catalog.credential_paths
+}

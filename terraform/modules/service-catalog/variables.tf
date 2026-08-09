@@ -4,6 +4,11 @@ variable "domain_suffix" {
   type        = string
 }
 
+variable "vault_kv_namespace" {
+  description = "Vault KV mount-relative namespace prefix for all service component credential paths."
+  type        = string
+}
+
 variable "network_baseline" {
   description = "Base network configuration including CIDR, VIP offsets, and MAC prefixes."
   type = object({

@@ -11,6 +11,7 @@ locals {
     global_volume_map        = module.service_catalog.volume_map
     global_pki_map           = module.service_catalog.pki_map
     global_dns_records       = module.service_catalog.dns_records
+    global_credential_paths  = module.service_catalog.credential_paths
   }
 }
 

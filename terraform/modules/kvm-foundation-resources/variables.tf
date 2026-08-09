@@ -4,6 +4,11 @@ variable "domain_suffix" {
   type        = string
 }
 
+variable "vault_kv_namespace" {
+  description = "Vault KV mount-relative namespace prefix for all service component credential paths, supplied by the calling layer via path.root. A module-relative path.module lookup breaks once this module is fetched from the Terraform Module Registry."
+  type        = string
+}
+
 variable "pki_config" {
   description = "Global PKI identity settings. Defines the legal identity of the infrastructure."
   type = object({
