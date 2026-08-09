@@ -7,6 +7,11 @@ variable "domain_suffix" {
 variable "vault_kv_namespace" {
   description = "Vault KV mount-relative namespace prefix for all service component credential paths."
   type        = string
+
+  validation {
+    condition     = length(var.vault_kv_namespace) > 0 && !startswith(var.vault_kv_namespace, "/") && !endswith(var.vault_kv_namespace, "/")
+    error_message = "vault_kv_namespace must be non-empty and must not start or end with '/'."
+  }
 }
 
 variable "network_baseline" {
