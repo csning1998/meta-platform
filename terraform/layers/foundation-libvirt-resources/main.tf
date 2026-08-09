@@ -8,4 +8,5 @@ module "foundation_libvirt_resources" {
   service_catalog_module  = var.service_catalog_module
   service_catalog         = var.service_catalog
   harbor_registry_proxies = var.harbor_registry_proxies
+  vault_kv_namespace      = var.vault_kv_namespace
 }

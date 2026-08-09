@@ -23,6 +23,12 @@ include:
       tag_prefix: "kvm-provisioning-"
   - component: $CI_SERVER_FQDN/csning1998/gitlab-ci-with-code-reviewer/iac-terraform-module@1.5.4
     inputs:
+      module_dir: "${CI_PROJECT_DIR}/terraform/modules/kvm-foundation-resources"
+      module_name: "kvm-foundation-resources"
+      module_system: "gitlab"
+      tag_prefix: "kvm-foundation-resources-"
+  - component: $CI_SERVER_FQDN/csning1998/gitlab-ci-with-code-reviewer/iac-terraform-module@1.5.4
+    inputs:
       module_dir: "${CI_PROJECT_DIR}/terraform/modules/vault-provisioning/vault-credential"
       module_name: "vault-credential"
       module_system: "gitlab"

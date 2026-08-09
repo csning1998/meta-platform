@@ -6,6 +6,8 @@ modules:
     dir: terraform/modules/project-baseline
   - name: service-catalog
     dir: terraform/modules/service-catalog
+  - name: kvm-foundation-resources
+    dir: terraform/modules/kvm-foundation-resources
   - name: kvm-provisioning
     dir: terraform/modules/kvm-provisioning
   - name: vault-credential

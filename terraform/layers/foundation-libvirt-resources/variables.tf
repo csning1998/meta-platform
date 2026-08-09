@@ -4,6 +4,17 @@ variable "domain_suffix" {
   type        = string
 }
 
+variable "vault_kv_namespace" {
+  description = "Vault KV mount-relative namespace prefix for all service component credential paths."
+  type        = string
+  default     = "meta-platform"
+
+  validation {
+    condition     = length(var.vault_kv_namespace) > 0 && !startswith(var.vault_kv_namespace, "/") && !endswith(var.vault_kv_namespace, "/")
+    error_message = "vault_kv_namespace must be non-empty and must not start or end with '/'."
+  }
+}
+
 variable "pki_config" {
   description = "Global PKI identity settings. Defines the legal identity of the infrastructure."
   type = object({
