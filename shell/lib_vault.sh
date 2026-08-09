@@ -131,7 +131,8 @@ vault_bastion_tls_generator() {
 
   # Generates CA and server certificates via host OpenSSL binaries.
   run_command "openssl genrsa -out vault/tls/ca-key.pem 2048" || return 1
-  run_command "openssl req -new -x509 -days 365 -key vault/tls/ca-key.pem -sha256 -out vault/tls/ca.pem -subj '/CN=MetaProvisionVaultCA'" || return 1
+  run_command "openssl req -new -x509 -days 365 -key vault/tls/ca-key.pem -sha256 -out vault/tls/ca.pem \
+    -subj '/CN=MetaProvisionVaultCA' -addext 'keyUsage=critical,keyCertSign,cRLSign'" || return 1
 
   run_command "openssl genrsa -out vault/tls/vault-key.pem 2048" || return 1
   run_command "openssl req -subj '/CN=localhost' -sha256 -new -key vault/tls/vault-key.pem -out vault/tls/vault.csr" || return 1

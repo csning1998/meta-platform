@@ -47,6 +47,12 @@ resource "vault_auth_backend" "approle" {
   type = "approle"
 }
 
+# Enable kv-v2 engine
+resource "vault_mount" "kv" {
+  path = "secret"
+  type = "kv-v2"
+}
+
 # Create the Terraform AppRole
 resource "vault_approle_auth_backend_role" "terraform_admin" {
   backend        = vault_auth_backend.approle.path
@@ -62,7 +68,7 @@ resource "vault_approle_auth_backend_role_secret_id" "terraform_admin" {
 }
 
 resource "vault_kv_secret_v2" "terraform_admin_auth" {
-  mount = "secret"
+  mount = vault_mount.kv.path
   name  = "meta-platform/credentials"
   data_json = jsonencode({
     role_id   = vault_approle_auth_backend_role.terraform_admin.role_id
