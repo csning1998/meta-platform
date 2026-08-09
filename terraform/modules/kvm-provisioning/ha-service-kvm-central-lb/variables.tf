@@ -158,10 +158,15 @@ variable "credentials_vm" {
 }
 
 variable "credentials_application" {
-  description = "HAProxy credentials (stats user, stats password, keepalived auth password)"
+  description = "Map of application credentials passed as Ansible extra_vars. Individual keys are unparsed by this module."
   sensitive   = true
-  type = object({
-    haproxy_stats_pass   = string
-    keepalived_auth_pass = string
-  })
+  type        = map(string)
+
+  validation {
+    condition = alltrue([
+      for k in ["haproxy_stats_user", "haproxy_stats_pass", "keepalived_auth_pass"] :
+      contains(keys(var.credentials_application), k)
+    ])
+    error_message = "Map must contain `haproxy_stats_user`, `haproxy_stats_pass`, and `keepalived_auth_pass` for `shared_load_balancer` role template rendering."
+  }
 }

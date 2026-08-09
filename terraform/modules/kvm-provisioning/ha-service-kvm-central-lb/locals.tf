@@ -11,11 +11,6 @@ locals {
     username             = var.credentials_vm.username
     ssh_private_key_path = var.credentials_vm.ssh_private_key_path
   }
-  credentials_haproxy_for_ansible = {
-    haproxy_stats_pass   = var.credentials_application.haproxy_stats_pass
-    keepalived_auth_pass = var.credentials_application.keepalived_auth_pass
-  }
-
   # 2. Physical Network and Infrastructure Context
   net_lb_base_mac_parts = split(":", local.svc_net.mac_address)
   net_sorted_node_keys  = sort(keys(var.topology_cluster.load_balancer_config.nodes))
@@ -201,10 +196,7 @@ locals {
 
   ansible_extra_vars = merge(
     var.ansible_generic_config.extra_vars,
-    {
-      haproxy_stats_pass   = local.credentials_haproxy_for_ansible.haproxy_stats_pass
-      keepalived_auth_pass = local.credentials_haproxy_for_ansible.keepalived_auth_pass
-    },
+    var.credentials_application,
     var.security_pki_bundle_b64 != null ? {
       vault_haproxy_bundle_b64 = var.security_pki_bundle_b64.haproxy_bundle_b64
       vault_ca_cert_b64        = var.security_pki_bundle_b64.ca_cert_b64

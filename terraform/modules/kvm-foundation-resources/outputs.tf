@@ -24,7 +24,12 @@ output "infrastructure_map" {
 
 output "central_lb_info" {
   description = "Physical network configuration for the Central LB's own segment."
-  value       = local.net_infrastructure[local.central_lb_key]
+  value = merge(
+    local.net_infrastructure[local.central_lb_key],
+    {
+      ports = local.segments[local.central_lb_key].network.ports
+    }
+  )
 }
 
 output "service_segments" {

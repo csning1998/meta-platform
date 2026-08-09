@@ -14,7 +14,7 @@ terraform {
 }
 
 data "local_file" "base_ansible_cfg" {
-  filename = "${var.ansible_config.root_path}/ansible.cfg"
+  filename = "${path.module}/templates/ansible.cfg.tftpl"
 }
 
 resource "local_file" "inventory" {
