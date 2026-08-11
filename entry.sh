@@ -17,7 +17,6 @@ source "${SCRIPTS_LIB_DIR}/utils_environment.sh"
 host_os_detail_handler
 cpu_virt_support_checker
 env_file_bootstrapper "${SCRIPT_DIR}"
-iac_layer_discoverer
 
 # Source the .env file to export its variables to any sub-processes
 if [ -f .env ]; then
@@ -37,10 +36,11 @@ read -r -a ALL_PACKER_BASES <<< "$ALL_PACKER_BASES"
 read -r -a ALL_TERRAFORM_LAYERS <<< "$ALL_TERRAFORM_LAYERS"
 
 # initialize_environment
-# All shell/*.sh files except utils.sh and utils_environment.sh (loaded explicitly above)
+# All shell/*.sh files except utils.sh, utils_environment.sh (loaded explicitly above), and
+# iac_env.sh (top-level side effects, requires manual `source shell/iac_env.sh` when needed)
 # are auto-sourced here, matching meta-platform's scripts/ loading pattern.
 for lib in "${SCRIPTS_LIB_DIR}"/*.sh; do
-  if [[ "$lib" == *"/utils.sh" ]] || [[ "$lib" == *"/utils_environment.sh" ]]; then
+  if [[ "$lib" == *"/utils.sh" ]] || [[ "$lib" == *"/utils_environment.sh" ]] || [[ "$lib" == *"/iac_env.sh" ]]; then
     continue
   fi
   source "$lib"

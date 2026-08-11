@@ -87,7 +87,7 @@
         VAULT_SKIP_VERIFY: "true"
       register: vault_init_check
       until:
-        - vault_init_check.rc == 2
+        - vault_init_check.rc in [0, 2]
         - vault_init_check.stdout | length > 0
         - (vault_init_check.stdout | from_json).initialized
       retries: "{{ vault_unseal_retries }}"

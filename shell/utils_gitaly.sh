@@ -27,7 +27,7 @@ gitaly_revert_to_standalone_trigger() {
     return 1
   fi
 
-  if ansible-playbook \
+  if ANSIBLE_CONFIG="${ANSIBLE_DIR}/ansible.cfg" ansible-playbook \
     -i "$inventory_file" \
     "$playbook_file" \
     --tags gitaly-revert-standalone; then

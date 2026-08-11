@@ -27,6 +27,33 @@ iac_layer_discoverer() {
   log_print "INFO" "Layer discovery complete and .env updated."
 }
 
+# Locates the production Vault inventory file according to the inventory-*-vault-frontend.yaml naming convention.
+# Derives PROD_VAULT_ADDR from the vault_vip key extracted from the target file.
+# Resets PROD_VAULT_ADDR to an empty string when zero or multiple files exist or when vault_vip is missing.
+prod_vault_inventory_discoverer() {
+  local matches
+  mapfile -t matches < <(find "${ANSIBLE_DIR}" -maxdepth 1 -name "inventory-*-vault-frontend.yaml" 2>/dev/null)
+
+  if [[ ${#matches[@]} -gt 1 ]]; then
+    log_print "ERROR" "Multiple production Vault inventory files found, expected at most one: ${matches[*]}"
+    return 1
+  fi
+
+  local inventory_file="${matches[0]:-}"
+  env_var_mutator "PROD_VAULT_INVENTORY_FILE" "${inventory_file}"
+
+  local vault_vip=""
+  if [[ -n "$inventory_file" ]]; then
+    vault_vip=$(awk -F'"' '$2 == "vault_vip" {print $4; exit}' "$inventory_file" 2>/dev/null)
+  fi
+
+  if [[ -n "$vault_vip" ]]; then
+    env_var_mutator "PROD_VAULT_ADDR" "https://${vault_vip}:443"
+  else
+    env_var_mutator "PROD_VAULT_ADDR" ""
+  fi
+}
+
 # Function: Check the host operating system family.
 host_os_detail_handler() {
   if [ -f /etc/os-release ]; then
@@ -104,6 +131,8 @@ ENVIRONMENT_STRATEGY="native"
 # Discovered Layers
 ALL_PACKER_BASES=""
 ALL_TERRAFORM_LAYERS=""
+PROD_VAULT_INVENTORY_FILE=""
+PROD_VAULT_ADDR=""
 
 # Vault Configuration
 DEV_VAULT_ADDR="https://127.0.0.1:8200"
@@ -138,6 +167,7 @@ EOF
   fi
 
   iac_layer_discoverer
+  prod_vault_inventory_discoverer
 
   local current_strategy
   current_strategy=$(grep "^ENVIRONMENT_STRATEGY=" "$env_path" | cut -d'=' -f2 | tr -d '"')
