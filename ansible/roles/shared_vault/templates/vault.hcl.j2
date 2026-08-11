@@ -1,7 +1,7 @@
 
 cluster_name  = "{{ vault_cluster_name }}"
-ui            = {{ vault_ui_enabled| lower }}      # Set to lower to prevent Parse Error
-disable_mlock = {{ vault_disable_mlock | lower }}  # Set to lower to prevent Parse Error
+ui            = {{ shared_vault_vault_ui_enabled| lower }}      # Set to lower to prevent Parse Error
+disable_mlock = {{ shared_vault_vault_disable_mlock | lower }}  # Set to lower to prevent Parse Error
 
 api_addr     = "https://{{ advertise_ip }}:{{ vault_port_api }}"
 cluster_addr = "https://{{ advertise_ip }}:{{ vault_port_cluster }}"

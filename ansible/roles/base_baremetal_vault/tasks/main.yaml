@@ -22,33 +22,33 @@
   block:
     - name: "Step B0. Check installed Vault version"
       ansible.builtin.command: vault version
-      register: vault_installed_version
+      register: base_baremetal_vault_installed_version
       changed_when: false
       failed_when: false
 
     - name: "Step B1. Download and Unarchive Vault (v{{ vault_target_version }})"
       vars:
-        vault_zip: "vault_{{ vault_target_version }}_{{ vault_target_os }}_{{ vault_target_arch }}.zip"
+        base_baremetal_vault_zip: "vault_{{ vault_target_version }}_{{ vault_target_os }}_{{ vault_target_arch }}.zip"
       ansible.builtin.unarchive:
-        src: "https://releases.hashicorp.com/vault/{{ vault_target_version }}/{{ vault_zip }}"
+        src: "https://releases.hashicorp.com/vault/{{ vault_target_version }}/{{ base_baremetal_vault_zip }}"
         dest: "/usr/local/bin"
         remote_src: true
         mode: "0755"
         owner: root
         group: root
       when: >-
-        vault_installed_version.rc != 0 or
+        base_baremetal_vault_installed_version.rc != 0 or
         vault_target_version not in
-        (vault_installed_version.stdout | default('')).split() | map('replace', 'v', '')
+        (base_baremetal_vault_installed_version.stdout | default('')).split() | map('replace', 'v', '')
 
     - name: "Step B2. Verify Vault installation"
       ansible.builtin.command: vault --version
-      register: vault_version_output
+      register: base_baremetal_vault_version_output
       changed_when: false
 
     - name: "Step B3. Print Vault version"
       ansible.builtin.debug:
-        msg: "Vault installed: {{ vault_version_output.stdout }}"
+        msg: "Vault installed: {{ base_baremetal_vault_version_output.stdout }}"
 
     - name: "Step B4. Create Vault system group"
       ansible.builtin.group:
@@ -75,13 +75,13 @@
   block:
     - name: "Step C1. Check if swap is active"
       ansible.builtin.command: swapon --show
-      register: swapon_check
+      register: base_baremetal_vault_swapon_check
       changed_when: false
       failed_when: false
 
     - name: "Step C2. Disable swap if it is active"
       ansible.builtin.command: swapoff -a
-      when: swapon_check.stdout != ""
+      when: base_baremetal_vault_swapon_check.stdout != ""
       changed_when: true
 
     - name: "Step C3. Comment out swap entries in /etc/fstab"

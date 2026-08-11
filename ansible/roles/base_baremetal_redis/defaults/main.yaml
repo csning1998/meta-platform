@@ -1,5 +1,5 @@
 ---
-redis_base:
+base_baremetal_redis_base:
   apt_repositories:
     - id: "redis"
       url_base: "https://packages.redis.io/deb"
@@ -24,9 +24,11 @@ redis_base:
     fstab_path: "/etc/fstab"
 
 # Redis apt Repo
-_redis_base_repo_data: "{{ redis_base.apt_repositories | selectattr('id', 'equalto', 'redis') | first }}"
-_redis_base_repo_string: >
-  deb [signed-by={{ _redis_base_repo_data.gpg_keyring_path }}]
-  {{ _redis_base_repo_data.url_base }}
-  {{ _redis_base_repo_data.distribution }}
-  {{ _redis_base_repo_data.components }}
+_base_baremetal_redis_repo_data: >-
+  {{ base_baremetal_redis_base.apt_repositories
+  | selectattr('id', 'equalto', 'redis') | first }}
+_base_baremetal_redis_repo_string: >
+  deb [signed-by={{ _base_baremetal_redis_repo_data.gpg_keyring_path }}]
+  {{ _base_baremetal_redis_repo_data.url_base }}
+  {{ _base_baremetal_redis_repo_data.distribution }}
+  {{ _base_baremetal_redis_repo_data.components }}

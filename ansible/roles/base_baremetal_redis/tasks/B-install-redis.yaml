@@ -3,25 +3,25 @@
   block:
     - name: "Step 1. Create directory for apt keyrings"
       ansible.builtin.file:
-        path: "{{ _redis_base_repo_data.gpg_keyring_path | dirname }}"
+        path: "{{ _base_baremetal_redis_repo_data.gpg_keyring_path | dirname }}"
         state: directory
         mode: "0755"
 
     - name: "Step 2. Add Redis official GPG key"
       ansible.builtin.apt_key:
-        url: "{{ _redis_base_repo_data.gpg_url }}"
-        keyring: "{{ _redis_base_repo_data.gpg_keyring_path }}"
+        url: "{{ _base_baremetal_redis_repo_data.gpg_url }}"
+        keyring: "{{ _base_baremetal_redis_repo_data.gpg_keyring_path }}"
         state: present
 
     - name: "Step 3. Add Redis APT repository"
       ansible.builtin.apt_repository:
-        repo: "{{ _redis_base_repo_string }}"
+        repo: "{{ _base_baremetal_redis_repo_string }}"
         state: present
-        filename: "{{ _redis_base_repo_data.filename }}"
+        filename: "{{ _base_baremetal_redis_repo_data.filename }}"
 
     - name: "Step 4. Install Redis server package"
       ansible.builtin.apt:
-        name: "{{ redis_base.packages.apt }}"
+        name: "{{ base_baremetal_redis_base.packages.apt }}"
         state: present
         update_cache: true
 
@@ -30,7 +30,7 @@
         name: "{{ item }}"
         state: stopped
         enabled: false
-      loop: "{{ redis_base.services_to_disable }}"
+      loop: "{{ base_baremetal_redis_base.services_to_disable }}"
       failed_when: false
 
   rescue:

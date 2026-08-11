@@ -3,7 +3,7 @@ include:
   - component: $CI_SERVER_FQDN/csning1998/gitlab-ci-with-code-reviewer/core@1.5.4
     inputs:
       reviewer_image: $CI_REGISTRY/csning1998/gitlab-ci-with-code-reviewer/reviewer:1.5.4
-      claude_model: claude-sonnet-5
+      claude_model: claude-opus-5
       enable_sonarqube: true
   - component: $CI_SERVER_FQDN/csning1998/gitlab-ci-with-code-reviewer/iac-terraform@1.5.4
     inputs:
@@ -13,11 +13,11 @@ include:
   - component: $CI_SERVER_FQDN/csning1998/gitlab-ci-with-code-reviewer/iac-ansible@1.5.4
     inputs:
       ansible_globs: ["ansible/**/*", "ansible.cfg"]
-  # Module publishing paused until terraform/modules/ gains an external consumer repository;
-  # currently, layers reference modules by relative path.
-  # - local: ".gitlab/ci/modules-terraform.yml"
-  # - component: $CI_SERVER_FQDN/csning1998/gitlab-ci-with-code-reviewer/auto-tag@1.5.4
-  #   rules:
-  #     - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-  #   inputs:
-  #     reviewer_image: $CI_REGISTRY/csning1998/gitlab-ci-with-code-reviewer/reviewer:1.5.4
+  - component: $CI_SERVER_FQDN/csning1998/gitlab-ci-with-code-reviewer/auto-tag@1.5.4
+    rules:
+      - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    inputs:
+      reviewer_image: $CI_REGISTRY/csning1998/gitlab-ci-with-code-reviewer/reviewer:1.5.4
+      # Module publishing paused until terraform/modules/ gains an external consumer repository;
+      # currently, layers reference modules by relative path.
+      # - local: ".gitlab/ci/modules-terraform.yml"

@@ -14,7 +14,7 @@ mkdir -p "${OUTPUT_DIR}"
 TMP_FILE=$(mktemp "${OUTPUT_DIR}/.keepalived_vrrp_state.XXXXXX")
 
 {
-{% for segment in lb_keepalived_segments %}
+{% for segment in shared_load_balancer_lb_keepalived_segments %}
   for state in master backup fault stop; do
     value=0
     [ "${STATE,,}" = "${state}" ] && value=1

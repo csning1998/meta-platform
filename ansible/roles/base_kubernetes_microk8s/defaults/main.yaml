@@ -1,5 +1,5 @@
 ---
-microk8s_base:
+base_kubernetes_microk8s_base:
   prereq_service: "snapd"
 
   snap_config:

@@ -1,4 +1,10 @@
 ---
-configure_zsh: false
-configure_tmux: false
-configure_vim: false
+utilities_configure_zsh: false
+utilities_configure_tmux: false
+utilities_configure_vim: false
+
+# Pinned to the latest tag; retrieved from
+# - https://api.github.com/repos/zsh-users/zsh-autosuggestions/tags
+# - https://api.github.com/repos/zsh-users/zsh-syntax-highlighting/tags.
+utilities_zsh_autosuggestions_version: "v0.7.1"
+utilities_zsh_syntax_highlighting_version: "0.8.0"

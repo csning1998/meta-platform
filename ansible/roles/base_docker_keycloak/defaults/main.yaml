@@ -1,7 +1,7 @@
 ---
-keycloak:
+base_docker_keycloak_keycloak:
   version: "26.6.1"
   image: "quay.io/keycloak/keycloak"
-postgres:
+base_docker_keycloak_postgres:
   version: "18-alpine"
   image: "postgres"

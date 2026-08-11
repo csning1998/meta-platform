@@ -48,7 +48,7 @@ imports = ['/etc/containerd/conf.d/*.toml']
         use_local_image_pull = false
 
         [plugins.'io.containerd.cri.v1.images'.pinned_images]
-            sandbox = '{{ containerd_pause_image }}'
+            sandbox = '{{ base_kubernetes_kubeadm_containerd_pause_image }}'
 
         [plugins.'io.containerd.cri.v1.images'.registry]
             config_path = '/etc/containerd/certs.d:/etc/docker/certs.d'

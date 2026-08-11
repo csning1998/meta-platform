@@ -9,7 +9,7 @@
 
     - name: "Step A2. Install Golang packages"
       ansible.builtin.apt:
-        name: "{{ minio_base.go_package }}"
+        name: "{{ base_baremetal_minio_base.go_package }}"
         state: present
 
   rescue:
@@ -20,22 +20,22 @@
 - name: "Block B: Install MinIO via Go"
   become: true
   block:
-    - name: "Step B1. Install MinIO from source (github.com/minio/minio@{{ minio_base.release_version }})"
+    - name: "Step B1. Install MinIO from source (github.com/minio/minio@{{ base_baremetal_minio_base.release_version }})"
       ansible.builtin.command:
-        cmd: "/usr/bin/go install github.com/minio/minio@{{ minio_base.release_version }}"
+        cmd: "/usr/bin/go install github.com/minio/minio@{{ base_baremetal_minio_base.release_version }}"
       environment:
         GOPATH: "/root/go"
-      register: go_install_result
+      register: base_baremetal_minio_go_install_result
       changed_when: true
 
     - name: "Step B2. Move MinIO binary to system path"
       ansible.builtin.command:
-        cmd: "mv /root/go/bin/minio {{ minio_base.install_path }}"
-        creates: "{{ minio_base.install_path }}"
+        cmd: "mv /root/go/bin/minio {{ base_baremetal_minio_base.install_path }}"
+        creates: "{{ base_baremetal_minio_base.install_path }}"
 
     - name: "Step B3. Ensure binary is executable"
       ansible.builtin.file:
-        path: "{{ minio_base.install_path }}"
+        path: "{{ base_baremetal_minio_base.install_path }}"
         mode: "0755"
         owner: root
         group: root
@@ -50,12 +50,12 @@
 
     - name: "Step B5. Verify mc installation"
       ansible.builtin.command: mc --version
-      register: mc_version
+      register: base_baremetal_minio_mc_version
       changed_when: false
 
     - name: "Step B6. Print mc version"
       ansible.builtin.debug:
-        msg: "MinIO Client installed: {{ mc_version.stdout }}"
+        msg: "MinIO Client installed: {{ base_baremetal_minio_mc_version.stdout }}"
 
   rescue:
     - name: "Block B: Install MinIO via Go failed"
@@ -67,32 +67,32 @@
   block:
     - name: "Step C1. Create MinIO group"
       ansible.builtin.group:
-        name: "{{ minio_base.group }}"
+        name: "{{ base_baremetal_minio_base.group }}"
         state: present
         system: true
 
     - name: "Step C2. Create MinIO user"
       ansible.builtin.user:
-        name: "{{ minio_base.user }}"
-        group: "{{ minio_base.group }}"
+        name: "{{ base_baremetal_minio_base.user }}"
+        group: "{{ base_baremetal_minio_base.group }}"
         system: true
         shell: /sbin/nologin
         create_home: false
 
     - name: "Step C3. Create Data Directory"
       ansible.builtin.file:
-        path: "{{ minio_base.data_dir }}"
+        path: "{{ base_baremetal_minio_base.data_dir }}"
         state: directory
-        owner: "{{ minio_base.user }}"
-        group: "{{ minio_base.group }}"
+        owner: "{{ base_baremetal_minio_base.user }}"
+        group: "{{ base_baremetal_minio_base.group }}"
         mode: "0750"
 
     - name: "Step C4. Create Configuration Directory"
       ansible.builtin.file:
-        path: "{{ minio_base.config_dir }}"
+        path: "{{ base_baremetal_minio_base.config_dir }}"
         state: directory
-        owner: "{{ minio_base.user }}"
-        group: "{{ minio_base.group }}"
+        owner: "{{ base_baremetal_minio_base.user }}"
+        group: "{{ base_baremetal_minio_base.group }}"
         mode: "0750"
 
     - name: "Step C5. Create Systemd Service file"

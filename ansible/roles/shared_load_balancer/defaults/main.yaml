@@ -1,6 +1,6 @@
 ---
 # Section A: Base Kernel Tuning (from 16-central-lb-base)
-central_lb_sysctl_hardening:
+shared_load_balancer_central_lb_sysctl_hardening:
   - { name: "net.core.somaxconn", value: "4096" }
   - { name: "net.ipv4.tcp_max_syn_backlog", value: "8192" }
   - { name: "net.ipv4.tcp_tw_reuse", value: "1" }
@@ -13,7 +13,7 @@ central_lb_sysctl_hardening:
   - { name: "net.ipv4.tcp_mtu_probing", value: "1" }
 
 # Section B: Service Timings (from 17-central-lb-service)
-haproxy_health_check_inter: "10s"
-haproxy_health_check_fall: "5"
-haproxy_health_check_rise: "3"
-haproxy_ca_path: "/etc/haproxy/certs/ca.crt"
+shared_load_balancer_haproxy_health_check_inter: "10s"
+shared_load_balancer_haproxy_health_check_fall: "5"
+shared_load_balancer_haproxy_health_check_rise: "3"
+shared_load_balancer_haproxy_ca_path: "/etc/haproxy/certs/ca.crt"

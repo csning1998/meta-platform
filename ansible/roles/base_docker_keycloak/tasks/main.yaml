@@ -1,10 +1,10 @@
 ---
 - name: "Step 1. Pull Keycloak Docker image"
   community.docker.docker_image:
-    name: "{{ keycloak.image }}:{{ keycloak.version }}"
+    name: "{{ base_docker_keycloak_keycloak.image }}:{{ base_docker_keycloak_keycloak.version }}"
     source: pull
 
 - name: "Step 2. Pull Postgres Docker image"
   community.docker.docker_image:
-    name: "{{ postgres.image }}:{{ postgres.version }}"
+    name: "{{ base_docker_keycloak_postgres.image }}:{{ base_docker_keycloak_postgres.version }}"
     source: pull

@@ -1,7 +1,9 @@
 ---
 - name: "Check existing TCPMSS clamp direct rules"
   ansible.builtin.command:
-    argv: "{{ hypervisor_mss_clamp_check_verb + hypervisor_mss_clamp_target + [item] + hypervisor_mss_clamp_suffix }}"
+    argv: >-
+      {{ hypervisor_mss_clamp_check_verb + hypervisor_baseline_mss_clamp_target
+      + [item] + hypervisor_baseline_mss_clamp_suffix }}
   vars:
     # Using --permanent aligns with --add-rule below, ensuring queries evaluate the persisted configuration
     # instead of the active runtime ruleset, which may diverge after a manual configuration reload.
@@ -10,17 +12,19 @@
   loop:
     - "-s"
     - "-d"
-  register: hypervisor_mss_rule_check
+  register: hypervisor_baseline_mss_rule_check
   changed_when: false
   failed_when: false
 
 - name: "Add missing TCPMSS clamp direct rules"
   ansible.builtin.command:
-    argv: "{{ hypervisor_mss_clamp_add_verb + hypervisor_mss_clamp_target + [item.item] + hypervisor_mss_clamp_suffix }}"
+    argv: >-
+      {{ hypervisor_mss_clamp_add_verb + hypervisor_baseline_mss_clamp_target
+      + [item.item] + hypervisor_baseline_mss_clamp_suffix }}
   vars:
     hypervisor_mss_clamp_add_verb:
       ["firewall-cmd", "--permanent", "--direct", "--add-rule"]
-  loop: "{{ hypervisor_mss_rule_check.results }}"
+  loop: "{{ hypervisor_baseline_mss_rule_check.results }}"
   when: item.rc != 0
   changed_when: true
   notify: Reload firewalld

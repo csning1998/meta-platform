@@ -1,5 +1,5 @@
 ---
-etcd_base:
+base_baremetal_etcd_base:
   version: "v3.5.14"
   binary:
     url_base: "https://github.com/etcd-io/etcd/releases/download"
@@ -9,7 +9,8 @@ etcd_base:
       - etcdctl
 
 # Internal variables for download logic
-_etcd_base_archive_name: "etcd-{{ etcd_base.version }}-linux-amd64.tar.gz"
-_etcd_base_download_url: "{{ etcd_base.binary.url_base }}/{{ etcd_base.version }}/{{ _etcd_base_archive_name }}"
-_etcd_base_temp_path: "/tmp/{{ _etcd_base_archive_name }}"
-_etcd_base_temp_extract_path: "/tmp/etcd-{{ etcd_base.version }}-linux-amd64"
+_base_baremetal_etcd_archive_name: "etcd-{{ base_baremetal_etcd_base.version }}-linux-amd64.tar.gz"
+_base_baremetal_etcd_release_url: "{{ base_baremetal_etcd_base.binary.url_base }}/{{ base_baremetal_etcd_base.version }}"
+_base_baremetal_etcd_download_url: "{{ _base_baremetal_etcd_release_url }}/{{ _base_baremetal_etcd_archive_name }}"
+_base_baremetal_etcd_temp_path: "/tmp/{{ _base_baremetal_etcd_archive_name }}"
+_base_baremetal_etcd_temp_extract_path: "/tmp/etcd-{{ base_baremetal_etcd_base.version }}-linux-amd64"

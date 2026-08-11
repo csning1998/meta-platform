@@ -41,7 +41,7 @@
         value: "{{ item.value }}"
         state: present
         reload: true
-      loop: "{{ central_lb_sysctl_hardening }}"
+      loop: "{{ shared_load_balancer_central_lb_sysctl_hardening }}"
 
     - name: "A1f. Disable Systemd Socket Activation for SSH (Ubuntu specific)"
       ansible.builtin.systemd:

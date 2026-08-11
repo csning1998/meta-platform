@@ -10,9 +10,9 @@ ExecStartPre=-/usr/bin/docker stop %n
 ExecStartPre=-/usr/bin/docker rm %n
 ExecStart=/usr/bin/docker run --rm \
     --name %n \
-    -p {{ keycloak.http_port }}:8080 \
+    -p {{ base_docker_keycloak_keycloak.http_port }}:8080 \
     --env-file /etc/keycloak/admin.env \
-    {{ keycloak.image }}:{{ keycloak.version }} \
+    {{ base_docker_keycloak_keycloak.image }}:{{ base_docker_keycloak_keycloak.version }} \
     start-dev
 
 [Install]

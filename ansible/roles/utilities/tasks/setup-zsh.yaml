@@ -20,20 +20,23 @@
       ansible.builtin.git:
         repo: "{{ item.repo }}"
         dest: "/home/{{ ssh_user }}/{{ item.dest }}"
+        version: "{{ item.version }}"
       loop:
-        - repo: 'https://github.com/zsh-users/zsh-autosuggestions.git'
-          dest: '.oh-my-zsh/custom/plugins/zsh-autosuggestions'
-        - repo: 'https://github.com/zsh-users/zsh-syntax-highlighting.git'
-          dest: '.oh-my-zsh/custom/plugins/zsh-syntax-highlighting'
+        - repo: "https://github.com/zsh-users/zsh-autosuggestions.git"
+          dest: ".oh-my-zsh/custom/plugins/zsh-autosuggestions"
+          version: "{{ utilities_zsh_autosuggestions_version }}"
+        - repo: "https://github.com/zsh-users/zsh-syntax-highlighting.git"
+          dest: ".oh-my-zsh/custom/plugins/zsh-syntax-highlighting"
+          version: "{{ utilities_zsh_syntax_highlighting_version }}"
       become: false
 
     - name: "Step 4. Configure ~/.zshrc"
       ansible.builtin.template:
-        src: 02-zshrc.j2
+        src: zshrc.j2
         dest: "/home/{{ ssh_user }}/.zshrc"
         owner: "{{ ssh_user }}"
         group: "{{ ssh_user }}"
-        mode: '0644'
+        mode: "0644"
       become: false
 
     - name: "Step 5. Set ZSH as default shell"

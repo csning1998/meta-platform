@@ -4,7 +4,7 @@
   block:
     - name: "Step 1. Install prometheus-node-exporter package"
       ansible.builtin.apt:
-        name: "{{ node_exporter_base.package }}"
+        name: "{{ foundation_common_node_exporter_base.package }}"
         state: present
         update_cache: true
 
@@ -28,7 +28,7 @@
 
     - name: "Step 4. Enable and start prometheus-node-exporter"
       ansible.builtin.systemd:
-        name: "{{ node_exporter_base.service }}"
+        name: "{{ foundation_common_node_exporter_base.service }}"
         state: started
         enabled: true
         daemon_reload: true

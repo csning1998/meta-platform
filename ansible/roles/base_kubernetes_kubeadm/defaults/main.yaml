@@ -1,9 +1,9 @@
 ---
 # Containerd sandbox (pause) image. Override via inventory to use Harbor proxy
 # in air-gap environments, e.g. 172.16.143.250/k8s-proxy/pause:3.10.1
-containerd_pause_image: "registry.k8s.io/pause:3.10.1"
+base_kubernetes_kubeadm_containerd_pause_image: "registry.k8s.io/pause:3.10.1"
 
-kubeadm_base:
+base_kubernetes_kubeadm_base:
   versions:
     repo_major: "v1.32"
     binary_full: "v1.32.0"
@@ -60,44 +60,54 @@ kubeadm_base:
     containerd: "/etc/containerd/config.toml"
 
 # Binaries (crictl)
-_kubeadm_base_crictl_data: "{{ kubeadm_base.binaries | selectattr('name', 'equalto', 'crictl') | first }}"
-_kubeadm_base_crictl_archive_name: "crictl-{{ kubeadm_base.versions.binary_full }}-linux-amd64.tar.gz"
-_kubeadm_base_crictl_download_url: >-
-  {{ _kubeadm_base_crictl_data.url_base }}/{{ kubeadm_base.versions.binary_full }}/{{ _kubeadm_base_crictl_archive_name }}
-_kubeadm_base_crictl_temp_path: "/tmp/{{ _kubeadm_base_crictl_archive_name }}"
-
+_base_kubernetes_kubeadm_crictl_data: >-
+  {{ base_kubernetes_kubeadm_base.binaries
+  | selectattr('name', 'equalto', 'crictl') | first }}
+_base_kubernetes_kubeadm_crictl_archive_name: >-
+  {{ 'crictl-' ~ base_kubernetes_kubeadm_base.versions.binary_full
+  ~ '-linux-amd64.tar.gz' }}
+_base_kubernetes_kubeadm_crictl_release_url: >-
+  {{ _base_kubernetes_kubeadm_crictl_data.url_base }}/{{ base_kubernetes_kubeadm_base.versions.binary_full }}
+_base_kubernetes_kubeadm_crictl_download_url: >-
+  {{ _base_kubernetes_kubeadm_crictl_release_url }}/{{ _base_kubernetes_kubeadm_crictl_archive_name }}
+_base_kubernetes_kubeadm_crictl_temp_path: "/tmp/{{ _base_kubernetes_kubeadm_crictl_archive_name }}"
 # Apt Repos (Data Lookups)
-_kubeadm_base_repo_community_data: >-
-  {{ kubeadm_base.apt_repositories | selectattr('id', 'equalto', 'ubuntu_community') | first }}
-_kubeadm_base_repo_docker_data: "{{ kubeadm_base.apt_repositories | selectattr('id', 'equalto', 'docker') | first }}"
-_kubeadm_base_repo_k8s_data: "{{ kubeadm_base.apt_repositories | selectattr('id', 'equalto', 'kubernetes') | first }}"
+_base_kubernetes_kubeadm_repo_community_data: >-
+  {{ base_kubernetes_kubeadm_base.apt_repositories | selectattr('id', 'equalto', 'ubuntu_community') | first }}
+_base_kubernetes_kubeadm_repo_docker_data: >-
+  {{ base_kubernetes_kubeadm_base.apt_repositories | selectattr('id', 'equalto', 'docker') | first }}
+_base_kubernetes_kubeadm_repo_k8s_data: >-
+  {{ base_kubernetes_kubeadm_base.apt_repositories | selectattr('id', 'equalto', 'kubernetes') | first }}
 
 # Apt Repos (Computed Strings)
-_kubeadm_base_repo_community_string: >
+_base_kubernetes_kubeadm_repo_community_string: >
   deb [arch=amd64]
-  {{ _kubeadm_base_repo_community_data.url_base }}
-  {{ _kubeadm_base_repo_community_data.distribution }}
-  {{ _kubeadm_base_repo_community_data.components }}
+  {{ _base_kubernetes_kubeadm_repo_community_data.url_base }}
+  {{ _base_kubernetes_kubeadm_repo_community_data.distribution }}
+  {{ _base_kubernetes_kubeadm_repo_community_data.components }}
 
-_kubeadm_base_repo_docker_gpg_url: "https://download.docker.com/linux/ubuntu/gpg"
-_kubeadm_base_repo_docker_string: >
-  deb [arch=amd64 signed-by={{ _kubeadm_base_repo_docker_data.gpg_keyring_path }}]
-  {{ _kubeadm_base_repo_docker_data.url_base }}
-  {{ _kubeadm_base_repo_docker_data.distribution }}
-  {{ _kubeadm_base_repo_docker_data.components }}
+_base_kubernetes_kubeadm_repo_docker_gpg_url: "https://download.docker.com/linux/ubuntu/gpg"
+_base_kubernetes_kubeadm_repo_docker_string: >
+  deb [arch=amd64 signed-by={{ _base_kubernetes_kubeadm_repo_docker_data.gpg_keyring_path }}]
+  {{ _base_kubernetes_kubeadm_repo_docker_data.url_base }}
+  {{ _base_kubernetes_kubeadm_repo_docker_data.distribution }}
+  {{ _base_kubernetes_kubeadm_repo_docker_data.components }}
 
-_kubeadm_base_repo_k8s_version: "{{ kubeadm_base.versions[_kubeadm_base_repo_k8s_data.version_key] }}"
-_kubeadm_base_repo_k8s_url_full: "{{ _kubeadm_base_repo_k8s_data.url_base }}/{{ _kubeadm_base_repo_k8s_version }}/deb/"
-_kubeadm_base_repo_k8s_gpg_url: "{{ _kubeadm_base_repo_k8s_url_full }}Release.key"
-_kubeadm_base_repo_k8s_string: >
-  deb [signed-by={{ _kubeadm_base_repo_k8s_data.gpg_keyring_path }}]
-  {{ _kubeadm_base_repo_k8s_url_full }}
-  {{ _kubeadm_base_repo_k8s_data.distribution }}
-  {{ _kubeadm_base_repo_k8s_data.components }}
+_base_kubernetes_kubeadm_repo_k8s_version: >-
+  {{ base_kubernetes_kubeadm_base.versions[_base_kubernetes_kubeadm_repo_k8s_data.version_key] }}
+_base_kubernetes_kubeadm_repo_k8s_url_full: >-
+  {{ _base_kubernetes_kubeadm_repo_k8s_data.url_base
+  ~ '/' ~ _base_kubernetes_kubeadm_repo_k8s_version ~ '/deb/' }}
+_base_kubernetes_kubeadm_repo_k8s_gpg_url: "{{ _base_kubernetes_kubeadm_repo_k8s_url_full }}Release.key"
+_base_kubernetes_kubeadm_repo_k8s_string: >
+  deb [signed-by={{ _base_kubernetes_kubeadm_repo_k8s_data.gpg_keyring_path }}]
+  {{ _base_kubernetes_kubeadm_repo_k8s_url_full }}
+  {{ _base_kubernetes_kubeadm_repo_k8s_data.distribution }}
+  {{ _base_kubernetes_kubeadm_repo_k8s_data.components }}
 
-_kubeadm_base_k8s_versioned_packages: >-
+_base_kubernetes_kubeadm_k8s_versioned_packages: >-
   {{
-    kubeadm_base.packages.apt.kubernetes |
-    map('regex_replace', '^(.*)$', '\1=' + kubeadm_base.versions.package_spec) |
+    base_kubernetes_kubeadm_base.packages.apt.kubernetes |
+    map('regex_replace', '^(.*)$', '\1=' + base_kubernetes_kubeadm_base.versions.package_spec) |
     list
   }}

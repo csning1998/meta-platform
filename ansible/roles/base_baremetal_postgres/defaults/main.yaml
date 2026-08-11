@@ -1,5 +1,5 @@
 ---
-postgres_base:
+base_baremetal_postgres_base:
   versions:
     postgres: "18"
 
@@ -25,13 +25,17 @@ postgres_base:
         - prometheus-postgres-exporter
 
 # Apt Repo (Postgres)
-_postgres_base_repo_data: "{{ postgres_base.apt_repositories | selectattr('id', 'equalto', 'postgresql') | first }}"
-_postgres_base_repo_string: >
-  deb [signed-by={{ _postgres_base_repo_data.gpg_signed_by_path }}]
-  {{ _postgres_base_repo_data.url_base }}
-  {{ _postgres_base_repo_data.distribution }}
-  {{ _postgres_base_repo_data.components }}
+_base_baremetal_postgres_repo_data: >-
+  {{ base_baremetal_postgres_base.apt_repositories
+  | selectattr('id', 'equalto', 'postgresql') | first }}
+_base_baremetal_postgres_repo_string: >
+  deb [signed-by={{ _base_baremetal_postgres_repo_data.gpg_signed_by_path }}]
+  {{ _base_baremetal_postgres_repo_data.url_base }}
+  {{ _base_baremetal_postgres_repo_data.distribution }}
+  {{ _base_baremetal_postgres_repo_data.components }}
 
 # Apt Packages (Postgres)
-_postgres_base_versioned_packages: >
-  {{ postgres_base.packages.apt.postgres | map('regex_replace', '^(.*)$', '\1-' + postgres_base.versions.postgres) | list }}
+_base_baremetal_postgres_versioned_packages: >-
+  {{ base_baremetal_postgres_base.packages.apt.postgres
+  | map('regex_replace', '^(.*)$', '\1-' + base_baremetal_postgres_base.versions.postgres)
+  | list }}

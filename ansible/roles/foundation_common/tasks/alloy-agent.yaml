@@ -14,15 +14,15 @@
 
     - name: "Step 2. Check installed Alloy version"
       ansible.builtin.command: "{{ alloy_agent_bin }} --version"
-      register: alloy_installed_version
+      register: foundation_common_alloy_installed_version
       changed_when: false
       failed_when: false
 
     - name: "Step 2b. Decide whether Alloy needs installing"
       ansible.builtin.set_fact:
-        alloy_needs_install: >-
-          {{ alloy_installed_version.rc != 0
-              or alloy_agent_version != (alloy_installed_version.stdout | default('')
+        foundation_common_alloy_needs_install: >-
+          {{ foundation_common_alloy_installed_version.rc != 0
+              or alloy_agent_version != (foundation_common_alloy_installed_version.stdout | default('')
               | regex_search('[0-9]+\.[0-9]+\.[0-9]+') | default(''))
           }}
 
@@ -34,14 +34,14 @@
         dest: "/tmp/alloy-{{ alloy_agent_os }}-{{ alloy_agent_arch }}.zip"
         checksum: "sha256:{{ alloy_agent_sha256 }}"
         mode: "0644"
-      when: alloy_needs_install
+      when: foundation_common_alloy_needs_install
 
     - name: "Step 4. Extract Alloy archive to staging directory"
       ansible.builtin.unarchive:
         src: "/tmp/alloy-{{ alloy_agent_os }}-{{ alloy_agent_arch }}.zip"
         dest: /tmp
         remote_src: true
-      when: alloy_needs_install
+      when: foundation_common_alloy_needs_install
 
     - name: "Step 5. Install Alloy binary"
       ansible.builtin.copy:
@@ -51,7 +51,7 @@
         owner: root
         group: root
         mode: "0755"
-      when: alloy_needs_install
+      when: foundation_common_alloy_needs_install
 
     - name: "Step 6. Remove staged Alloy files"
       ansible.builtin.file:
@@ -60,7 +60,7 @@
       loop:
         - "/tmp/alloy-{{ alloy_agent_os }}-{{ alloy_agent_arch }}.zip"
         - "/tmp/alloy-{{ alloy_agent_os }}-{{ alloy_agent_arch }}"
-      when: alloy_needs_install
+      when: foundation_common_alloy_needs_install
 
     - name: "Step 7. Create Alloy system group"
       ansible.builtin.group:

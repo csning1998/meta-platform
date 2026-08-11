@@ -4,7 +4,7 @@
   block:
     - name: "Step 1. Install Python environment and build tools"
       ansible.builtin.apt:
-        name: "{{ postgres_base.packages.apt.patroni_deps }}"
+        name: "{{ base_baremetal_postgres_base.packages.apt.patroni_deps }}"
         state: present
 
   rescue:

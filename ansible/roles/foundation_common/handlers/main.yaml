@@ -1,5 +1,5 @@
 ---
 - name: Restart Node Exporter
   ansible.builtin.systemd:
-    name: "{{ node_exporter_base.service }}"
+    name: "{{ foundation_common_node_exporter_base.service }}"
     state: restarted

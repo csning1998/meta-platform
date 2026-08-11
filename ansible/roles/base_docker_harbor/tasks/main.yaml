@@ -1,0 +1,32 @@
+---
+- name: "Step 1. Create directory for Harbor installer"
+  ansible.builtin.file:
+    path: "{{ base_docker_harbor_preload.dest_dir }}" # e.g. /opt/harbor
+    state: directory
+    mode: "0755"
+
+- name: "Step 2. Download Harbor Installer archive with checksum verification"
+  ansible.builtin.get_url:
+    url: "{{ _base_docker_harbor_download_url_template }}"
+    dest: "/tmp/{{ base_docker_harbor_preload.installer_filename }}"
+    checksum: "sha256:{{ base_docker_harbor_sha256 }}"
+    mode: "0644"
+
+- name: "Step 3. Unarchive Harbor Installer"
+  ansible.builtin.unarchive:
+    src: "/tmp/{{ base_docker_harbor_preload.installer_filename }}"
+    dest: "{{ base_docker_harbor_preload.dest_dir }}"
+    remote_src: true
+    extra_opts:
+      - "--strip-components=1"
+    creates: "{{ base_docker_harbor_preload.dest_dir }}/install.sh"
+
+- name: "Step 4. Clean up downloaded Harbor Installer archive"
+  ansible.builtin.file:
+    path: "/tmp/{{ base_docker_harbor_preload.installer_filename }}"
+    state: absent
+
+- name: "Step 5. Ensure hvac library is installed"
+  ansible.builtin.package:
+    name: python3-hvac
+    state: present

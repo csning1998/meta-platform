@@ -1,5 +1,5 @@
 ---
-minio_base:
+base_baremetal_minio_base:
   user: "minio-user"
   group: "minio-user"
   install_path: "/usr/local/bin/minio"

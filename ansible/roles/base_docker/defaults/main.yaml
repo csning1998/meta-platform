@@ -1,5 +1,5 @@
 ---
-docker_base:
+base_docker_base:
   packages:
     pip:
       - docker
@@ -18,9 +18,10 @@ docker_base:
       gpg_keyring_dir: "/etc/apt/keyrings"
       gpg_filename: "docker.asc"
 
-_docker_base_gpg_url: "{{ docker_base.os_config.ubuntu.source_url }}/gpg"
-_docker_base_gpg_path: "{{ docker_base.os_config.ubuntu.gpg_keyring_dir }}/{{ docker_base.os_config.ubuntu.gpg_filename }}"
-_docker_base_repo_string: >
-  deb [arch=amd64 signed-by={{ _docker_base_gpg_path }}]
-  {{ docker_base.os_config.ubuntu.source_url }}
+_base_docker_gpg_url: "{{ base_docker_base.os_config.ubuntu.source_url }}/gpg"
+_base_docker_gpg_path: >-
+  {{ base_docker_base.os_config.ubuntu.gpg_keyring_dir }}/{{ base_docker_base.os_config.ubuntu.gpg_filename }}
+_base_docker_repo_string: >
+  deb [arch=amd64 signed-by={{ _base_docker_gpg_path }}]
+  {{ base_docker_base.os_config.ubuntu.source_url }}
   {{ ansible_facts['distribution_release'] | lower }} stable

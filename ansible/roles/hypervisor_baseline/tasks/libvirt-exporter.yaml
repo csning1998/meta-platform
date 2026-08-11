@@ -4,23 +4,23 @@
   ansible.builtin.get_url:
     url:
       "https://github.com/inovex/prometheus-libvirt-exporter/releases/download/\
-      v{{ hypervisor_libvirt_exporter_version }}/{{ hypervisor_libvirt_exporter_rpm_name }}"
-    dest: "/root/{{ hypervisor_libvirt_exporter_rpm_name }}"
-    checksum: "sha256:{{ hypervisor_libvirt_exporter_sha256 }}"
+      v{{ hypervisor_baseline_libvirt_exporter_version }}/{{ hypervisor_baseline_libvirt_exporter_rpm_name }}"
+    dest: "/root/{{ hypervisor_baseline_libvirt_exporter_rpm_name }}"
+    checksum: "sha256:{{ hypervisor_baseline_libvirt_exporter_sha256 }}"
     mode: "0600"
 
 # The upstream project publishes no GPG signature for its releases (only a checksums.txt)
 - name: "Install prometheus-libvirt-exporter package"
   become: true
   ansible.builtin.dnf:
-    name: "/root/{{ hypervisor_libvirt_exporter_rpm_name }}"
+    name: "/root/{{ hypervisor_baseline_libvirt_exporter_rpm_name }}"
     state: present
     disable_gpg_check: true
 
 - name: "Remove staged RPM"
   become: true
   ansible.builtin.file:
-    path: "/root/{{ hypervisor_libvirt_exporter_rpm_name }}"
+    path: "/root/{{ hypervisor_baseline_libvirt_exporter_rpm_name }}"
     state: absent
 
 - name: "Enable and start prometheus-libvirt-exporter"

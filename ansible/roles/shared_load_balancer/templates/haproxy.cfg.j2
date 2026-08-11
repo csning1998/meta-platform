@@ -61,7 +61,7 @@ backend {{ backend_name }}
     http-check expect {{ port_config.health_check_http_expect | default('status 200') }}
     {% endif %}
     {% for server in segment.backend_servers %}
-    server {{ server.name }} {{ server.ip }}:{{ port_config.backend }} check{% if port_config.health_check_port %} port {{ port_config.health_check_port }}{% endif %} inter {{ haproxy_health_check_inter }} fall {{ haproxy_health_check_fall }} rise {{ haproxy_health_check_rise }}{% if port_config.health_check_ssl | default(false) %} check-ssl verify required ca-file {{ haproxy_ca_path }}{% if port_config.health_check_sni %} sni str({{ port_config.health_check_sni }}){% endif %}{% endif %}{% if port_config.send_proxy_v2 | default(false) %} send-proxy-v2{% endif %}
+    server {{ server.name }} {{ server.ip }}:{{ port_config.backend }} check{% if port_config.health_check_port %} port {{ port_config.health_check_port }}{% endif %} inter {{ shared_load_balancer_haproxy_health_check_inter }} fall {{ shared_load_balancer_haproxy_health_check_fall }} rise {{ shared_load_balancer_haproxy_health_check_rise }}{% if port_config.health_check_ssl | default(false) %} check-ssl verify required ca-file {{ shared_load_balancer_haproxy_ca_path }}{% if port_config.health_check_sni %} sni str({{ port_config.health_check_sni }}){% endif %}{% endif %}{% if port_config.send_proxy_v2 | default(false) %} send-proxy-v2{% endif %}
 
     {% endfor %}
 {% endfor %}

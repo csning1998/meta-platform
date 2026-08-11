@@ -55,7 +55,7 @@ vault_context_handler() {
     fi
 
   else
-    log_print "INFO" "[Vault Context] Switching to DEVELOPMENT (Layer <20 / Packer)..."
+    log_print "INFO" "[Vault Context] Switching to Base Layer for Packer..."
 
     local bastion_token
     bastion_token=$(cat "$BASTION_ROOT_TOKEN_FILE" 2>/dev/null)

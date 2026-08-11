@@ -23,7 +23,7 @@
     - name: "B1c. Deploy Root CA (For Backend Verification)"
       ansible.builtin.copy:
         content: "{{ vault_ca_cert_b64 | b64decode }}"
-        dest: "{{ haproxy_ca_path }}"
+        dest: "{{ shared_load_balancer_haproxy_ca_path }}"
         owner: haproxy
         group: haproxy
         mode: "0644"
@@ -35,9 +35,9 @@
       ansible.builtin.fail:
         msg: "{{ ansible_failed_result.msg | default('see task output above') }}"
 
-- name: "Task B1. Build lb_keepalived_segments filtered to interfaces present in OS"
+- name: "Task B1. Build shared_load_balancer_lb_keepalived_segments filtered to interfaces present in OS"
   ansible.builtin.set_fact:
-    lb_keepalived_segments: >-
+    shared_load_balancer_lb_keepalived_segments: >-
       {{ lb_service_segments | selectattr('interface_alias', 'in', ansible_facts['interfaces']) | list }}
 
 - name: "Block B2: Configure Keepalived and HAProxy"

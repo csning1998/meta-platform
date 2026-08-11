@@ -4,17 +4,19 @@
 modules:
   - name: ""
     dir: "."
-  - name: project-baseline
-    dir: terraform/modules/project-baseline
-  - name: service-catalog
-    dir: terraform/modules/service-catalog
-  - name: kvm-foundation-resources
-    dir: terraform/modules/kvm-foundation-resources
-  - name: kvm-provisioning
-    dir: terraform/modules/kvm-provisioning
-  - name: vault-credential
-    dir: terraform/modules/vault-provisioning/vault-credential
-  - name: vault-workload-identity
-    dir: terraform/modules/vault-provisioning/vault-workload-identity
-  - name: vault-pki-setup
-    dir: terraform/modules/vault-provisioning/vault-pki-setup
+    # Module publishing paused until terraform/modules/ gains an external consumer repository;
+    # entries retained for reuse once that condition is met.
+    # - name: project-baseline
+    #   dir: terraform/modules/project-baseline
+    # - name: service-catalog
+    #   dir: terraform/modules/service-catalog
+    # - name: kvm-foundation-resources
+    #   dir: terraform/modules/kvm-foundation-resources
+    # - name: kvm-provisioning
+    #   dir: terraform/modules/kvm-provisioning
+    # - name: vault-credential
+    #   dir: terraform/modules/vault-provisioning/vault-credential
+    # - name: vault-workload-identity
+    #   dir: terraform/modules/vault-provisioning/vault-workload-identity
+    # - name: vault-pki-setup
+    #   dir: terraform/modules/vault-provisioning/vault-pki-setup

@@ -3,18 +3,18 @@ Description=MinIO
 Documentation=https://min.io/docs/minio/linux/index.html
 Wants=network-online.target
 After=network-online.target
-AssertFileIsExecutable={{ minio_base.install_path }}
+AssertFileIsExecutable={{ base_baremetal_minio_base.install_path }}
 
 [Service]
-WorkingDirectory={{ minio_base.install_path | dirname }}
-User={{ minio_base.user }}
-Group={{ minio_base.group }}
+WorkingDirectory={{ base_baremetal_minio_base.install_path | dirname }}
+User={{ base_baremetal_minio_base.user }}
+Group={{ base_baremetal_minio_base.group }}
 ProtectProc=invisible
 
 EnvironmentFile=-/etc/default/minio
 
 ExecStartPre=/bin/bash -c "if [ -z \"${MINIO_VOLUMES}\" ]; then echo \"Variable MINIO_VOLUMES not set in /etc/default/minio\"; exit 1; fi"
-ExecStart={{ minio_base.install_path }} server $MINIO_OPTS $MINIO_VOLUMES
+ExecStart={{ base_baremetal_minio_base.install_path }} server $MINIO_OPTS $MINIO_VOLUMES
 
 # Let systemd restart this service always
 Restart=always
