@@ -1,0 +1,4 @@
+---
+- name: "Include Zsh setup tasks"
+  ansible.builtin.include_tasks: setup-zsh.yaml
+  when: configure_zsh | bool

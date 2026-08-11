@@ -16,11 +16,6 @@ pki_config = {
   intermediate_ca_common_name = "On-prem Infrastructure Intermediate CA"
 }
 
-service_catalog_module = {
-  source  = "gitlab.com/csning1998-lab/service-catalog/gitlab"
-  version = "0.1.2"
-}
-
 # Harbor upstream registry proxy caches and OCI project definitions
 harbor_registry_proxies = {
   proxy_oci = {

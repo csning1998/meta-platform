@@ -45,15 +45,6 @@ variable "network_baseline" {
   }
 }
 
-variable "service_catalog_module" {
-  description = "Source and version pin for the service-catalog module published to the GitLab Terraform Module Registry."
-  type = object({
-    source  = string
-    version = string
-  })
-  const = true
-}
-
 variable "service_catalog" {
   description = "The Single Source of Truth (SSoT) for all services, component, ingress, and dependencies, passed through to the service_catalog module for validation."
   type = map(object({

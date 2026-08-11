@@ -10,10 +10,6 @@ terraform/*.tf.bak
 terraform/layers/**/*.output.json
 terraform/layers/**/ansible.cfg
 
-# Local module source overrides
-override.tf
-*_override.tf
-
 # GitLab HTTP Backend credentials
 backend-auth.hcl
 terraform/backend-state.json

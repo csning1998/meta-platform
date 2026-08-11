@@ -2,6 +2,8 @@
 # Schema consumed by gitlab-ci-with-code-reviewer's auto-tag component (tools/ci/internal/versiontag).
 # tag_prefix defaults to "<name>-" and is omitted here since it matches the existing tag convention.
 modules:
+  - name: ""
+    dir: "."
   - name: project-baseline
     dir: terraform/modules/project-baseline
   - name: service-catalog

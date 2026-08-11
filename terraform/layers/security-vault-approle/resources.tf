@@ -60,8 +60,7 @@ resource "vault_approle_auth_backend_role_secret_id" "production_admin" {
 # Generates and retains the private key locally within production Vault; transmits only the CSR
 # to Bootstrap Vault for signing.
 module "vault_pki_setup" {
-  source  = var.vault_pki_setup_module.source
-  version = var.vault_pki_setup_module.version
+  source = "../../modules/vault-provisioning/vault-pki-setup"
   providers = {
     vault.production = vault.production
     vault.bootstrap  = vault.bastion
@@ -81,8 +80,7 @@ module "vault_pki_setup" {
 
 # Provision individual workload AppRoles scoped to corresponding PKI roles defined in `global_pki_map`.
 module "vault_workload_identity_approle" {
-  source  = var.vault_workload_identity_module.source
-  version = var.vault_workload_identity_module.version
+  source = "../../modules/vault-provisioning/vault-workload-identity"
   providers = {
     vault = vault.production
   }
