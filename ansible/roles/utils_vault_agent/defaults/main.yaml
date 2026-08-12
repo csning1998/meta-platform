@@ -1,0 +1,45 @@
+---
+# Identity - Config Level
+utils_vault_agent_config_owner: "vault"
+utils_vault_agent_config_group: "vault"
+
+# Identity - Systemd Level
+utils_vault_agent_service_owner: "root"
+utils_vault_agent_service_group: "root"
+
+# Identity - Target Certificate Level (Overridable)
+utils_vault_agent_owner: "root"
+utils_vault_agent_group: "root"
+
+# Paths (Generic Defaults)
+utils_vault_agent_config_dir: "/etc/vault.d"
+utils_vault_agent_cert_base_dir: "{{ utils_vault_agent_config_dir }}/certs"
+utils_vault_agent_cert_dirs:
+  - "{{ utils_vault_agent_cert_base_dir }}"
+utils_vault_agent_cert_mode: "0755"
+
+# Filenames (Generic Defaults)
+utils_vault_agent_cert_name: "server.crt"
+utils_vault_agent_key_name: "server.key"
+utils_vault_agent_ca_name: "ca.crt"
+
+# Internal Content Templates
+# The intermediate CA comes from Terraform (vault_intermediate_ca_b64), not Vault Agent's own
+# .Data.ca_chain: the issuing CA's own stored certificate record is self-signed pending a rotation
+# fix, so serving Vault's live ca_chain embeds that self-signed certificate in the served TLS chain.
+utils_vault_agent_cert_content: "{{ '{{ .Data.certificate }}' }}\n{{ vault_intermediate_ca_b64 | b64decode }}"
+utils_vault_agent_key_content: "{{ '{{ .Data.private_key }}' }}"
+
+# The Abstracted Mapping List
+utils_vault_agent_cert_files:
+  - dest: "{{ utils_vault_agent_cert_base_dir }}/{{ utils_vault_agent_cert_name }}"
+    content: "{{ utils_vault_agent_cert_content }}"
+    mode: "0644"
+  - dest: "{{ utils_vault_agent_cert_base_dir }}/{{ utils_vault_agent_key_name }}"
+    content: "{{ utils_vault_agent_key_content }}"
+    mode: "0600"
+
+# Operational Defaults
+utils_vault_agent_wait_file: "{{ utils_vault_agent_cert_base_dir }}/{{ utils_vault_agent_cert_name }}"
+utils_vault_agent_post_command: "true"
+utils_vault_agent_ip_sans: "" # Corresponding to advertise_ip

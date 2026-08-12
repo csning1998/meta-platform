@@ -1,0 +1,11 @@
+---
+# Keycloak
+shared_keycloak_keycloak_image: "quay.io/keycloak/keycloak"
+shared_keycloak_keycloak_version: "26.6.1"
+
+# Postgres
+shared_keycloak_postgres_image: "postgres"
+shared_keycloak_postgres_version: "18-alpine"
+
+# Operational Defaults
+shared_keycloak_keycloak_static_route_metric: 100

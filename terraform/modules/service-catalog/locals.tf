@@ -88,6 +88,13 @@ locals {
         path         = contains(["kubeadm", "microk8s"], item.config.runtime) ? "kubernetes/${item.service_name}/${item.comp_name}" : "workload-approle"
         approle_path = "workload-approle"
       }
+
+      # Derive client_id from cluster_name to maintain uniform identity across layers.
+      # Downstream OIDC provisioning modules resolve client attributes directly
+      # from global_pki_map to eliminate redundant resource definitions.
+      oidc_client = item.config.oidc_client != null ? merge(item.config.oidc_client, {
+        client_id = item.cluster_name
+      }) : null
     }
   ])
 

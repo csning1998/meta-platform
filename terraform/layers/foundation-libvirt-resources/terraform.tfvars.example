@@ -165,6 +165,10 @@ service_catalog = {
         ingress = {
           "frontend" = { subdomains = ["harbor-bootstrapper"] }
         }
+        oidc_client = {
+          name          = "Harbor Bootstrapper"
+          redirect_path = "/c/oidc/callback"
+        }
       }
     }
   }

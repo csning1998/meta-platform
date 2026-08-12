@@ -81,6 +81,10 @@ variable "service_catalog" {
         subdomains  = list(string)
         node_groups = optional(list(string), [])
       })), {})
+      oidc_client = optional(object({
+        name          = string
+        redirect_path = string
+      }), null)
     }))
   }))
 

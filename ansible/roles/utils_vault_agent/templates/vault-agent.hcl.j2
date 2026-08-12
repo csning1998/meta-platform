@@ -1,0 +1,60 @@
+
+pid_file = "/var/run/vault-agent.pid"
+
+vault {
+  address = "{{ vault_endpoint | trim('/') }}"
+  ca_cert = "{{ utils_vault_agent_config_dir }}/vault-ca.crt"
+}
+
+auto_auth {
+  method "approle" {
+    mount_path = "auth/{{ utils_vault_agent_auth_path | trim('/') }}"
+    config = {
+      role_id_file_path = "{{ utils_vault_agent_config_dir }}/approle/role_id"
+      secret_id_file_path = "{{ utils_vault_agent_config_dir }}/approle/secret_id"
+      remove_secret_id_file_after_reading = false
+    }
+  }
+
+  sink "file" {
+    config = {
+      path = "/tmp/vault-token"
+    }
+  }
+}
+
+# Single Template producing an executable shell script.
+# This prevents ALL JSON parsing dependencies and Cert/Key mismatches.
+template {
+  destination = "{{ utils_vault_agent_config_dir }}/deploy-certs.sh"
+  perms       = "0700"
+  contents    = <<EOH
+{{ '{{- with secret "pki_int/issue/' ~ utils_vault_agent_role_name ~ '" "common_name=' ~ utils_vault_agent_common_name ~ '" "ip_sans=' ~ utils_vault_agent_ip_sans ~ '" "ttl=' ~ vault_agent_cert_ttl ~ '" -}}' }}
+#!/bin/sh
+
+{% for dir in utils_vault_agent_cert_dirs %}
+mkdir -p "{{ dir }}"
+{% endfor %}
+
+{% for cert in utils_vault_agent_cert_files %}
+# Ensure subdirectories exist for the specific cert file if needed
+mkdir -p "$(dirname "{{ cert.dest }}")"
+cat << '_VAULT_AGENT_EOF_' > {{ cert.dest }}
+{{ cert.content }}
+_VAULT_AGENT_EOF_
+{% endfor %}
+
+{% for dir in utils_vault_agent_cert_dirs %}
+chown -R {{ utils_vault_agent_owner }}:{{ utils_vault_agent_group }} {{ dir }}
+{% endfor %}
+
+{% for cert in utils_vault_agent_cert_files %}
+chmod {{ cert.mode }} {{ cert.dest }}
+{% endfor %}
+
+{{ utils_vault_agent_post_command }}
+{{ '{{- end -}}' }}
+EOH
+
+  command = "/bin/sh {{ utils_vault_agent_config_dir }}/deploy-certs.sh"
+}

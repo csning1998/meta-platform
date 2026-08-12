@@ -1,3 +1,4 @@
+
 # 1. PKI Secrets Engine
 resource "vault_mount" "pki_prod" {
   provider    = vault.production
@@ -9,10 +10,9 @@ resource "vault_mount" "pki_prod" {
   max_lease_ttl_seconds     = var.pki_engine_config.max_lease_ttl_seconds
 }
 
-# Hierarchical PKI configuration utilizing a Root to Intermediate certification path.
-# The Root CA resides in the Bootstrap Vault; this engine stores only the signed Intermediate CA.
+# Hierarchical PKI configuration. Root CA resides in Bootstrap Vault; this engine retains only the signed Intermediate CA.
 
-# 2a. Generate Intermediate CA CSR from the Production PKI engine.
+# 2a. Generate Intermediate CA CSR in Production PKI engine.
 resource "vault_pki_secret_backend_intermediate_cert_request" "prod_int_csr" {
   provider = vault.production
   backend  = vault_mount.pki_prod.path
@@ -21,9 +21,12 @@ resource "vault_pki_secret_backend_intermediate_cert_request" "prod_int_csr" {
   common_name = var.pki_settings.intermediate_ca_common_name
   key_type    = "rsa"
   key_bits    = 4096
+
+  # Force key regeneration on mount recreation because provider state lacks a Read implementation for this resource.
+  key_name = "prod-int-${vault_mount.pki_prod.accessor}"
 }
 
-# 2b. Sign the Intermediate CA CSR using the Bootstrap Vault's Bootstrap Issuing Intermediate CA.
+# 2b. Sign Intermediate CA CSR using Bootstrap Vault Intermediate CA.
 resource "vault_pki_secret_backend_root_sign_intermediate" "signed_int" {
   provider = vault.bootstrap
   backend  = var.bootstrap_pki_mount_path
@@ -35,20 +38,13 @@ resource "vault_pki_secret_backend_root_sign_intermediate" "signed_int" {
   exclude_cn_from_sans = true
 }
 
-# 2c. Import the complete certificate chain (Production Vault intermediate, Bootstrap Vault intermediate,
-# and Bootstrap Vault root). The signed bundle contains only the intermediate certificates; the root
-# certificate is appended manually.
+# Complete CSR in place by importing a single certificate to avoid keyless issuer creation.
 resource "vault_pki_secret_backend_intermediate_set_signed" "prod_int_signed" {
-  provider = vault.production
-  backend  = vault_mount.pki_prod.path
-  certificate = join("\n", [
-    chomp(vault_pki_secret_backend_root_sign_intermediate.signed_int.certificate_bundle),
-    chomp(var.bootstrap_root_ca_certificate_pem),
-  ])
+  provider    = vault.production
+  backend     = vault_mount.pki_prod.path
+  certificate = vault_pki_secret_backend_root_sign_intermediate.signed_int.certificate
 }
 
-# Importing multiple certificates registers multiple issuers, only one of which possesses the private key.
-# The key-holding issuer is dynamically resolved via `key_info`, avoiding reliance on array ordering.
 data "vault_pki_secret_backend_issuers" "prod_issuers" {
   provider   = vault.production
   backend    = vault_mount.pki_prod.path

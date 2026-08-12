@@ -85,12 +85,13 @@ locals {
 locals {
   all_vault_agent_identity_bases = var.vault_pki_outputs != null ? {
     for role, ctx in local.components_context : role => {
-      vault_endpoint = local.sys_vault_endpoint
-      auth_path      = var.vault_pki_outputs.workload_identities_approle[var.global_pki_map[ctx.pki_key].key].auth_path
-      role_id        = var.vault_pki_outputs.workload_identities_approle[var.global_pki_map[ctx.pki_key].key].role_id
-      role_name      = var.vault_pki_outputs.pki_configuration.pki_roles[var.global_pki_map[ctx.pki_key].key].name
-      ca_cert_b64    = var.vault_pki_outputs.bootstrap_ca_b64.content_b64
-      common_name    = var.global_pki_map[ctx.pki_key].dns_san[0]
+      vault_endpoint      = local.sys_vault_endpoint
+      auth_path           = var.vault_pki_outputs.workload_identities_approle[var.global_pki_map[ctx.pki_key].key].auth_path
+      role_id             = var.vault_pki_outputs.workload_identities_approle[var.global_pki_map[ctx.pki_key].key].role_id
+      role_name           = var.vault_pki_outputs.pki_configuration.pki_roles[var.global_pki_map[ctx.pki_key].key].name
+      ca_cert_b64         = var.vault_pki_outputs.bootstrap_ca_b64.content_b64
+      intermediate_ca_b64 = var.vault_pki_outputs.pki_intermediate_ca_certificate_b64
+      common_name         = var.global_pki_map[ctx.pki_key].dns_san[0]
     }
   } : {}
 

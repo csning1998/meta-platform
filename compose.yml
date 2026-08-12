@@ -23,6 +23,7 @@ services:
     working_dir: /repo
     volumes:
       - ${REPO_GIT_DIR}:/repo/.git
+      - ./.gitleaks.toml:/repo/.gitleaks.toml:ro
     command: protect --staged --redact -v
 
   vault-server:
