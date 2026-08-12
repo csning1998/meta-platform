@@ -56,7 +56,39 @@ variable "topology_cluster" {
 
 variable "svc_network_map" {
   description = "Pure MECE mapping of calculated network attributes (from foundation-metadata)."
-  type        = any
+  type = map(object({
+    segment_key     = string
+    cidr_block      = string
+    nat_gateway     = string
+    nat_cidr_block  = string
+    nat_cidr_index  = number
+    interface_alias = string
+    vrid            = number
+    runtime         = string
+    mac_address     = string
+    node_ips        = list(string)
+    vip             = string
+    tags            = list(string)
+    ip_range = object({
+      start_ip = number
+      end_ip   = number
+    })
+    nat_dhcp = object({
+      start = string
+      end   = string
+    })
+    ports = map(object({
+      frontend_port            = number
+      backend_port             = number
+      health_check_type        = string
+      health_check_http_path   = string
+      health_check_http_expect = string
+      health_check_ssl         = bool
+      health_check_sni         = optional(string)
+      health_check_port        = optional(number)
+      send_proxy_v2            = bool
+    }))
+  }))
 }
 
 variable "network_service_segments" {
@@ -95,8 +127,11 @@ variable "network_service_segments" {
 
 variable "security_pki_bundle_b64" {
   description = "PKI certificates passed from foundation-metadata via foundation-network"
-  type        = any
-  default     = null
+  type = object({
+    ca_cert_b64        = string
+    haproxy_bundle_b64 = string
+  })
+  default = null
 }
 
 variable "network_infrastructure_map" {

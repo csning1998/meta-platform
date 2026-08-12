@@ -103,18 +103,3 @@ variable "service_catalog" {
     }))
   }))
 }
-
-variable "harbor_registry_proxies" {
-  description = "Harbor upstream registry proxy caches and OCI project definitions."
-  type = object({
-    proxy_oci = map(object({
-      name = string
-    }))
-    proxy_caches = map(object({
-      registry_name = string
-      endpoint_url  = string
-      provider_name = string
-      project_name  = string
-    }))
-  })
-}

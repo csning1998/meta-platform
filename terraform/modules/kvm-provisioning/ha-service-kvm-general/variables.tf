@@ -135,14 +135,23 @@ variable "security_vault_agent_identity" {
 
 variable "security_pki_bundle_b64" {
   description = "PKI artifacts passed from security_pki."
-  type        = any
-  default     = null
+  type = object({
+    server_cert_b64 = string
+    server_key_b64  = string
+    ca_cert_b64     = string
+  })
+  default = null
 }
 
 variable "storage_infrastructure_map" {
   description = "Pure MECE mapping of calculated storage volume attributes, passed from foundation-volume outputs."
-  type        = any
-  default     = {}
+  type = map(object({
+    base_id      = string
+    pool_name    = string
+    volume_name  = string
+    capacity_gib = number
+  }))
+  default = {}
 }
 
 variable "static_routes" {

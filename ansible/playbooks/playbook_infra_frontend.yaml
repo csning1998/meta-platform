@@ -9,12 +9,11 @@
         key: "{{ node_role | replace('-', '_') }}"
 
 # 1. Harbor Bootstrapper Container and OCI Registry
-# Commented out: shared_harbor_bootstrapper role is not committed yet.
-# - name: "Play [Harbor]: Configure Harbor Bootstrapper Cluster"
-#   hosts: "{{ 'harbor_bootstrapper' if 'harbor_bootstrapper' in groups else [] }}"
-#   become: true
-#   roles:
-#     - shared_harbor_bootstrapper
+- name: "Play [Harbor]: Configure Harbor Bootstrapper Cluster"
+  hosts: "{{ 'harbor_bootstrapper' if 'harbor_bootstrapper' in groups else [] }}"
+  become: true
+  roles:
+    - shared_harbor_bootstrapper
 
 # 2. Keycloak for OIDC
 - name: "Play [Keycloak]: Configure Keycloak Container"
@@ -22,7 +21,6 @@
   become: true
   roles:
     - shared_keycloak
-
 # 3. Generic MicroK8s Cluster
 # Commented out: infra_microk8s role is not committed yet.
 # - name: "Play [Kubernetes]: Provision and Configure MicroK8s Cluster"

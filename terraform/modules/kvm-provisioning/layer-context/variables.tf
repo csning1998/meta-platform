@@ -1,18 +1,79 @@
 
-# SSoT metadata inputs (type = any: terraform_remote_state outputs carry no static schema)
+# SSoT metadata inputs, nested by service name then component name.
 variable "global_topology_identity" {
   description = "SSoT topology identity map from foundation-metadata."
-  type        = any
+  type = map(map(object({
+    cluster_name      = string
+    stage             = string
+    storage_pool_name = string
+    bridge_name_host  = string
+    bridge_name_nat   = string
+    node_name_prefix  = string
+    ansible_inventory = string
+    ssh_config        = string
+    groups = map(object({
+      node_name_prefix = string
+    }))
+  })))
 }
 
 variable "global_topology_network" {
   description = "SSoT topology network map from foundation-metadata."
-  type        = any
+  type = map(map(object({
+    segment_key     = string
+    cidr_block      = string
+    nat_gateway     = string
+    nat_cidr_block  = string
+    nat_cidr_index  = number
+    interface_alias = string
+    vrid            = number
+    runtime         = string
+    mac_address     = string
+    node_ips        = list(string)
+    vip             = string
+    tags            = list(string)
+    ip_range = object({
+      start_ip = number
+      end_ip   = number
+    })
+    nat_dhcp = object({
+      start = string
+      end   = string
+    })
+    ports = map(object({
+      frontend_port            = number
+      backend_port             = number
+      health_check_type        = string
+      health_check_http_path   = string
+      health_check_http_expect = string
+      health_check_ssl         = bool
+      health_check_sni         = optional(string)
+      health_check_port        = optional(number)
+      send_proxy_v2            = bool
+    }))
+  })))
 }
 
 variable "global_pki_map" {
   description = "PKI role map from foundation-metadata."
-  type        = any
+  type = map(object({
+    key         = string
+    role_name   = string
+    ttl_stage   = string
+    has_ingress = bool
+    dns_san     = list(string)
+    ou          = list(string)
+    auth_config = object({
+      method       = string
+      path         = string
+      approle_path = string
+    })
+    oidc_client = optional(object({
+      name          = string
+      redirect_path = string
+      client_id     = string
+    }), null)
+  }))
 }
 
 variable "global_network_baseline" {
@@ -25,8 +86,53 @@ variable "global_network_baseline" {
 }
 
 variable "infrastructure_map" {
-  description = "Physical network infrastructure map from shared-load-balancer-frontend handover. type = any: remote_state output."
-  type        = any
+  description = "Physical network infrastructure map from shared-load-balancer-frontend handover."
+  type = map(object({
+    network = object({
+      hostonly = object({
+        bridge_name = string
+        cidr        = string
+        gateway     = string
+        mtu         = number
+        name        = string
+        prefix      = number
+      })
+      nat = object({
+        bridge_name = string
+        cidr        = string
+        gateway     = string
+        mtu         = number
+        name        = string
+        prefix      = number
+        stage       = string
+        dhcp = object({
+          start = string
+          end   = string
+        })
+      })
+    })
+    lb_config = object({
+      vip            = string
+      vrid           = number
+      interface_name = string
+      tags           = list(string)
+      ports = map(object({
+        frontend_port            = number
+        backend_port             = number
+        health_check_type        = string
+        health_check_http_path   = string
+        health_check_http_expect = string
+        health_check_ssl         = bool
+        health_check_sni         = optional(string)
+        health_check_port        = optional(number)
+        send_proxy_v2            = bool
+      }))
+    })
+    backend_servers = list(object({
+      ip   = string
+      name = string
+    }))
+  }))
 }
 
 # Vault integration inputs. These are optional and only required for 30-tier layers featuring Vault Agent integration.

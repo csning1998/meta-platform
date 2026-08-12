@@ -1,0 +1,43 @@
+---
+- name: "Role 81: Configure Network Routing"
+  ansible.builtin.include_role:
+    name: utils_asymmetric_routing
+  vars:
+    utils_asymmetric_routing_static_routes: "{{ harbor_bootstrapper_static_routes }}"
+  when: harbor_bootstrapper_static_routes is defined
+
+- name: "Section A. Setup Harbor Environment"
+  ansible.builtin.include_tasks: A-setup.yaml
+
+- name: "Section B. Configure PKI and Vault Agent"
+  ansible.builtin.include_tasks: B-configure.yaml
+
+- name: "Role 82: Prepare Environment for Vault Agent"
+  ansible.builtin.include_role:
+    name: utils_vault_agent
+  vars:
+    utils_vault_agent_owner: "{{ _shared_harbor_bootstrapper_harbor_uid }}"
+    utils_vault_agent_group: "{{ _shared_harbor_bootstrapper_harbor_gid }}"
+    utils_vault_agent_cert_base_dir: "{{ shared_harbor_bootstrapper_harbor_pki_dir }}"
+    utils_vault_agent_cert_dirs:
+      - "{{ shared_harbor_bootstrapper_harbor_pki_dir }}"
+      - "{{ shared_harbor_bootstrapper_harbor_config_cert_dir }}"
+    utils_vault_agent_wait_file: "{{ shared_harbor_bootstrapper_harbor_cert_path }}"
+    utils_vault_agent_ip_sans: "{{ advertise_ip }},{{ harbor_bootstrapper_vip }}"
+    utils_vault_agent_role_id: "{{ vault_agent_role_id }}"
+    utils_vault_agent_secret_id: "{{ vault_agent_secret_id }}"
+    utils_vault_agent_auth_path: "{{ vault_auth_path }}"
+    utils_vault_agent_role_name: "{{ vault_role_name }}"
+    utils_vault_agent_common_name: "{{ vault_agent_common_name }}"
+    utils_vault_agent_post_command: |
+      install -m 0644 -o {{ _shared_harbor_bootstrapper_harbor_uid }} -g {{ _shared_harbor_bootstrapper_harbor_gid }} \
+        {{ shared_harbor_bootstrapper_harbor_cert_path }} {{ shared_harbor_bootstrapper_harbor_config_cert_dir }}/server.crt
+      install -m 0600 -o {{ _shared_harbor_bootstrapper_harbor_uid }} -g {{ _shared_harbor_bootstrapper_harbor_gid }} \
+        {{ shared_harbor_bootstrapper_harbor_key_path }} {{ shared_harbor_bootstrapper_harbor_config_cert_dir }}/server.key
+      docker ps -q -f name=^nginx$ | grep -q . && docker exec -i nginx nginx -s reload || true
+
+- name: "Section C. Deploy Harbor Instance"
+  ansible.builtin.include_tasks: C-deploy.yaml
+
+- name: "Section D. Verify Harbor Readiness"
+  ansible.builtin.include_tasks: D-verify.yaml

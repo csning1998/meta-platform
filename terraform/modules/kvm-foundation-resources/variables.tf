@@ -82,22 +82,10 @@ variable "service_catalog" {
         subdomains  = list(string)
         node_groups = optional(list(string), [])
       })), {})
+      oidc_client = optional(object({
+        name          = string
+        redirect_path = string
+      }), null)
     }))
   }))
-}
-
-# Semantic validation deferred to service-catalog module to avoid rule duplication.
-variable "harbor_registry_proxies" {
-  description = "Harbor upstream registry proxy caches and OCI project definitions."
-  type = object({
-    proxy_oci = map(object({
-      name = string
-    }))
-    proxy_caches = map(object({
-      registry_name = string
-      endpoint_url  = string
-      provider_name = string
-      project_name  = string
-    }))
-  })
 }

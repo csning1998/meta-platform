@@ -13,6 +13,14 @@
     - base_baremetal_vault
     - base_docker_keycloak
 
+- name: "Play: Provision Docker Base Image for Harbor Bootstrapper"
+  hosts: "base-docker-harbor"
+  become: true
+  roles:
+    - base_docker
+    - base_baremetal_vault
+    - base_docker_harbor
+
 - name: "Play: Provision Kubernetes (Kubeadm) Base Image"
   hosts: "base-kubernetes-kubeadm"
   become: true

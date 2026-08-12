@@ -17,53 +17,6 @@ global_pki_identity = {
   mount_path                  = "pki_int"
 }
 
-# Harbor upstream registry proxy caches and OCI project definitions
-harbor_registry_proxies = {
-  proxy_oci = {
-    helm_charts = {
-      name = "helm-charts"
-    }
-  }
-  proxy_caches = {
-    docker_hub = {
-      registry_name = "hub.docker.com"
-      endpoint_url  = "https://hub.docker.com"
-      provider_name = "docker-hub"
-      project_name  = "docker-proxy"
-    }
-    k8s_io = {
-      registry_name = "registry.k8s.io"
-      endpoint_url  = "https://registry.k8s.io"
-      provider_name = "docker-registry"
-      project_name  = "k8s-proxy"
-    }
-    quay_io = {
-      registry_name = "quay.io"
-      endpoint_url  = "https://quay.io"
-      provider_name = "docker-registry"
-      project_name  = "quay-proxy"
-    }
-    gitlab_com = {
-      registry_name = "registry.gitlab.com"
-      endpoint_url  = "https://registry.gitlab.com"
-      provider_name = "docker-registry"
-      project_name  = "gitlab-proxy"
-    }
-    gcr_io = {
-      registry_name = "gcr.io"
-      endpoint_url  = "https://gcr.io"
-      provider_name = "docker-registry"
-      project_name  = "gcr-proxy"
-    }
-    ghcr_io = {
-      registry_name = "ghcr.io"
-      endpoint_url  = "https://ghcr.io"
-      provider_name = "docker-registry"
-      project_name  = "ghcr-proxy"
-    }
-  }
-}
-
 service_catalog = {
   "central-lb" = {
     owner        = "devops"

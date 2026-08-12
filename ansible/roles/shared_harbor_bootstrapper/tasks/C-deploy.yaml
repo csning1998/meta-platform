@@ -1,0 +1,74 @@
+---
+- name: "C1. Retrieve Harbor Credentials"
+  community.hashi_vault.vault_kv2_get:
+    url: "{{ vault_endpoint }}"
+    path: "{{ vault_kv_namespace }}/harbor-bootstrapper/frontend"
+    engine_mount_point: "secret"
+    auth_method: approle
+    mount_point: "{{ vault_auth_path }}"
+    role_id: "{{ vault_agent_role_id }}"
+    secret_id: "{{ vault_agent_secret_id }}"
+    ca_cert: "{{ shared_harbor_bootstrapper_vault_agent_config_dir }}/vault-ca.crt"
+  register: shared_harbor_bootstrapper_harbor_vault_secrets
+  no_log: true
+
+- name: "C2. Render harbor.yml"
+  ansible.builtin.template:
+    src: harbor.yml.j2
+    dest: "{{ shared_harbor_bootstrapper_harbor_install_dir }}/harbor.yml"
+    owner: root
+    group: root
+    mode: "0600"
+  register: shared_harbor_bootstrapper_harbor_system_config_status
+
+- name: "C3. Run Install Script (First Time Only)"
+  ansible.builtin.command:
+    cmd: "./install.sh {{ shared_harbor_bootstrapper_harbor_installer_flags }}"
+    chdir: "{{ shared_harbor_bootstrapper_harbor_install_dir }}"
+  args:
+    creates: "{{ shared_harbor_bootstrapper_harbor_install_dir }}/docker-compose.yml"
+
+- name: "C4. Distribute Vault PKI Issuing CA to Harbor's own trust store"
+  ansible.builtin.copy:
+    src: /usr/local/share/ca-certificates/vault-pki-issuing-ca.crt
+    dest: >-
+      {{ shared_harbor_bootstrapper_harbor_install_dir }}/common/config/shared/trust-certificates/vault-pki-issuing-ca.crt
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart Harbor Service
+
+- name: "C5. Find docker executable"
+  ansible.builtin.command: which docker
+  register: shared_harbor_bootstrapper_docker_exec
+  changed_when: false
+  check_mode: false
+
+- name: "C6. Deploy Harbor Systemd Service"
+  ansible.builtin.template:
+    src: harbor.service.j2
+    dest: /etc/systemd/system/harbor.service
+    owner: root
+    group: root
+    mode: "0644"
+  vars:
+    docker_executable: "{{ shared_harbor_bootstrapper_docker_exec.stdout }}"
+  notify: Restart Harbor Service
+
+- name: "C7. Reconfigure Harbor (If Config Changed)"
+  ansible.builtin.command:
+    cmd: "./prepare {{ shared_harbor_bootstrapper_harbor_installer_flags }}"
+    chdir: "{{ shared_harbor_bootstrapper_harbor_install_dir }}"
+  when:
+    - shared_harbor_bootstrapper_harbor_system_config_status.changed
+    - not (ansible_check_mode | bool)
+  changed_when: true
+  notify: Restart Harbor Service
+
+- name: "C8. Enable and Start Harbor Service"
+  ansible.builtin.systemd:
+    name: harbor
+    state: started
+    enabled: true
+    daemon_reload: true
