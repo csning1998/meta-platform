@@ -123,12 +123,13 @@ locals {
   ansible_extra_vars_vault = var.security_vault_agent_identity != null ? {
     vault_endpoint            = var.security_vault_agent_identity.vault_endpoint
     vault_ca_cert_b64         = var.security_vault_agent_identity.ca_cert_b64
-    vault_intermediate_ca_b64 = var.security_vault_agent_identity.intermediate_ca_b64
+    vault_intermediate_ca_b64 = var.security_vault_agent_identity.issuer_ca_b64
     vault_agent_role_id       = var.security_vault_agent_identity.role_id
     vault_agent_secret_id     = var.security_vault_agent_identity.secret_id
     vault_role_name           = var.security_vault_agent_identity.role_name
     vault_agent_common_name   = var.security_vault_agent_identity.common_name
     vault_auth_path           = var.security_vault_agent_identity.auth_path
+    vault_pki_mount_path      = var.security_vault_agent_identity.pki_mount_path
   } : {}
 
   ansible_extra_vars_pki = var.security_pki_bundle_b64 != null && length(keys(var.security_pki_bundle_b64)) > 0 ? {

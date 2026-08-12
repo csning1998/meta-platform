@@ -1,12 +1,12 @@
-variable "vault_endpoint" {
-  description = "The address of the Vault server"
+
+variable "prod_vault_endpoint" {
+  description = "The address of the Production Vault server"
   type        = string
 }
 
 variable "pki_settings" {
-  description = "Global PKI Identity Settings (Root to Intermediate)"
+  description = "Global PKI Identity Settings"
   type = object({
-    root_ca_common_name         = string
     intermediate_ca_common_name = string
   })
 }
@@ -34,12 +34,7 @@ variable "pki_engine_config" {
   })
 }
 
-variable "bootstrap_pki_mount_path" {
+variable "bastion_pki_inter_mount_path" {
   description = "Mount path of the Bootstrap Vault's Bootstrap Issuing Intermediate PKI engine"
-  type        = string
-}
-
-variable "bootstrap_root_ca_certificate_pem" {
-  description = "PEM of the Bootstrap Vault's Root CA, appended when importing the Production intermediate so pki_prod's own ca_chain is complete"
   type        = string
 }

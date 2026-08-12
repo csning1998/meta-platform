@@ -9,7 +9,7 @@ data "terraform_remote_state" "vault_production" {
   config  = { address = "${local._state_base}/shared-vault-frontend" }
 }
 
-data "terraform_remote_state" "vault_prod_bootstrap" {
+data "terraform_remote_state" "security_vault_approle" {
   backend = "http"
   config  = { address = "${local._state_base}/security-vault-approle" }
 }

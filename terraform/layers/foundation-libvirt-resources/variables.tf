@@ -15,12 +15,18 @@ variable "vault_kv_namespace" {
   }
 }
 
-variable "pki_config" {
+variable "global_pki_identity" {
   description = "Global PKI identity settings. Defines the legal identity of the infrastructure."
   type = object({
     root_ca_common_name         = string
     intermediate_ca_common_name = string
+    mount_path                  = string
   })
+
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9_-]+$", var.global_pki_identity.mount_path))
+    error_message = "mount_path must contain only alphanumeric characters, underscores, and hyphens, since it is interpolated directly into Vault policy paths."
+  }
 }
 
 variable "network_baseline" {
@@ -56,10 +62,59 @@ variable "network_baseline" {
 
 variable "service_catalog" {
   description = "The Single Source of Truth (SSoT) for all services, component, ingress, and dependencies, passed through to the service_catalog module for validation."
-  type        = any
+  type = map(object({
+    owner        = string
+    project_code = string
+    stage        = string
+
+    components = map(object({
+      provider    = string
+      runtime     = string
+      cidr_index  = number
+      tags        = optional(list(string), [])
+      node_groups = optional(list(string), [])
+      ip_range = object({
+        start_ip = number
+        end_ip   = number
+      })
+      ports = optional(map(object({
+        frontend_port            = number
+        backend_port             = number
+        health_check_type        = optional(string, "tcp")
+        health_check_http_path   = optional(string, "/")
+        health_check_http_expect = optional(string, "status 200")
+        health_check_ssl         = optional(bool, false)
+        health_check_sni         = optional(string)
+        health_check_port        = optional(number)
+        send_proxy_v2            = optional(bool, false)
+      })), {})
+      data_disks = optional(list(object({
+        name_suffix  = string
+        capacity_gib = optional(number, 20)
+      })), [])
+      ingress = optional(map(object({
+        subdomains  = list(string)
+        node_groups = optional(list(string), [])
+      })), {})
+      oidc_client = optional(object({
+        name          = string
+        redirect_path = string
+      }), null)
+    }))
+  }))
 }
 
 variable "harbor_registry_proxies" {
   description = "Harbor upstream registry proxy caches and OCI project definitions."
-  type        = any
+  type = object({
+    proxy_oci = map(object({
+      name = string
+    }))
+    proxy_caches = map(object({
+      registry_name = string
+      endpoint_url  = string
+      provider_name = string
+      project_name  = string
+    }))
+  })
 }

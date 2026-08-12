@@ -1,7 +1,7 @@
 
 data "terraform_remote_state" "metadata" {
   backend = "http"
-  config  = { address = "${local._state_base}/foundation-metadata" }
+  config  = { address = "${local._state_base}/foundation-libvirt-resources" }
 }
 
 data "terraform_remote_state" "vault_bootstrapper" {

@@ -26,8 +26,12 @@ path "secret/destroy/meta-platform/*" {
   capabilities = ["update"]
 }
 
-path "sys/mounts/pki_int" {
+path "sys/mounts/${local.prod_pki_issuer_mount_path}" {
   capabilities = ["create", "read", "update", "delete"]
+}
+
+path "${local.prod_pki_issuer_mount_path}/*" {
+  capabilities = ["create", "read", "update", "delete", "list"]
 }
 
 path "sys/auth/workload-approle*" {
@@ -44,10 +48,6 @@ path "sys/auth/oidc*" {
 
 path "sys/mounts/auth/oidc*" {
   capabilities = ["create", "read", "update", "delete", "sudo"]
-}
-
-path "pki_int/*" {
-  capabilities = ["create", "read", "update", "delete", "list"]
 }
 
 path "auth/workload-approle/*" {

@@ -4,11 +4,6 @@ data "terraform_remote_state" "vault_bootstrapper" {
   config  = { address = "${local._state_base}/foundation-vault-bastion" }
 }
 
-data "terraform_remote_state" "metadata" {
-  backend = "http"
-  config  = { address = "${local._state_base}/foundation-metadata" }
-}
-
 data "terraform_remote_state" "network" {
   backend = "http"
   config  = { address = "${local._state_base}/foundation-libvirt-resources" }

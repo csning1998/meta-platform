@@ -8,8 +8,7 @@ locals {
 # State Object
 locals {
   state = {
-    network  = data.terraform_remote_state.network.outputs
-    metadata = data.terraform_remote_state.metadata.outputs
+    network = data.terraform_remote_state.network.outputs
   }
   secrets = {
     credentials    = data.vault_kv_secret_v2.credentials.data # AppRole
@@ -86,7 +85,7 @@ locals {
 
 # 3. Security & Credentials Context (sec_ / pki_)
 locals {
-  bootstrap_ca_chain_pem = "${data.terraform_remote_state.vault_bootstrapper.outputs.bootstrap_root_ca_certificate_pem}\n${data.terraform_remote_state.vault_bootstrapper.outputs.bootstrap_intermediate_ca_certificate_pem}"
+  bastion_pki_chain_pem = "${data.terraform_remote_state.vault_bootstrapper.outputs.bastion_pki_root_cert_pem}\n${data.terraform_remote_state.vault_bootstrapper.outputs.bastion_pki_inter_cert_pem}"
 
   # The CLB is excluded from net_service_segments and does not occupy its SSoT reservation.
   # Node IPs are calculated directly from var.node_config.
@@ -96,7 +95,7 @@ locals {
   ]
 
   pki_global_ca_b64 = {
-    ca_cert_b64        = base64encode(local.bootstrap_ca_chain_pem)
+    ca_cert_b64        = base64encode(local.bastion_pki_chain_pem)
     haproxy_bundle_b64 = base64encode("${vault_pki_secret_backend_cert.haproxy_stats.certificate}\n${vault_pki_secret_backend_cert.haproxy_stats.private_key}")
   }
 

@@ -30,16 +30,40 @@ variable "infrastructure_map" {
 }
 
 # Vault integration inputs. These are optional and only required for 30-tier layers featuring Vault Agent integration.
-variable "vault_sys_vip" {
-  description = "Vault system VIP for sys_vault_endpoint construction. Required for layers with Vault Agent integration."
+variable "prod_vault_svc_vip" {
+  description = "Production Vault VIP for prod_vault_endpoint construction. Required for layers with Vault Agent integration."
   type        = string
   default     = null
 }
 
-variable "vault_pki_outputs" {
-  description = "Full outputs of the vault_pki layer. type = any: remote_state output with dynamic PKI role keys."
-  type        = any
-  default     = null
+variable "security_pki_outputs" {
+  description = "The `security_pki_outputs` variable MUST conform strictly to the output schema of `security-pki`. Any attribute mismatch causes object type conversion failure during Terraform evaluation."
+  type = object({
+    workload_identities_approle = map(object({
+      role_id   = string
+      role_name = string
+      auth_path = string
+    }))
+    prod_pki_configuration = object({
+      path = string
+      leaf_roles = map(object({
+        id              = string
+        name            = string
+        allowed_domains = list(string)
+      }))
+      lease_durations = object({
+        default = string
+        max     = string
+        agent   = string
+      })
+    })
+    bastion_pki_chain_b64 = object({
+      path        = string
+      content_b64 = string
+    })
+    prod_pki_issuer_cert_b64 = string
+  })
+  default = null
 }
 
 # Targeting

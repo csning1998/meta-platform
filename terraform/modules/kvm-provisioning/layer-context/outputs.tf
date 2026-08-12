@@ -40,9 +40,9 @@ output "sec_vm_credentials" {
   sensitive   = true
 }
 
-output "sys_vault_endpoint" {
-  description = "Vault HTTPS address constructed from vault_sys_vip. Null for layers without Vault Agent integration."
-  value       = local.sys_vault_endpoint
+output "prod_vault_endpoint" {
+  description = "Vault HTTPS address constructed from prod_vault_svc_vip. Null for layers without Vault Agent integration."
+  value       = local.prod_vault_endpoint
 }
 
 output "storage_pool_name" {
@@ -104,9 +104,9 @@ output "asymmetric_static_routes" {
   }
 }
 
-output "vault_sys_vip" {
+output "prod_vault_svc_vip" {
   description = "Raw Vault system VIP address without protocol or port. Null for layers without Vault integration."
-  value       = var.vault_sys_vip
+  value       = var.prod_vault_svc_vip
 }
 
 output "all_vault_agent_identity_bases" {

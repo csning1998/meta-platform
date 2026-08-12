@@ -22,7 +22,7 @@ terraform {
 
 provider "vault" {
   alias        = "bastion"
-  address      = local.state.bootstrapper.vault_dev_endpoint
+  address      = local.state.bootstrapper.bastion_vault_endpoint
   ca_cert_file = abspath("${path.root}/../../../vault/tls/ca.pem")
 
   auth_login {
@@ -37,7 +37,7 @@ provider "vault" {
 
 provider "vault" {
   alias        = "production"
-  address      = local.production_vault_endpoint
+  address      = local.prod_vault_endpoint
   ca_cert_file = local.state.production.ca_cert_path
   token        = data.vault_kv_secret_v2.bootstrap_credentials.data["prod_vault_root_token"]
 }

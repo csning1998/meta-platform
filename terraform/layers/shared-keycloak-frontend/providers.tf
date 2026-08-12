@@ -33,8 +33,8 @@ provider "vault" {
   auth_login {
     path = "auth/approle/login"
     parameters = {
-      role_id   = data.terraform_remote_state.vault_prod_bootstrap.outputs.role_id
-      secret_id = data.terraform_remote_state.vault_prod_bootstrap.outputs.secret_id
+      role_id   = data.terraform_remote_state.security_vault_approle.outputs.role_id
+      secret_id = data.terraform_remote_state.security_vault_approle.outputs.secret_id
     }
   }
   skip_child_token = true

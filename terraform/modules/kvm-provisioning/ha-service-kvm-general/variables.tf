@@ -118,14 +118,15 @@ variable "credentials_system" {
 variable "security_vault_agent_identity" {
   description = "Identity configurations for Vault Agent"
   type = object({
-    vault_endpoint      = string
-    role_id             = string
-    secret_id           = string
-    role_name           = string
-    ca_cert_b64         = string
-    intermediate_ca_b64 = string
-    common_name         = string
-    auth_path           = string
+    vault_endpoint = string
+    role_id        = string
+    secret_id      = string
+    role_name      = string
+    ca_cert_b64    = string
+    issuer_ca_b64  = string
+    common_name    = string
+    auth_path      = string
+    pki_mount_path = string
   })
   sensitive = true
   default   = null
@@ -133,7 +134,7 @@ variable "security_vault_agent_identity" {
 
 
 variable "security_pki_bundle_b64" {
-  description = "PKI artifacts passed from vault_pki."
+  description = "PKI artifacts passed from security_pki."
   type        = any
   default     = null
 }

@@ -14,6 +14,7 @@ variable "pki_config" {
   type = object({
     root_ca_common_name         = string
     intermediate_ca_common_name = string
+    mount_path                  = string
   })
 }
 

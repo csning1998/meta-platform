@@ -13,5 +13,6 @@ locals {
 }
 
 locals {
-  production_vault_endpoint = "https://${local.state.production.service_vip}:${local.state.production.vault_api_port}"
+  prod_vault_endpoint        = "https://${local.state.production.service_vip}:${local.state.production.prod_vault_api_port}"
+  prod_pki_issuer_mount_path = data.terraform_remote_state.foundation.outputs.global_pki_config.mount_path
 }

@@ -6,7 +6,7 @@ resource "vault_jwt_auth_backend" "keycloak" {
   path                  = "oidc"
   type                  = "oidc"
   oidc_discovery_url    = local.oidc_discovery_url
-  oidc_discovery_ca_pem = base64decode(local.state.vault_pki.bootstrap_ca_b64.content_b64)
+  oidc_discovery_ca_pem = base64decode(local.state.security_pki.bastion_pki_chain_b64.content_b64)
   oidc_client_id        = local.oidc_client_id
   oidc_client_secret    = local.oidc_client_secret
 
@@ -36,7 +36,7 @@ resource "vault_jwt_auth_backend_role" "keycloak_user" {
 # 3. Identity Groups (External), Dynamic Mapping for all Management Roles
 resource "vault_identity_group" "management_groups" {
   provider = vault.production
-  for_each = local.state.vault_pki.management_policies
+  for_each = local.state.security_pki.management_policies
 
   name     = "keycloak-${replace(each.key, "oidc-", "")}s" # e.g. keycloak-admins, keycloak-auditors
   type     = "external"
@@ -50,7 +50,7 @@ resource "vault_identity_group" "management_groups" {
 # 4. Group Aliases, Linking Keycloak groups to Vault groups
 resource "vault_identity_group_alias" "management_group_aliases" {
   provider = vault.production
-  for_each = local.state.vault_pki.management_policies
+  for_each = local.state.security_pki.management_policies
 
   # Keycloak group name (Assuming groups in Keycloak are named 'admin', 'auditor', 'developer')
   name           = replace(each.key, "oidc-", "")

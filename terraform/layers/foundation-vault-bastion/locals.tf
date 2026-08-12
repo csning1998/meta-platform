@@ -16,13 +16,15 @@ locals {
 }
 
 locals {
-  bootstrap_leaf_extra_domains = {
+  bastion_pki_inter_mount_path = local.state.metadata.global_pki_config.mount_path
+
+  bastion_pki_leaf_extra_domains = {
     "vault-frontend"      = ["vault", "localhost"]
     "central-lb-frontend" = []
   }
 
-  bootstrap_leaf_roles = {
-    for name, extras in local.bootstrap_leaf_extra_domains : name => {
+  bastion_pki_leaf_roles = {
+    for name, extras in local.bastion_pki_leaf_extra_domains : name => {
       allowed_domains = concat(local.state.metadata.global_pki_map[name].dns_san, extras)
       ou              = local.state.metadata.global_pki_map[name].ou
     }

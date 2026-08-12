@@ -1,20 +1,15 @@
 
-output "pki_mount_path" {
-  description = "Mount path of the Production Issuing Intermediate PKI engine."
-  value       = module.vault_pki_setup.vault_pki_path
-}
-
 output "trust_bundle_path" {
   description = "Absolute path to the combined CA trust bundle, for manual import into a local OS/browser trust store."
   value       = abspath(local_file.trust_bundle.filename)
 }
 
-output "pki_intermediate_ca_certificate_b64" {
+output "prod_pki_issuer_cert_b64" {
   description = "Base64-encoded, signed Production Issuing Intermediate CA certificate only, for server-served TLS chains (excludes the Root CA)."
-  value       = module.vault_pki_setup.pki_intermediate_ca_certificate_b64
+  value       = module.vault_pki_setup.prod_pki_issuer_cert_b64
 }
 
-output "bootstrap_ca_b64" {
+output "bastion_pki_chain_b64" {
   description = "Export CA trust bundle file path and Base64-encoded string representation for inline consumption."
   value = {
     path        = abspath(local_file.trust_bundle.filename)
@@ -22,11 +17,11 @@ output "bootstrap_ca_b64" {
   }
 }
 
-output "pki_configuration" {
+output "prod_pki_configuration" {
   description = "Export production PKI mount point, TTL lease profiles, and service role mappings."
   value = {
-    path      = module.vault_pki_setup.vault_pki_path
-    pki_roles = module.vault_pki_setup.pki_roles
+    path       = module.vault_pki_setup.prod_pki_issuer_mount_path
+    leaf_roles = module.vault_pki_setup.prod_pki_leaf_roles
     lease_durations = {
       default = "${local.pki_lease_ttl_seconds / 3600}h"
       max     = "${local.pki_lease_ttl_seconds / 3600}h"

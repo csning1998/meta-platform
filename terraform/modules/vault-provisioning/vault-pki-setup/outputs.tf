@@ -1,17 +1,18 @@
-output "vault_pki_path" {
+
+output "prod_pki_issuer_mount_path" {
   description = "The path where PKI engine is mounted"
-  value       = vault_mount.pki_prod.path
+  value       = vault_mount.pki_issuer.path
 }
 
-output "pki_intermediate_ca_certificate_b64" {
-  description = "The signed Intermediate certificate in Base64"
-  value       = base64encode(vault_pki_secret_backend_root_sign_intermediate.signed_int.certificate)
+output "prod_pki_issuer_cert_b64" {
+  description = "The signed Issuer certificate in Base64"
+  value       = base64encode(vault_pki_secret_backend_root_sign_intermediate.pki_issuer_signed.certificate)
 }
 
-output "pki_roles" {
+output "prod_pki_leaf_roles" {
   description = "Map of provisioned PKI Roles with encapsulated attributes"
   value = {
-    for k, v in vault_pki_secret_backend_role.pki_roles : k => {
+    for k, v in vault_pki_secret_backend_role.pki_leaf_roles : k => {
       id              = v.id
       name            = v.name
       allowed_domains = v.allowed_domains

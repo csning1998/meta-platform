@@ -18,6 +18,6 @@ terraform {
 
 # The target Vault being configured (Bootstrapper/Initial Vault)
 provider "vault" {
-  address      = var.vault_dev_endpoint
+  address      = var.bastion_vault_endpoint
   ca_cert_file = abspath("${path.root}/../../../vault/tls/ca.pem")
 }

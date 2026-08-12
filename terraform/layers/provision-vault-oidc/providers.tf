@@ -19,13 +19,13 @@ terraform {
 provider "vault" {
   alias        = "production"
   address      = local.vault_endpoint
-  ca_cert_file = local.state.vault_pki.bootstrap_ca_b64.path
+  ca_cert_file = local.state.security_pki.bastion_pki_chain_b64.path
 
   auth_login {
     path = "auth/approle/login"
     parameters = {
-      role_id   = local.state.vault_prod_bootstrap.role_id
-      secret_id = local.state.vault_prod_bootstrap.secret_id
+      role_id   = local.state.security_vault_approle.role_id
+      secret_id = local.state.security_vault_approle.secret_id
     }
   }
   skip_child_token = true

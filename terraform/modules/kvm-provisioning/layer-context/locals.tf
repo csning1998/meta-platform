@@ -56,7 +56,7 @@ locals {
 
 # 3. Security & Credentials
 locals {
-  sys_vault_endpoint = var.vault_sys_vip != null ? "https://${var.vault_sys_vip}:443" : null
+  prod_vault_endpoint = var.prod_vault_svc_vip != null ? "https://${var.prod_vault_svc_vip}:443" : null
 
   sec_vm_credentials = {
     username             = var.guest_vm_data["guest_username"]
@@ -81,17 +81,18 @@ locals {
 }
 
 # 5. Vault Agent Identities. These are partial identity structures where the secret_id is injected by the root module after AppRole generation.
-#    When vault_pki_outputs is absent (shared-vault-frontend and earlier), all_vault_agent_identity_bases resolves to {} and vault_agent_identity_base resolves to null.
+#    When security_pki_outputs is absent (shared-vault-frontend and earlier), all_vault_agent_identity_bases resolves to {} and vault_agent_identity_base resolves to null.
 locals {
-  all_vault_agent_identity_bases = var.vault_pki_outputs != null ? {
+  all_vault_agent_identity_bases = var.security_pki_outputs != null ? {
     for role, ctx in local.components_context : role => {
-      vault_endpoint      = local.sys_vault_endpoint
-      auth_path           = var.vault_pki_outputs.workload_identities_approle[var.global_pki_map[ctx.pki_key].key].auth_path
-      role_id             = var.vault_pki_outputs.workload_identities_approle[var.global_pki_map[ctx.pki_key].key].role_id
-      role_name           = var.vault_pki_outputs.pki_configuration.pki_roles[var.global_pki_map[ctx.pki_key].key].name
-      ca_cert_b64         = var.vault_pki_outputs.bootstrap_ca_b64.content_b64
-      intermediate_ca_b64 = var.vault_pki_outputs.pki_intermediate_ca_certificate_b64
-      common_name         = var.global_pki_map[ctx.pki_key].dns_san[0]
+      vault_endpoint = local.prod_vault_endpoint
+      auth_path      = var.security_pki_outputs.workload_identities_approle[var.global_pki_map[ctx.pki_key].key].auth_path
+      role_id        = var.security_pki_outputs.workload_identities_approle[var.global_pki_map[ctx.pki_key].key].role_id
+      role_name      = var.security_pki_outputs.prod_pki_configuration.leaf_roles[var.global_pki_map[ctx.pki_key].key].name
+      ca_cert_b64    = var.security_pki_outputs.bastion_pki_chain_b64.content_b64
+      issuer_ca_b64  = var.security_pki_outputs.prod_pki_issuer_cert_b64
+      common_name    = var.global_pki_map[ctx.pki_key].dns_san[0]
+      pki_mount_path = var.security_pki_outputs.prod_pki_configuration.path
     }
   } : {}
 

@@ -20,27 +20,27 @@ output "secret_id" {
   sensitive   = true
 }
 
-output "vault_dev_endpoint" {
+output "bastion_vault_endpoint" {
   description = "The address of the Vault server"
-  value       = var.vault_dev_endpoint
+  value       = var.bastion_vault_endpoint
 }
 
-output "vault_dev_ca_cert_path" {
-  description = "Path to the dev Vault server's own listener TLS CA, for downstream layers connecting to this same Vault instance"
+output "bastion_vault_listener_ca_cert_path" {
+  description = "Path to the Bastion Vault server's own listener TLS CA, for downstream layers connecting to this same Vault instance"
   value       = abspath(local_file.vault_dev_ca_copy.filename)
 }
 
-output "bootstrap_root_ca_certificate_pem" {
+output "bastion_pki_root_cert_pem" {
   description = "Infrastructure Root CA certificate (PEM). Signs only the Bootstrap Issuing Intermediate."
   value       = vault_pki_secret_backend_root_cert.root.certificate
 }
 
-output "bootstrap_intermediate_ca_certificate_pem" {
+output "bastion_pki_inter_cert_pem" {
   description = "Bootstrap Issuing Intermediate CA certificate (PEM), signed by the Infrastructure Root CA."
-  value       = vault_pki_secret_backend_root_sign_intermediate.bootstrap_int_signed.certificate
+  value       = vault_pki_secret_backend_root_sign_intermediate.pki_inter_signed.certificate
 }
 
-output "bootstrap_pki_mount_path" {
+output "bastion_pki_inter_mount_path" {
   description = "Mount path of the Bootstrap Issuing Intermediate PKI engine, used by downstream layers to request bootstrap leaf certificates."
-  value       = vault_mount.pki_bootstrap_int.path
+  value       = vault_mount.pki_inter.path
 }

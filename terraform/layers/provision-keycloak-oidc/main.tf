@@ -39,7 +39,7 @@ module "oidc_clients" {
 
   realm_id           = keycloak_realm.infra_realm.id
   oidc_clients       = local.oidc_clients_all
-  vault_kv_namespace = data.terraform_remote_state.vault_prod_bootstrap.outputs.vault_kv_namespace
+  vault_kv_namespace = data.terraform_remote_state.security_vault_approle.outputs.vault_kv_namespace
   issuer_url         = "${local.keycloak_frontend_url}/realms/${local.realm_id}"
 }
 

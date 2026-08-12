@@ -2,14 +2,14 @@
 module "context" {
   source = "../../modules/kvm-provisioning/layer-context"
 
+  guest_vm_data            = data.vault_kv_secret_v2.guest_vm.data
   global_topology_identity = data.terraform_remote_state.load_balancer.outputs.global_topology_identity
   global_topology_network  = data.terraform_remote_state.load_balancer.outputs.global_topology_network
-  global_pki_map           = data.terraform_remote_state.vault_prod_bootstrap.outputs.global_pki_map
+  global_pki_map           = data.terraform_remote_state.security_vault_approle.outputs.global_pki_map
   global_network_baseline  = data.terraform_remote_state.load_balancer.outputs.global_network_baseline
-  guest_vm_data            = data.vault_kv_secret_v2.guest_vm.data
   infrastructure_map       = data.terraform_remote_state.load_balancer.outputs.infrastructure_map
-  vault_sys_vip            = data.terraform_remote_state.vault_prod_bootstrap.outputs.vault_service_vip
-  vault_pki_outputs        = data.terraform_remote_state.vault_pki.outputs
+  prod_vault_svc_vip       = data.terraform_remote_state.security_vault_approle.outputs.prod_vault_svc_vip
+  security_pki_outputs     = data.terraform_remote_state.security_pki.outputs
 
   target_clusters = var.target_clusters
   primary_role    = var.primary_role

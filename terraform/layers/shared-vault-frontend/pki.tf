@@ -1,6 +1,6 @@
 
 resource "vault_pki_secret_backend_cert" "vault_listener" {
-  backend     = data.terraform_remote_state.vault_bootstrapper.outputs.bootstrap_pki_mount_path
+  backend     = data.terraform_remote_state.vault_bootstrapper.outputs.bastion_pki_inter_mount_path
   name        = "vault-frontend"
   common_name = module.context.svc_fqdn
 

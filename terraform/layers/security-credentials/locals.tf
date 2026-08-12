@@ -7,7 +7,7 @@ locals {
 
 # Provider prerequisites: Must be defined as root-level locals because provider blocks cannot reference module outputs.
 locals {
-  sys_vault_endpoint  = "https://${data.terraform_remote_state.vault_prod_bootstrap.outputs.vault_service_vip}:443"
-  vault_pki_cert_path = data.terraform_remote_state.vault_pki.outputs.bootstrap_ca_b64.path
-  vault_kv_namespace  = data.terraform_remote_state.vault_prod_bootstrap.outputs.vault_kv_namespace
+  sys_vault_endpoint  = "https://${data.terraform_remote_state.security_vault_approle.outputs.prod_vault_svc_vip}:443"
+  vault_pki_cert_path = data.terraform_remote_state.security_pki.outputs.bastion_pki_chain_b64.path
+  vault_kv_namespace  = data.terraform_remote_state.security_vault_approle.outputs.vault_kv_namespace
 }

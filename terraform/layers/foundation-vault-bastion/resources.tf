@@ -25,18 +25,18 @@ path "secret/destroy/meta-platform/*" {
 
 # [5] Bootstrap Leaf Issuance: Required by downstream layers requesting certificates
 # from the Bootstrap Issuing Intermediate before the Production Vault is reachable
-path "pki_int/issue/*" {
+path "${local.bastion_pki_inter_mount_path}/issue/*" {
   capabilities = ["create", "update"]
 }
 
 # [6] Mount Metadata Read: vault_pki_secret_backend_cert reads mount config on refresh
-path "sys/mounts/pki_int" {
+path "sys/mounts/${local.bastion_pki_inter_mount_path}" {
   capabilities = ["read"]
 }
 
 # [7] Intermediate Signing: allows the Production Vault's intermediate CSR to be signed
 # by the Bootstrap Issuing Intermediate
-path "pki_int/root/sign-intermediate" {
+path "${local.bastion_pki_inter_mount_path}/root/sign-intermediate" {
   capabilities = ["create", "update"]
 }
 EOT

@@ -20,12 +20,12 @@ output "kv_mount_path" {
   value       = vault_mount.kv.path
 }
 
-output "production_vault_endpoint" {
+output "prod_vault_endpoint" {
   description = "The address of the production Vault server."
-  value       = local.production_vault_endpoint
+  value       = local.prod_vault_endpoint
 }
 
-output "vault_service_vip" {
+output "prod_vault_svc_vip" {
   description = "Export production Vault Virtual IP address from `shared-vault-frontend` state for downstream consumed layers."
   value       = data.terraform_remote_state.vault_production.outputs.service_vip
 }

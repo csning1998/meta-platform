@@ -33,8 +33,8 @@ resource "local_file" "vault_dev_ca_copy" {
 }
 
 # 2. Bootstrap Issuing Intermediate.
-resource "vault_mount" "pki_bootstrap_int" {
-  path        = "pki_int"
+resource "vault_mount" "pki_inter" {
+  path        = local.bastion_pki_inter_mount_path
   type        = "pki"
   description = "Bootstrap Issuing Intermediate. Issues pre-Production-Vault leaf certificates and signs the Production Vault intermediate."
 
@@ -42,8 +42,8 @@ resource "vault_mount" "pki_bootstrap_int" {
   max_lease_ttl_seconds     = 60 * 60 * 24 * 365
 }
 
-resource "vault_pki_secret_backend_intermediate_cert_request" "bootstrap_int_csr" {
-  backend = vault_mount.pki_bootstrap_int.path
+resource "vault_pki_secret_backend_intermediate_cert_request" "pki_inter_csr" {
+  backend = vault_mount.pki_inter.path
 
   type        = "internal"
   common_name = local.state.metadata.global_pki_config.intermediate_ca_common_name
@@ -51,13 +51,13 @@ resource "vault_pki_secret_backend_intermediate_cert_request" "bootstrap_int_csr
   key_bits    = 4096
 
   # Append mount accessor to force resource replacement and private key regeneration when the backend mount is recreated.
-  key_name = "bootstrap-int-${vault_mount.pki_bootstrap_int.accessor}"
+  key_name = "inter-${vault_mount.pki_inter.accessor}"
 }
 
-resource "vault_pki_secret_backend_root_sign_intermediate" "bootstrap_int_signed" {
+resource "vault_pki_secret_backend_root_sign_intermediate" "pki_inter_signed" {
   backend = vault_mount.pki_root.path
 
-  csr                  = vault_pki_secret_backend_intermediate_cert_request.bootstrap_int_csr.csr
+  csr                  = vault_pki_secret_backend_intermediate_cert_request.pki_inter_csr.csr
   common_name          = local.state.metadata.global_pki_config.intermediate_ca_common_name
   format               = "pem"
   ttl                  = 60 * 60 * 24 * 365 # 1 Year
@@ -68,30 +68,30 @@ resource "vault_pki_secret_backend_root_sign_intermediate" "bootstrap_int_signed
 }
 
 # Import intermediate certificate into backend to complete CSR registration.
-resource "vault_pki_secret_backend_intermediate_set_signed" "bootstrap_int_set" {
-  backend     = vault_mount.pki_bootstrap_int.path
-  certificate = vault_pki_secret_backend_root_sign_intermediate.bootstrap_int_signed.certificate
+resource "vault_pki_secret_backend_intermediate_set_signed" "pki_inter_set" {
+  backend     = vault_mount.pki_inter.path
+  certificate = vault_pki_secret_backend_root_sign_intermediate.pki_inter_signed.certificate
 }
 
-resource "vault_pki_secret_backend_config_urls" "bootstrap_int_urls" {
-  backend = vault_mount.pki_bootstrap_int.path
+resource "vault_pki_secret_backend_config_urls" "pki_inter_urls" {
+  backend = vault_mount.pki_inter.path
 
-  issuing_certificates    = ["${var.vault_dev_endpoint}/v1/${vault_mount.pki_bootstrap_int.path}/ca"]
-  crl_distribution_points = ["${var.vault_dev_endpoint}/v1/${vault_mount.pki_bootstrap_int.path}/crl"]
+  issuing_certificates    = ["${var.bastion_vault_endpoint}/v1/${vault_mount.pki_inter.path}/ca"]
+  crl_distribution_points = ["${var.bastion_vault_endpoint}/v1/${vault_mount.pki_inter.path}/crl"]
 }
 
 # Set default issuer explicitly for the intermediate PKI backend.
-resource "vault_pki_secret_backend_config_issuers" "bootstrap_int_default" {
-  backend                       = vault_mount.pki_bootstrap_int.path
-  default                       = vault_pki_secret_backend_intermediate_set_signed.bootstrap_int_set.imported_issuers[0]
+resource "vault_pki_secret_backend_config_issuers" "pki_inter_default" {
+  backend                       = vault_mount.pki_inter.path
+  default                       = vault_pki_secret_backend_intermediate_set_signed.pki_inter_set.imported_issuers[0]
   default_follows_latest_issuer = true
 }
 
 # Configure PKI roles for bootstrap leaf certificate issuance.
-resource "vault_pki_secret_backend_role" "bootstrap_leaf" {
-  for_each = local.bootstrap_leaf_roles
+resource "vault_pki_secret_backend_role" "pki_leaf_roles" {
+  for_each = local.bastion_pki_leaf_roles
 
-  backend = vault_mount.pki_bootstrap_int.path
+  backend = vault_mount.pki_inter.path
   name    = each.key
 
   allowed_domains    = each.value.allowed_domains

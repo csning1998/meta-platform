@@ -27,13 +27,13 @@ terraform {
 provider "vault" {
   alias        = "production"
   address      = local.vault_frontend_url
-  ca_cert_file = local.state.vault_pki.bootstrap_ca_b64.path
+  ca_cert_file = local.state.security_pki.bastion_pki_chain_b64.path
 
   auth_login {
     path = "auth/approle/login"
     parameters = {
-      role_id   = local.state.vault_prod_bootstrap.role_id
-      secret_id = local.state.vault_prod_bootstrap.secret_id
+      role_id   = local.state.security_vault_approle.role_id
+      secret_id = local.state.security_vault_approle.secret_id
     }
   }
   skip_child_token = true
@@ -44,6 +44,6 @@ provider "keycloak" {
   username            = local.keycloak_admin_user
   password            = local.keycloak_admin_password
   url                 = local.keycloak_frontend_url
-  root_ca_certificate = base64decode(local.state.vault_pki.bootstrap_ca_b64.content_b64)
+  root_ca_certificate = base64decode(local.state.security_pki.bastion_pki_chain_b64.content_b64)
   initial_login       = false
 }

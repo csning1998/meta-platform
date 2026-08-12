@@ -7,24 +7,25 @@ locals {
 
 locals {
   state = {
-    bootstrapper         = data.terraform_remote_state.vault_bootstrapper.outputs
-    production           = data.terraform_remote_state.vault_production.outputs
-    vault_prod_bootstrap = data.terraform_remote_state.vault_prod_bootstrap.outputs
+    bootstrapper           = data.terraform_remote_state.vault_bootstrapper.outputs
+    production             = data.terraform_remote_state.vault_production.outputs
+    security_vault_approle = data.terraform_remote_state.security_vault_approle.outputs
   }
 }
 
 locals {
-  sys_vault_endpoint     = "https://${local.state.production.service_vip}:${local.state.production.vault_api_port}"
-  bootstrap_ca_chain_pem = "${local.state.bootstrapper.bootstrap_root_ca_certificate_pem}\n${local.state.bootstrapper.bootstrap_intermediate_ca_certificate_pem}"
-  pki_lease_ttl_seconds  = 60 * 60 * 24 * 365
-  root_domain            = data.terraform_remote_state.foundation.outputs.global_domain_suffix
-  vault_kv_namespace     = data.terraform_remote_state.foundation.outputs.vault_kv_namespace
+  prod_vault_endpoint        = "https://${local.state.production.service_vip}:${local.state.production.prod_vault_api_port}"
+  prod_pki_issuer_mount_path = local.global_pki_config.mount_path
+  pki_lease_ttl_seconds      = 60 * 60 * 24 * 365
+  bastion_pki_chain_pem      = "${local.state.bootstrapper.bastion_pki_root_cert_pem}\n${local.state.bootstrapper.bastion_pki_inter_cert_pem}"
+  root_domain                = data.terraform_remote_state.foundation.outputs.global_domain_suffix
+  vault_kv_namespace         = data.terraform_remote_state.foundation.outputs.vault_kv_namespace
+  global_pki_config          = data.terraform_remote_state.foundation.outputs.global_pki_config
 }
 
 locals {
-  # Consolidated PKI roles: SSoT global_pki_map (machine workloads) merged with the
-  # human management identities consumed by provision-vault-oidc and on-prem gitlab
-  # for OIDC group-to-policy mapping.
+  # Consolidated PKI roles: SSoT global_pki_map (machine workloads) merged with the human management identities
+  # consumed by provision-vault-oidc and on-prem gitlab for OIDC group-to-policy mapping.
   pki_roles = merge(
     {
       for key, item in data.terraform_remote_state.foundation.outputs.global_pki_map : key => {
@@ -75,8 +76,11 @@ locals {
   management_identities = toset(["oidc-admin", "oidc-auditor", "oidc-developer"])
 
   # Extra ACL rules merged into each workload identity's generated policy, beyond the
-  # baseline PKI issue capability. Only the human management identities need KV access here.
+  # baseline PKI issue capability.
   workload_identity_extra_rules = {
+    "harbor-bootstrapper-frontend" = {
+      "secret/data/${local.vault_kv_namespace}/harbor-bootstrapper/frontend" = { capabilities = ["read"] }
+    }
     "oidc-admin" = {
       "secret/metadata/"                              = { capabilities = ["list"] }
       "secret/metadata/${local.vault_kv_namespace}/"  = { capabilities = ["list"] }

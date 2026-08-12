@@ -18,7 +18,7 @@ module "context" {
 # This ensures downstream layers (e.g. 20-vault-pki) can reference it
 # as ca_cert_file without a circular dependency during provider initialization.
 resource "local_file" "bootstrap_ca" {
-  content         = local.bootstrap_ca_chain_pem
+  content         = local.bastion_pki_chain_pem
   filename        = "${path.root}/tls/bootstrap-ca.crt"
   file_permission = "0644"
 }

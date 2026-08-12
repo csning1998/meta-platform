@@ -7,13 +7,13 @@ locals {
 
 # Provider prerequisites: Must be defined as root-level locals because provider blocks cannot reference module outputs.
 locals {
-  sys_vault_endpoint  = "https://${data.terraform_remote_state.vault_prod_bootstrap.outputs.vault_service_vip}:443"
-  vault_pki_cert_path = data.terraform_remote_state.vault_pki.outputs.bootstrap_ca_b64.path
+  sys_vault_endpoint  = "https://${data.terraform_remote_state.security_vault_approle.outputs.prod_vault_svc_vip}:443"
+  vault_pki_cert_path = data.terraform_remote_state.security_pki.outputs.bastion_pki_chain_b64.path
 }
 
 # Credential path map alias passed through from security-vault-approle
 locals {
-  credential_paths = data.terraform_remote_state.vault_prod_bootstrap.outputs.global_credential_paths
+  credential_paths = data.terraform_remote_state.security_vault_approle.outputs.global_credential_paths
 }
 
 # Service-specific credentials and Vault Agent identity
@@ -40,7 +40,7 @@ locals {
     keycloak_vip         = module.context.primary_net_config.lb_config.vip
     keycloak_port        = module.context.primary_net_config.lb_config.ports["https"].frontend_port
     keycloak_node_subnet = module.context.primary_net_config.network.hostonly.cidr
-    vault_vip            = module.context.vault_sys_vip
+    vault_vip            = module.context.prod_vault_svc_vip
     global_mss           = module.context.global_mss
 
     infra_keycloak_cluster_ips = [
@@ -69,6 +69,6 @@ locals {
     keycloak_db_user        = local.sec_app_creds.keycloak_db_user
     keycloak_db_password    = local.sec_app_creds.keycloak_db_password
     vault_agent_common_name = local.sec_vault_agent_identity.common_name
-    vault_agent_cert_ttl    = data.terraform_remote_state.vault_pki.outputs.pki_configuration.lease_durations.agent
+    vault_agent_cert_ttl    = data.terraform_remote_state.security_pki.outputs.prod_pki_configuration.lease_durations.agent
   }
 }

@@ -6,7 +6,7 @@ locals {
 }
 
 locals {
-  bootstrap_ca_chain_pem = "${data.terraform_remote_state.vault_bootstrapper.outputs.bootstrap_root_ca_certificate_pem}\n${data.terraform_remote_state.vault_bootstrapper.outputs.bootstrap_intermediate_ca_certificate_pem}"
+  bastion_pki_chain_pem = "${data.terraform_remote_state.vault_bootstrapper.outputs.bastion_pki_root_cert_pem}\n${data.terraform_remote_state.vault_bootstrapper.outputs.bastion_pki_inter_cert_pem}"
 
   ansible_template_config = {
     global_mss          = module.context.global_mss
@@ -17,10 +17,10 @@ locals {
 
   ansible_extra_config = {
     ansible_user          = module.context.sec_vm_credentials.username
-    dev_vault_url         = var.vault_dev_endpoint
+    dev_vault_url         = var.bastion_vault_endpoint
     dev_vault_api_path    = "meta-platform/credentials"
     vault_server_cert_b64 = base64encode(vault_pki_secret_backend_cert.vault_listener.certificate)
     vault_server_key_b64  = base64encode(vault_pki_secret_backend_cert.vault_listener.private_key)
-    vault_ca_cert_b64     = base64encode(local.bootstrap_ca_chain_pem)
+    vault_ca_cert_b64     = base64encode(local.bastion_pki_chain_pem)
   }
 }

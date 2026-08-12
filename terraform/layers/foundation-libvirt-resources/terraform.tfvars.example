@@ -11,9 +11,10 @@ network_baseline = {
   node_exporter_port = 9100
 }
 
-pki_config = {
+global_pki_identity = {
   root_ca_common_name         = "On-prem Infrastructure Root CA"
   intermediate_ca_common_name = "On-prem Infrastructure Intermediate CA"
+  mount_path                  = "pki_int"
 }
 
 # Harbor upstream registry proxy caches and OCI project definitions

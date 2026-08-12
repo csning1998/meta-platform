@@ -22,7 +22,7 @@ terraform {
 
 provider "vault" {
   alias        = "bootstrap"
-  address      = local.state.bootstrapper.vault_dev_endpoint
+  address      = local.state.bootstrapper.bastion_vault_endpoint
   ca_cert_file = abspath("${path.root}/../../../vault/tls/ca.pem")
 
   auth_login {
@@ -39,14 +39,14 @@ provider "vault" {
 # root-token-backed provider security-vault-approle uses for its own bootstrap operations.
 provider "vault" {
   alias        = "production"
-  address      = local.sys_vault_endpoint
+  address      = local.prod_vault_endpoint
   ca_cert_file = local.state.production.ca_cert_path
 
   auth_login {
     path = "auth/approle/login"
     parameters = {
-      role_id   = local.state.vault_prod_bootstrap.role_id
-      secret_id = local.state.vault_prod_bootstrap.secret_id
+      role_id   = local.state.security_vault_approle.role_id
+      secret_id = local.state.security_vault_approle.secret_id
     }
   }
   skip_child_token = true
