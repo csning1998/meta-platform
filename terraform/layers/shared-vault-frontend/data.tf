@@ -9,11 +9,6 @@ data "terraform_remote_state" "vault_bootstrapper" {
   config  = { address = "${local._state_base}/foundation-vault-bastion" }
 }
 
-data "terraform_remote_state" "volume" {
-  backend = "http"
-  config  = { address = "${local._state_base}/foundation-volume" }
-}
-
 data "terraform_remote_state" "load_balancer" {
   backend = "http"
   config  = { address = "${local._state_base}/shared-load-balancer-frontend" }

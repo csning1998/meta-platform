@@ -20,7 +20,7 @@ data "terraform_remote_state" "security_pki" {
 
 data "terraform_remote_state" "harbor_bootstrapper" {
   backend = "http"
-  config  = { address = "${local._state_base}/infra-harbor-bootstrapper-frontend" }
+  config  = { address = "${local._state_base}/shared-harbor-bootstrapper-frontend" }
 }
 
 data "terraform_remote_state" "keycloak_oidc" {

@@ -2,7 +2,7 @@
 
 data "terraform_remote_state" "volume" {
   backend = "http"
-  config  = { address = "${local._state_base}/foundation-volume" }
+  config  = { address = "${local._state_base}/foundation-libvirt-resources" }
 }
 
 data "terraform_remote_state" "load_balancer" {
@@ -24,10 +24,4 @@ data "vault_kv_secret_v2" "guest_vm" {
   provider = vault.production
   mount    = "secret"
   name     = "meta-platform/guest_vm"
-}
-
-data "vault_kv_secret_v2" "creds" {
-  provider = vault.production
-  mount    = "secret"
-  name     = local.credential_paths["harbor-bootstrapper"]["frontend"]
 }

@@ -11,18 +11,8 @@ locals {
   vault_pki_cert_path = data.terraform_remote_state.security_pki.outputs.bastion_pki_chain_b64.path
 }
 
-# Credential path map alias passed through from security-vault-approle
+# Vault Agent identity
 locals {
-  credential_paths = data.terraform_remote_state.security_vault_approle.outputs.global_credential_paths
-}
-
-# Service-specific credentials and Vault Agent identity
-locals {
-  sec_app_creds = {
-    harbor_admin_password = data.vault_kv_secret_v2.creds.data["harbor_bootstrapper_admin_password"]
-    harbor_pg_db_password = data.vault_kv_secret_v2.creds.data["harbor_bootstrapper_pg_db_password"]
-  }
-
   sec_vault_agent_identity = merge(module.context.vault_agent_identity_base, {
     secret_id = vault_approle_auth_backend_role_secret_id.bootstrap_harbor_agent.secret_id
   })
@@ -66,9 +56,7 @@ locals {
   }
 
   ansible_extra_vars = {
-    shared_harbor_bootstrapper_admin_password = local.sec_app_creds.harbor_admin_password
-    shared_harbor_bootstrapper_pg_db_password = local.sec_app_creds.harbor_pg_db_password
-    vault_agent_common_name                   = local.sec_vault_agent_identity.common_name
-    vault_agent_cert_ttl                      = data.terraform_remote_state.security_pki.outputs.prod_pki_configuration.lease_durations.agent
+    vault_agent_common_name = local.sec_vault_agent_identity.common_name
+    vault_agent_cert_ttl    = data.terraform_remote_state.security_pki.outputs.prod_pki_configuration.lease_durations.agent
   }
 }

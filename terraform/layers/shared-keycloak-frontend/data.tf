@@ -2,7 +2,7 @@
 
 data "terraform_remote_state" "volume" {
   backend = "http"
-  config  = { address = "${local._state_base}/foundation-volume" }
+  config  = { address = "${local._state_base}/foundation-libvirt-resources" }
 }
 
 data "terraform_remote_state" "load_balancer" {
