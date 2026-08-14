@@ -93,7 +93,7 @@ variable "service_catalog" {
     condition = alltrue(flatten([
       for s in var.service_catalog : [
         for c in s.components : contains([
-          "baremetal", "docker", "podman", "microk8s", "kubeadm", "minikube", "external"
+          "baremetal", "docker", "podman", "microk8s", "kubeadm", "minikube", "talos", "external"
         ], c.runtime)
       ]
     ]))

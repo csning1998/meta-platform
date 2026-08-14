@@ -1,3 +1,4 @@
+
 variable "vault_kv_namespace" {
   description = "Project-level Vault KV namespace prefix"
   type        = string

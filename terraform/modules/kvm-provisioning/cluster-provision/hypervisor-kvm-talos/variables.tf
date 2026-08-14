@@ -1,0 +1,74 @@
+
+variable "create_networks" {
+  description = "Controls network resource creation within the module. Set false when networks are pre-provisioned by foundation-libvirt-resources."
+  type        = bool
+  default     = true
+}
+
+variable "talos_iso_path" {
+  description = "Absolute file path to the shared Talos Metal installation ISO boot media."
+  type        = string
+}
+
+variable "talos_cluster_vm_config" {
+  description = "Talos node specifications defining hardware resources and ordered interface bindings (NAT, HostOnly, followed by service segments)."
+  type = object({
+    storage_pool_name = string
+    nodes = map(object({
+      vcpu                 = number
+      ram                  = number
+      os_disk_capacity_gib = optional(number, 40)
+
+      interfaces = list(object({
+        network_name = string
+        mac          = string
+        alias        = optional(string)
+        addresses    = optional(list(string), [])
+      }))
+    }))
+  })
+
+  validation {
+    condition = alltrue([
+      for node in values(var.talos_cluster_vm_config.nodes) :
+      length(node.interfaces) >= 2 && length(node.interfaces[1].addresses) >= 1
+    ])
+    error_message = "Every node requires at least two interfaces, with interfaces[1] (the HostOnly interface) carrying at least one static address."
+  }
+}
+
+variable "network_infrastructure" {
+  description = "HostOnly and NAT network specifications keyed by cluster_name. NAT includes DHCP allocation for initial maintenance-mode bootstrap."
+  type = map(object({
+    hostonly = object({
+      name        = string
+      bridge_name = string
+      gateway     = string
+      prefix      = number
+      mtu         = number
+    })
+    nat = object({
+      name        = string
+      bridge_name = string
+      gateway     = string
+      prefix      = number
+      mtu         = number
+      dhcp = optional(object({
+        start = string
+        end   = string
+      }))
+    })
+    access_scope = optional(string)
+  }))
+}
+
+variable "talos_cluster_service_segments" {
+  description = "Service segment network definitions for infrastructure creation, matching the network_service_segments schema consumed by lb-interface-planner."
+  type = list(object({
+    name           = string
+    bridge_name    = string
+    interface_name = string
+    cidr           = string
+    tags           = optional(list(string))
+  }))
+}

@@ -1,0 +1,13 @@
+
+target_cluster_name = "platform-cilium-frontend"
+storage_pool_name   = "default"
+
+node_config = {
+  "00" = { ip_suffix = 10, vcpu = 2, ram = 2048 }
+  "01" = { ip_suffix = 11, vcpu = 2, ram = 2048 }
+  "02" = { ip_suffix = 12, vcpu = 2, ram = 2048 }
+}
+
+talos_version            = "v1.13.8"
+talos_kubernetes_version = "v1.32.0"
+cilium_chart_version     = "1.16.5"
