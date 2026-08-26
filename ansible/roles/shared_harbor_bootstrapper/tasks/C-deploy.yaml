@@ -1,51 +1,50 @@
 ---
-- name: "C1. Retrieve Harbor Credentials"
-  community.hashi_vault.vault_kv2_get:
-    url: "{{ vault_endpoint }}"
-    path: "{{ vault_kv_namespace }}/harbor-bootstrapper/frontend"
-    engine_mount_point: "secret"
-    auth_method: approle
-    mount_point: "{{ vault_auth_path }}"
-    role_id: "{{ vault_agent_role_id }}"
-    secret_id: "{{ vault_agent_secret_id }}"
-    ca_cert: "{{ shared_harbor_bootstrapper_vault_agent_config_dir }}/vault-ca.crt"
-  register: shared_harbor_bootstrapper_harbor_vault_secrets
-  no_log: true
-
-- name: "C2. Render harbor.yml"
+- name: "C1. Render harbor.yml"
   ansible.builtin.template:
     src: harbor.yml.j2
-    dest: "{{ shared_harbor_bootstrapper_harbor_install_dir }}/harbor.yml"
+    dest: "{{ platform_harbor_origin_harbor_install_dir }}/harbor.yml"
     owner: root
     group: root
     mode: "0600"
-  register: shared_harbor_bootstrapper_harbor_system_config_status
+  register: platform_harbor_origin_harbor_system_config_status
 
-- name: "C3. Run Install Script (First Time Only)"
+- name: "C2. Run Install Script (First Time Only)"
   ansible.builtin.command:
-    cmd: "./install.sh {{ shared_harbor_bootstrapper_harbor_installer_flags }}"
-    chdir: "{{ shared_harbor_bootstrapper_harbor_install_dir }}"
+    cmd: "./install.sh {{ platform_harbor_origin_harbor_installer_flags }}"
+    chdir: "{{ platform_harbor_origin_harbor_install_dir }}"
   args:
-    creates: "{{ shared_harbor_bootstrapper_harbor_install_dir }}/docker-compose.yml"
+    creates: "{{ platform_harbor_origin_harbor_install_dir }}/docker-compose.yml"
+  register: platform_harbor_origin_install
 
-- name: "C4. Distribute Vault PKI Issuing CA to Harbor's own trust store"
-  ansible.builtin.copy:
-    src: /usr/local/share/ca-certificates/vault-pki-issuing-ca.crt
-    dest: >-
-      {{ shared_harbor_bootstrapper_harbor_install_dir }}/common/config/shared/trust-certificates/vault-pki-issuing-ca.crt
-    remote_src: true
-    owner: root
-    group: root
-    mode: "0644"
-  notify: Restart Harbor Service
+- name: "C3. Distribute Bastion CA to Harbor's own trust store"
+  when: vault_ca_cert_b64 is defined
+  block:
+    - name: "C3a. Ensure Harbor trust-certificates directory exists"
+      ansible.builtin.file:
+        path: "{{ platform_harbor_origin_harbor_install_dir }}/common/config/shared/trust-certificates"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
 
-- name: "C5. Find docker executable"
+    - name: "C3b. Copy Bastion CA into Harbor trust store"
+      ansible.builtin.copy:
+        src: "{{ platform_harbor_origin_harbor_ca_path }}"
+        dest: >-
+          {{ platform_harbor_origin_harbor_install_dir }}/common/config/shared/trust-certificates/bastion-pki.crt
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart Harbor Service
+
+- name: "C4. Find docker executable"
   ansible.builtin.command: which docker
-  register: shared_harbor_bootstrapper_docker_exec
+  register: platform_harbor_origin_docker_exec
   changed_when: false
   check_mode: false
 
-- name: "C6. Deploy Harbor Systemd Service"
+- name: "C5. Deploy Harbor Systemd Service"
   ansible.builtin.template:
     src: harbor.service.j2
     dest: /etc/systemd/system/harbor.service
@@ -53,22 +52,35 @@
     group: root
     mode: "0644"
   vars:
-    docker_executable: "{{ shared_harbor_bootstrapper_docker_exec.stdout }}"
+    docker_executable: "{{ platform_harbor_origin_docker_exec.stdout }}"
   notify: Restart Harbor Service
 
-- name: "C7. Reconfigure Harbor (If Config Changed)"
+# install.sh already ran prepare. A second prepare restarts core while
+# golang-migrate is still running and leaves schema_migrations dirty.
+- name: "C6. Reconfigure Harbor (If Config Changed)"
   ansible.builtin.command:
-    cmd: "./prepare {{ shared_harbor_bootstrapper_harbor_installer_flags }}"
-    chdir: "{{ shared_harbor_bootstrapper_harbor_install_dir }}"
+    cmd: "./prepare {{ platform_harbor_origin_harbor_installer_flags }}"
+    chdir: "{{ platform_harbor_origin_harbor_install_dir }}"
   when:
-    - shared_harbor_bootstrapper_harbor_system_config_status.changed
+    - platform_harbor_origin_harbor_system_config_status.changed
+    - not (platform_harbor_origin_install.changed | default(false))
     - not (ansible_check_mode | bool)
   changed_when: true
   notify: Restart Harbor Service
 
-- name: "C8. Enable and Start Harbor Service"
+- name: "C7. Enable and Start Harbor Service"
   ansible.builtin.systemd:
     name: harbor
     state: started
     enabled: true
     daemon_reload: true
+
+- name: "C8. Wait for harbor-core health after start or prepare"
+  ansible.builtin.command:
+    cmd: docker inspect --format {% raw %}{{.State.Health.Status}}{% endraw %} harbor-core
+  register: platform_harbor_origin_core_health
+  until: platform_harbor_origin_core_health.stdout == "healthy"
+  retries: 30
+  delay: 10
+  changed_when: false
+  failed_when: platform_harbor_origin_core_health.stdout != "healthy"

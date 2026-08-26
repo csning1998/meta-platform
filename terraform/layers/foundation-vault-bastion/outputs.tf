@@ -44,3 +44,12 @@ output "bastion_pki_inter_mount_path" {
   description = "Mount path of the Bootstrap Issuing Intermediate PKI engine, used by downstream layers to request bootstrap leaf certificates."
   value       = vault_mount.pki_inter.path
 }
+
+output "credential_paths" {
+  description = "Mount-relative Bastion KV paths written by this layer, nested by domain and component."
+  value = {
+    "harbor-origin" = {
+      frontend = module.harbor_origin_credentials.path
+    }
+  }
+}

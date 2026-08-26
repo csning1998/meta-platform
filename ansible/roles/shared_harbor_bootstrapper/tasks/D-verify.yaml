@@ -5,26 +5,26 @@
 
 - name: "D2. Wait for Harbor Health (HTTPS)"
   ansible.builtin.uri:
-    url: "https://{{ harbor_bootstrapper_fqdn }}/api/v2.0/health"
+    url: "https://{{ platform_harbor_origin_external_hostname }}/api/v2.0/health"
     validate_certs: true
     ca_path: "/etc/ssl/certs/ca-certificates.crt"
     status_code: 200
     return_content: true
-  register: shared_harbor_bootstrapper_result
-  until: shared_harbor_bootstrapper_result.status == 200
+  register: platform_harbor_origin_result
+  until: platform_harbor_origin_result.status == 200
   retries: 30
   delay: 10
 
 - name: "D3. Download Helm installation script"
   ansible.builtin.get_url:
-    url: "{{ shared_harbor_bootstrapper_helm_install_script_url }}"
+    url: "{{ platform_harbor_origin_helm_install_script_url }}"
     dest: /tmp/get_helm.sh
     mode: "0700"
-    checksum: "{{ shared_harbor_bootstrapper_helm_install_script_checksum }}"
+    checksum: "{{ platform_harbor_origin_helm_install_script_checksum }}"
 
 - name: "D4. Execute Helm installation script"
   ansible.builtin.command:
     cmd: /tmp/get_helm.sh
     creates: /usr/local/bin/helm
   environment:
-    DESIRED_VERSION: "{{ shared_harbor_bootstrapper_helm_version }}"
+    DESIRED_VERSION: "{{ platform_harbor_origin_helm_version }}"

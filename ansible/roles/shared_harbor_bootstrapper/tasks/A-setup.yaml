@@ -12,7 +12,7 @@
 
     - name: "A1b. Ensure Harbor Data Directory Exists"
       ansible.builtin.file:
-        path: "{{ shared_harbor_bootstrapper_harbor_data_dir }}"
+        path: "{{ platform_harbor_origin_harbor_data_dir }}"
         state: directory
         owner: root
         group: root
@@ -20,7 +20,7 @@
 
     - name: "A1c. Mount to Harbor Data Directory: {{ data_device }}"
       ansible.posix.mount:
-        path: "{{ shared_harbor_bootstrapper_harbor_data_dir }}"
+        path: "{{ platform_harbor_origin_harbor_data_dir }}"
         src: "{{ data_device }}"
         fstype: ext4
         opts: defaults,noatime,nodiratime

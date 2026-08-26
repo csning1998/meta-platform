@@ -2,8 +2,7 @@
 terraform {
   required_providers {
     vault = {
-      source                = "hashicorp/vault"
-      configuration_aliases = [vault.production]
+      source = "hashicorp/vault"
     }
     random = {
       source = "hashicorp/random"
@@ -23,13 +22,11 @@ resource "random_password" "this" {
 }
 
 resource "vault_kv_secret_v2" "this" {
-  provider = vault.production
-  mount    = var.vault_kv_mount
-  name     = "${var.vault_kv_namespace}/${var.domain}/${var.component}"
+  mount = var.vault_kv_mount
+  name  = "${var.vault_kv_namespace}/${var.domain}/${var.component}"
 
   data_json = jsonencode(merge(
     var.static,
     { for k, v in random_password.this : k => v.result }
   ))
-
 }

@@ -1,27 +1,20 @@
 
-
-data "terraform_remote_state" "volume" {
+data "terraform_remote_state" "network" {
   backend = "http"
   config  = { address = "${local._state_base}/foundation-libvirt-resources" }
 }
 
-data "terraform_remote_state" "load_balancer" {
+data "terraform_remote_state" "vault_bastion" {
   backend = "http"
-  config  = { address = "${local._state_base}/shared-load-balancer-frontend" }
-}
-
-data "terraform_remote_state" "security_vault_approle" {
-  backend = "http"
-  config  = { address = "${local._state_base}/security-vault-approle" }
-}
-
-data "terraform_remote_state" "security_pki" {
-  backend = "http"
-  config  = { address = "${local._state_base}/security-pki" }
+  config  = { address = "${local._state_base}/foundation-vault-bastion" }
 }
 
 data "vault_kv_secret_v2" "guest_vm" {
-  provider = vault.production
-  mount    = "secret"
-  name     = "meta-platform/guest_vm"
+  mount = "secret"
+  name  = "${local.vault_kv_namespace}/guest_vm"
+}
+
+data "vault_kv_secret_v2" "harbor_origin" {
+  mount = "secret"
+  name  = "${local.vault_kv_namespace}/harbor-origin/frontend"
 }

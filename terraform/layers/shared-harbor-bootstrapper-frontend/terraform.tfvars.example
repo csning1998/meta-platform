@@ -1,10 +1,10 @@
 
-target_clusters = { "harbor_bootstrapper" = "platform-harbor-bootstrapper-frontend" }
-primary_role    = "harbor_bootstrapper"
+target_clusters = { "harbor_origin" = "platform-harbor-bootstrapper-frontend" }
+primary_role    = "harbor_origin"
 
 service_config = {
-  "harbor_bootstrapper" = {
-    role            = "harbor_bootstrapper"
+  "harbor_origin" = {
+    role            = "harbor_origin"
     network_tier    = "default"
     base_image_path = "../../../packer/output/base-docker-harbor/ubuntu-24-base-docker-harbor.qcow2"
     nodes = {

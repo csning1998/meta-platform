@@ -1,8 +1,9 @@
 
 # Define Terraform Administrative Policy
 resource "vault_policy" "terraform_admin" {
-  name   = "terraform-admin-policy"
-  policy = <<EOT
+  provider = vault.bastion
+  name     = "terraform-admin-policy"
+  policy   = <<EOT
 # [1] Data Operations: Includes read, create, update, and soft delete of the latest version
 path "secret/data/meta-platform/*" {
   capabilities = ["read", "create", "update", "delete"]
@@ -44,17 +45,20 @@ EOT
 
 # Enable AppRole auth backend
 resource "vault_auth_backend" "approle" {
-  type = "approle"
+  provider = vault.bastion
+  type     = "approle"
 }
 
 # Enable kv-v2 engine
 resource "vault_mount" "kv" {
-  path = "secret"
-  type = "kv-v2"
+  provider = vault.bastion
+  path     = "secret"
+  type     = "kv-v2"
 }
 
 # Create the Terraform AppRole
 resource "vault_approle_auth_backend_role" "terraform_admin" {
+  provider       = vault.bastion
   backend        = vault_auth_backend.approle.path
   role_name      = "terraform-admin-role"
   token_policies = [vault_policy.terraform_admin.name]
@@ -63,13 +67,15 @@ resource "vault_approle_auth_backend_role" "terraform_admin" {
 }
 
 resource "vault_approle_auth_backend_role_secret_id" "terraform_admin" {
+  provider  = vault.bastion
   backend   = vault_auth_backend.approle.path
   role_name = vault_approle_auth_backend_role.terraform_admin.role_name
 }
 
 resource "vault_kv_secret_v2" "terraform_admin_auth" {
-  mount = vault_mount.kv.path
-  name  = "meta-platform/credentials"
+  provider = vault.bastion
+  mount    = vault_mount.kv.path
+  name     = "meta-platform/credentials"
   data_json = jsonencode({
     role_id   = vault_approle_auth_backend_role.terraform_admin.role_id
     secret_id = vault_approle_auth_backend_role_secret_id.terraform_admin.secret_id

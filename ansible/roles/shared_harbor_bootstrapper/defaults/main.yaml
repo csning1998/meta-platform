@@ -1,39 +1,38 @@
 ---
 # Harbor Installation Paths
-shared_harbor_bootstrapper_harbor_install_dir: "/opt/harbor-install"
-shared_harbor_bootstrapper_harbor_data_dir: "/data/harbor"
+platform_harbor_origin_harbor_install_dir: "/opt/harbor-install"
+platform_harbor_origin_harbor_data_dir: "/data/harbor"
 
 # Harbor Container User IDs (Harbor 2.x uses 10000)
-shared_harbor_bootstrapper_harbor_uid: 10000
-shared_harbor_bootstrapper_harbor_gid: 10000
+platform_harbor_origin_harbor_uid: 10000
+platform_harbor_origin_harbor_gid: 10000
 
 # PKI Paths (Host Side)
-# Vault Agent will write certs here.
-# Harbor will mount these files into the container.
-shared_harbor_bootstrapper_harbor_pki_dir: "{{ shared_harbor_bootstrapper_harbor_data_dir }}/pki"
-shared_harbor_bootstrapper_harbor_cert_path: "{{ shared_harbor_bootstrapper_harbor_pki_dir }}/server.crt"
-shared_harbor_bootstrapper_harbor_key_path: "{{ shared_harbor_bootstrapper_harbor_pki_dir }}/server.key"
-shared_harbor_bootstrapper_harbor_ca_path: "{{ shared_harbor_bootstrapper_harbor_pki_dir }}/ca.crt"
+# Bastion-issued leaf material is written here. Harbor mounts these files.
+platform_harbor_origin_harbor_pki_dir: "{{ platform_harbor_origin_harbor_data_dir }}/pki"
+platform_harbor_origin_harbor_cert_path: "{{ platform_harbor_origin_harbor_pki_dir }}/server.crt"
+platform_harbor_origin_harbor_key_path: "{{ platform_harbor_origin_harbor_pki_dir }}/server.key"
+platform_harbor_origin_harbor_ca_path: "{{ platform_harbor_origin_harbor_pki_dir }}/ca.crt"
 
 # Internal Harbor Config PKI Paths (for Nginx)
-shared_harbor_bootstrapper_harbor_config_cert_dir: "{{ shared_harbor_bootstrapper_harbor_data_dir }}/secret/cert"
+platform_harbor_origin_harbor_config_cert_dir: "{{ platform_harbor_origin_harbor_data_dir }}/secret/cert"
 
-# Vault Agent Configuration
-shared_harbor_bootstrapper_vault_agent_config_dir: "/etc/vault.d"
+platform_harbor_origin_admin_password: "{{ harbor_origin_admin_password }}"
+platform_harbor_origin_pg_db_password: "{{ harbor_origin_pg_db_password }}"
 
-# Database and Harbor Admin Password from Vault
-shared_harbor_bootstrapper_admin_password: >-
-  {{ shared_harbor_bootstrapper_harbor_vault_secrets.secret.harbor_bootstrapper_admin_password }}
-shared_harbor_bootstrapper_pg_db_password: >-
-  {{ shared_harbor_bootstrapper_harbor_vault_secrets.secret.harbor_bootstrapper_pg_db_password }}
+# Harbor ext_url MUST use the FQDN after the VIP is announced.
+platform_harbor_origin_external_hostname: >-
+  {{ harbor_origin_fqdn
+    if harbor_origin_stage == "registered"
+    else harbor_origin_listen_address }}
 
 # Helm Installation
-shared_harbor_bootstrapper_helm_version: "v3.14.3"
-shared_harbor_bootstrapper_helm_install_script_url: >-
-  https://raw.githubusercontent.com/helm/helm/{{ shared_harbor_bootstrapper_helm_version }}/scripts/get-helm-3
-shared_harbor_bootstrapper_helm_install_script_checksum: >-
+platform_harbor_origin_helm_version: "v3.14.3"
+platform_harbor_origin_helm_install_script_url: >-
+  https://raw.githubusercontent.com/helm/helm/{{ platform_harbor_origin_helm_version }}/scripts/get-helm-3
+platform_harbor_origin_helm_install_script_checksum: >-
   sha256:6701e269a95eec0a5f67067f504f43ad94e9b4a52ec1205d26b3973d6f5cb3dc
 
 # Harbor Installer Configuration
 # Example: "--with-trivy --with-chartmuseum"
-shared_harbor_bootstrapper_harbor_installer_flags: "--with-trivy"
+platform_harbor_origin_harbor_installer_flags: "--with-trivy"

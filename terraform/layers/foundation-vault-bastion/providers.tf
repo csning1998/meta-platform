@@ -5,6 +5,10 @@ terraform {
       source  = "hashicorp/vault"
       version = "5.5.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "3.6.3"
+    }
   }
   backend "http" {
     address        = "https://gitlab.com/api/v4/projects/84608830/terraform/state/foundation-vault-bastion"
@@ -16,8 +20,9 @@ terraform {
   }
 }
 
-# The target Vault being configured (Bootstrapper/Initial Vault)
+# The target Vault being configured (Bastion Vault)
 provider "vault" {
+  alias        = "bastion"
   address      = var.bastion_vault_endpoint
   ca_cert_file = abspath("${path.root}/../../../vault/tls/ca.pem")
 }

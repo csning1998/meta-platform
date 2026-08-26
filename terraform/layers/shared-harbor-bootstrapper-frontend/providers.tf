@@ -24,17 +24,15 @@ provider "libvirt" {
   uri = "qemu:///system"
 }
 
-# Production Provider (security-vault-approle)
 provider "vault" {
-  alias        = "production"
-  address      = local.sys_vault_endpoint
-  ca_cert_file = local.vault_pki_cert_path
+  address      = local.state.vault_bastion.bastion_vault_endpoint
+  ca_cert_file = local.state.vault_bastion.bastion_vault_listener_ca_cert_path
 
   auth_login {
     path = "auth/approle/login"
     parameters = {
-      role_id   = data.terraform_remote_state.security_vault_approle.outputs.role_id
-      secret_id = data.terraform_remote_state.security_vault_approle.outputs.secret_id
+      role_id   = local.state.vault_bastion.role_id
+      secret_id = local.state.vault_bastion.secret_id
     }
   }
   skip_child_token = true

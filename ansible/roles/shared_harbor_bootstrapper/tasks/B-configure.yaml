@@ -1,37 +1,92 @@
 ---
-- name: "B3. Distribute Vault PKI Service CA to OS trust store"
-  ansible.builtin.copy:
-    content: "{{ vault_ca_cert_b64 | b64decode }}"
-    dest: /usr/local/share/ca-certificates/vault-ca.crt
-    mode: "0644"
-    owner: root
-    group: root
-
-- name: "B4. Force update CA certificates before downloading Issuing CA"
-  ansible.builtin.command: update-ca-certificates
-  changed_when: false
-
-- name: "B5. Download Vault PKI Issuing CA to OS trust store"
-  ansible.builtin.get_url:
-    url: "{{ vault_endpoint | trim('/') }}/v1/{{ vault_pki_mount_path }}/ca/pem"
-    dest: /usr/local/share/ca-certificates/vault-pki-issuing-ca.crt
-    mode: "0644"
-    owner: root
-    group: root
-    validate_certs: true
-
-- name: "B6. Discover Harbor UID/GID from existing directory"
+- name: "B1. Discover Harbor UID/GID from existing directory"
   ansible.builtin.stat:
-    path: "{{ shared_harbor_bootstrapper_harbor_pki_dir }}"
-  register: shared_harbor_bootstrapper_harbor_dir_stat
+    path: "{{ platform_harbor_origin_harbor_pki_dir }}"
+  register: platform_harbor_origin_harbor_dir_stat
 
-- name: "B7. Set Harbor ID Facts"
+- name: "B2. Set Harbor ID Facts"
   ansible.builtin.set_fact:
-    _shared_harbor_bootstrapper_harbor_uid: >-
-      {{ (shared_harbor_bootstrapper_harbor_dir_stat.stat.uid
-          if shared_harbor_bootstrapper_harbor_dir_stat.stat.exists
-          else shared_harbor_bootstrapper_harbor_uid) | int }}
-    _shared_harbor_bootstrapper_harbor_gid: >-
-      {{ (shared_harbor_bootstrapper_harbor_dir_stat.stat.gid
-          if shared_harbor_bootstrapper_harbor_dir_stat.stat.exists
-          else shared_harbor_bootstrapper_harbor_gid) | int }}
+    _platform_harbor_origin_harbor_uid: >-
+      {{ (platform_harbor_origin_harbor_dir_stat.stat.uid
+          if platform_harbor_origin_harbor_dir_stat.stat.exists
+          else platform_harbor_origin_harbor_uid) | int }}
+    _platform_harbor_origin_harbor_gid: >-
+      {{ (platform_harbor_origin_harbor_dir_stat.stat.gid
+          if platform_harbor_origin_harbor_dir_stat.stat.exists
+          else platform_harbor_origin_harbor_gid) | int }}
+
+- name: "B3. Ensure Harbor PKI directories exist"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ _platform_harbor_origin_harbor_uid }}"
+    group: "{{ _platform_harbor_origin_harbor_gid }}"
+    mode: "0700"
+  loop:
+    - "{{ platform_harbor_origin_harbor_pki_dir }}"
+    - "{{ platform_harbor_origin_harbor_config_cert_dir }}"
+
+- name: "B4. Deploy Bastion-issued listener certificate"
+  when:
+    - vault_server_cert_b64 is defined
+    - vault_server_key_b64 is defined
+    - vault_ca_cert_b64 is defined
+  block:
+    - name: "B4a. Write server certificate"
+      ansible.builtin.copy:
+        content: "{{ vault_server_cert_b64 | b64decode }}"
+        dest: "{{ platform_harbor_origin_harbor_cert_path }}"
+        owner: "{{ _platform_harbor_origin_harbor_uid }}"
+        group: "{{ _platform_harbor_origin_harbor_gid }}"
+        mode: "0644"
+      notify: Restart Harbor Service
+
+    - name: "B4b. Write server private key"
+      ansible.builtin.copy:
+        content: "{{ vault_server_key_b64 | b64decode }}"
+        dest: "{{ platform_harbor_origin_harbor_key_path }}"
+        owner: "{{ _platform_harbor_origin_harbor_uid }}"
+        group: "{{ _platform_harbor_origin_harbor_gid }}"
+        mode: "0600"
+      notify: Restart Harbor Service
+
+    - name: "B4c. Write CA chain"
+      ansible.builtin.copy:
+        content: "{{ vault_ca_cert_b64 | b64decode }}"
+        dest: "{{ platform_harbor_origin_harbor_ca_path }}"
+        owner: "{{ _platform_harbor_origin_harbor_uid }}"
+        group: "{{ _platform_harbor_origin_harbor_gid }}"
+        mode: "0644"
+
+    - name: "B4d. Copy certificate into Harbor nginx secret directory"
+      ansible.builtin.copy:
+        src: "{{ platform_harbor_origin_harbor_cert_path }}"
+        dest: "{{ platform_harbor_origin_harbor_config_cert_dir }}/server.crt"
+        remote_src: true
+        owner: "{{ _platform_harbor_origin_harbor_uid }}"
+        group: "{{ _platform_harbor_origin_harbor_gid }}"
+        mode: "0644"
+
+    - name: "B4e. Copy private key into Harbor nginx secret directory"
+      ansible.builtin.copy:
+        src: "{{ platform_harbor_origin_harbor_key_path }}"
+        dest: "{{ platform_harbor_origin_harbor_config_cert_dir }}/server.key"
+        remote_src: true
+        owner: "{{ _platform_harbor_origin_harbor_uid }}"
+        group: "{{ _platform_harbor_origin_harbor_gid }}"
+        mode: "0600"
+
+- name: "B5. Install Bastion CA into the OS trust store"
+  when: vault_ca_cert_b64 is defined
+  block:
+    - name: "B5a. Write Bastion CA certificate"
+      ansible.builtin.copy:
+        content: "{{ vault_ca_cert_b64 | b64decode }}"
+        dest: /usr/local/share/ca-certificates/bastion-pki.crt
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: "B5b. Update OS trust store"
+      ansible.builtin.command: update-ca-certificates
+      changed_when: false

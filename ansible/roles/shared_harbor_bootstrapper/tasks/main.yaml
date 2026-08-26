@@ -1,43 +1,107 @@
 ---
+- name: "Assert Harbor Origin required variables"
+  tags: always
+  ansible.builtin.assert:
+    that:
+      - harbor_origin_stage is defined
+      - harbor_origin_stage in ["bootstrapping", "registered"]
+      - harbor_origin_admin_password is defined
+      - harbor_origin_pg_db_password is defined
+      - harbor_origin_fqdn is defined
+      - harbor_origin_listen_address is defined
+    fail_msg: >-
+      harbor_origin_stage, harbor_origin_admin_password, harbor_origin_pg_db_password,
+      harbor_origin_fqdn, and harbor_origin_listen_address must all be supplied by the caller.
+      harbor_origin_stage received: {{ harbor_origin_stage | default('undefined') }}.
+    success_msg: "Harbor Origin stage is {{ harbor_origin_stage }}"
+
 - name: "Role 81: Configure Network Routing"
+  tags:
+    - registered
   ansible.builtin.include_role:
     name: utils_asymmetric_routing
+    apply:
+      tags:
+        - registered
   vars:
-    utils_asymmetric_routing_static_routes: "{{ harbor_bootstrapper_static_routes }}"
-  when: harbor_bootstrapper_static_routes is defined
+    utils_asymmetric_routing_static_routes: "{{ harbor_origin_static_routes }}"
+  when:
+    - harbor_origin_stage == "registered"
+    - harbor_origin_static_routes is defined
+    - harbor_origin_static_routes | length > 0
 
 - name: "Section A. Setup Harbor Environment"
-  ansible.builtin.include_tasks: A-setup.yaml
+  tags:
+    - bootstrapping
+    - registered
+  ansible.builtin.include_tasks:
+    file: A-setup.yaml
+    apply:
+      tags:
+        - bootstrapping
+        - registered
 
-- name: "Section B. Configure PKI and Vault Agent"
-  ansible.builtin.include_tasks: B-configure.yaml
+- name: "Section B. Configure PKI"
+  tags:
+    - bootstrapping
+    - registered
+  ansible.builtin.include_tasks:
+    file: B-configure.yaml
+    apply:
+      tags:
+        - bootstrapping
+        - registered
 
 - name: "Role 82: Prepare Environment for Vault Agent"
+  tags:
+    - registered
   ansible.builtin.include_role:
     name: utils_vault_agent
+    apply:
+      tags:
+        - registered
   vars:
-    utils_vault_agent_owner: "{{ _shared_harbor_bootstrapper_harbor_uid }}"
-    utils_vault_agent_group: "{{ _shared_harbor_bootstrapper_harbor_gid }}"
-    utils_vault_agent_cert_base_dir: "{{ shared_harbor_bootstrapper_harbor_pki_dir }}"
+    utils_vault_agent_owner: "{{ _platform_harbor_origin_harbor_uid }}"
+    utils_vault_agent_group: "{{ _platform_harbor_origin_harbor_gid }}"
+    utils_vault_agent_cert_base_dir: "{{ platform_harbor_origin_harbor_pki_dir }}"
     utils_vault_agent_cert_dirs:
-      - "{{ shared_harbor_bootstrapper_harbor_pki_dir }}"
-      - "{{ shared_harbor_bootstrapper_harbor_config_cert_dir }}"
-    utils_vault_agent_wait_file: "{{ shared_harbor_bootstrapper_harbor_cert_path }}"
-    utils_vault_agent_ip_sans: "{{ advertise_ip }},{{ harbor_bootstrapper_vip }}"
+      - "{{ platform_harbor_origin_harbor_pki_dir }}"
+      - "{{ platform_harbor_origin_harbor_config_cert_dir }}"
+    utils_vault_agent_wait_file: "{{ platform_harbor_origin_harbor_cert_path }}"
+    utils_vault_agent_ip_sans: "{{ advertise_ip }},{{ harbor_origin_vip }}"
     utils_vault_agent_role_id: "{{ vault_agent_role_id }}"
     utils_vault_agent_secret_id: "{{ vault_agent_secret_id }}"
     utils_vault_agent_auth_path: "{{ vault_auth_path }}"
     utils_vault_agent_role_name: "{{ vault_role_name }}"
     utils_vault_agent_common_name: "{{ vault_agent_common_name }}"
     utils_vault_agent_post_command: |
-      install -m 0644 -o {{ _shared_harbor_bootstrapper_harbor_uid }} -g {{ _shared_harbor_bootstrapper_harbor_gid }} \
-        {{ shared_harbor_bootstrapper_harbor_cert_path }} {{ shared_harbor_bootstrapper_harbor_config_cert_dir }}/server.crt
-      install -m 0600 -o {{ _shared_harbor_bootstrapper_harbor_uid }} -g {{ _shared_harbor_bootstrapper_harbor_gid }} \
-        {{ shared_harbor_bootstrapper_harbor_key_path }} {{ shared_harbor_bootstrapper_harbor_config_cert_dir }}/server.key
+      install -m 0644 -o {{ _platform_harbor_origin_harbor_uid }} -g {{ _platform_harbor_origin_harbor_gid }} \
+        {{ platform_harbor_origin_harbor_cert_path }} {{ platform_harbor_origin_harbor_config_cert_dir }}/server.crt
+      install -m 0600 -o {{ _platform_harbor_origin_harbor_uid }} -g {{ _platform_harbor_origin_harbor_gid }} \
+        {{ platform_harbor_origin_harbor_key_path }} {{ platform_harbor_origin_harbor_config_cert_dir }}/server.key
       docker ps -q -f name=^nginx$ | grep -q . && docker exec -i nginx nginx -s reload || true
+  when:
+    - harbor_origin_stage == "registered"
+    - vault_agent_role_id is defined
 
 - name: "Section C. Deploy Harbor Instance"
-  ansible.builtin.include_tasks: C-deploy.yaml
+  tags:
+    - bootstrapping
+    - registered
+  ansible.builtin.include_tasks:
+    file: C-deploy.yaml
+    apply:
+      tags:
+        - bootstrapping
+        - registered
 
 - name: "Section D. Verify Harbor Readiness"
-  ansible.builtin.include_tasks: D-verify.yaml
+  tags:
+    - bootstrapping
+    - registered
+  ansible.builtin.include_tasks:
+    file: D-verify.yaml
+    apply:
+      tags:
+        - bootstrapping
+        - registered
