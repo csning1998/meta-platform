@@ -40,6 +40,48 @@ path "sys/mounts/${local.bastion_pki_inter_mount_path}" {
 path "${local.bastion_pki_inter_mount_path}/root/sign-intermediate" {
   capabilities = ["create", "update"]
 }
+
+# [8] JWT Auth Backend Management: mount/unmount the gitlab-saas-jwt backend
+# only. Scoped to the exact name so this role cannot delete a future
+# gitlab-instance-jwt backend it does not own.
+path "sys/auth/gitlab-saas-jwt" {
+  capabilities = ["create", "read", "update", "delete", "sudo"]
+}
+
+# [8a] Auth Mount Table Read: the provider reads the full mount table to look
+# up a single backend by path. Read-only, lists paths/types/accessors only.
+path "sys/auth" {
+  capabilities = ["read"]
+}
+
+# [8b] JWT Auth Backend Read/Tune: the provider reads and tunes mount config
+# via sys/mounts/auth/*, a separate endpoint from sys/auth/*. The trailing
+# glob is scoped safely here because "gitlab-saas-jwt" is already the full,
+# unique backend name, unlike the earlier "gitlab*" prefix.
+path "sys/mounts/auth/gitlab-saas-jwt*" {
+  capabilities = ["read", "create", "update"]
+}
+
+# [8c] Exact-Path Scoping: Vault ACL `*` only globs as the final path
+# character, so the paths below name the backend exactly instead of "gitlab*"
+path "sys/auth/gitlab-saas-jwt/tune" {
+  capabilities = ["create", "read", "update"]
+}
+
+# [9] JWT Backend Config: writes oidc_discovery_url and related backend settings
+path "auth/gitlab-saas-jwt/config" {
+  capabilities = ["create", "read", "update"]
+}
+
+# [10] JWT Role Management: per-consumer roles under a GitLab JWT auth backend
+path "auth/gitlab-saas-jwt/role/*" {
+  capabilities = ["create", "read", "update", "delete"]
+}
+
+# [11] JWT Policy Management: scoped to the federation module's naming convention
+path "sys/policies/acl/jwt-policy-*" {
+  capabilities = ["create", "read", "update", "delete"]
+}
 EOT
 }
 

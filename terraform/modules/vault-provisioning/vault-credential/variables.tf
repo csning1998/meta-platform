@@ -4,19 +4,13 @@ variable "vault_kv_namespace" {
   type        = string
 }
 
-variable "vault_kv_mount" {
-  description = "Vault KV v2 secrets engine mount path"
+variable "component" {
+  description = "Vault secret component within the domain"
   type        = string
-  default     = "secret"
 }
 
 variable "domain" {
   description = "Vault secret domain, the top-level service grouping under the namespace"
-  type        = string
-}
-
-variable "component" {
-  description = "Vault secret component within the domain"
   type        = string
 }
 
@@ -34,4 +28,10 @@ variable "static" {
   type        = map(string)
   default     = {}
   sensitive   = true
+}
+
+variable "vault_kv_mount" {
+  description = "Vault KV v2 secrets engine mount path"
+  type        = string
+  default     = "secret"
 }
