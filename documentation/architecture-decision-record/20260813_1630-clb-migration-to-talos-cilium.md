@@ -5,7 +5,7 @@
 1. **Load Balancer Tier Form**: The Central Load Balancer transitions from HAProxy and Keepalived on Ubuntu guest VMs to Cilium running inside a dedicated Talos Linux bootstrap cluster. Operating on Talos eliminates interactive shell and SSH access, satisfying management plane immutability requirements.
 2. **Bootstrap Identity Source**: The bastion Vault serves as the identity root for the bootstrap tier. Bootstrap credentials must originate from the bastion Vault or native Talos PKI to ensure the production Vault remains reachable via the load balancer tier. Runtime credentials (e.g., metrics endpoints) migrate to the production Vault via External Secrets Operator and cert-manager once steady-state operation is reached.
 
-3. **Harbor OCI Registry Placement**: The `shared-harbor-bootstrapper-frontend` layer moves earlier in the deployment sequence, positioned after the load balancer tier and before the production Vault. Its PKI and KV credential dependencies shift from the production Vault to the bastion Vault.
+3. **Harbor OCI Registry Placement**: The `platform-harbor-origin-frontend` layer moves earlier in the deployment sequence, positioned after the load balancer tier and before the production Vault. Its PKI and KV credential dependencies shift from the production Vault to the bastion Vault.
 4. **Service Discovery Mechanism**: Terraform generates Kubernetes Endpoint objects for baremetal services directly from the `service_catalog` single source of truth. The Kubernetes API acts as the service registry consumed by Cilium. HashiCorp Consul is excluded, as current platform architecture does not warrant an independent service discovery daemon.
 
 5. **Downstream Registration Model**: Consuming projects register their own services by writing Kubernetes API objects to the load balancer cluster under project-scoped credentials. Each consuming project retains its own `service_catalog` within its own repository. The `meta-platform` project performs no re-apply when a downstream project adds a service within an existing network segment.
@@ -32,16 +32,16 @@
     | --------- | ------------------------------------- | ------------------------------------------------------------- |
     | 1         | `foundation-libvirt-resources`        | Unchanged                                                     |
     | 2         | `foundation-vault-bastion`            | Expanded scope to serve the bootstrap tier                    |
-    | 3         | Talos load balancer tier              | New layer; replaces `shared-load-balancer-frontend`           |
-    | 4         | `shared-harbor-bootstrapper-frontend` | Advanced in sequence; PKI/KV sources shifted to bastion Vault |
-    | 5         | `shared-vault-frontend`               | Unchanged                                                     |
+    | 3         | Talos load balancer tier              | New layer; replaces `platform-load-balancer-frontend`           |
+    | 4         | `platform-harbor-origin-frontend` | Advanced in sequence; PKI/KV sources shifted to bastion Vault |
+    | 5         | `platform-vault-frontend`               | Unchanged                                                     |
     | 6         | `security-vault-approle`              | Unchanged                                                     |
     | 7         | `security-pki`                        | Unchanged                                                     |
     | 8         | `security-credentials`                | Unchanged                                                     |
-    | 9         | `shared-keycloak-frontend`            | Unchanged                                                     |
+    | 9         | `platform-keycloak-frontend`            | Unchanged                                                     |
     | 10        | `provision-*` layers                  | Unchanged relative ordering                                   |
 
-    Verification confirms the production Vault has no dependency on the container registry. `shared_vault` and `base_baremetal_vault` roles contain no references to Harbor, container registries, `oci://` URIs, or Helm charts. Advancing Harbor in the sequence introduces no conflicts with production Vault initialization.
+    Verification confirms the production Vault has no dependency on the container registry. `platform_vault` and `base_baremetal_vault` roles contain no references to Harbor, container registries, `oci://` URIs, or Helm charts. Advancing Harbor in the sequence introduces no conflicts with production Vault initialization.
 
     Verification also confirms that Harbor bootstrapper installation requires no external registry. The `base_docker_harbor` role reads an offline installation archive pre-populated at `/opt/harbor-install` by Packer, containing all required container images.
 

@@ -8,19 +8,19 @@
       ansible.builtin.group_by:
         key: "{{ node_role | replace('-', '_') }}"
 
-# 1. Harbor Bootstrapper Container and OCI Registry
-- name: "Play [Harbor]: Configure Harbor Bootstrapper Cluster"
-  hosts: "{{ 'harbor_bootstrapper' if 'harbor_bootstrapper' in groups else [] }}"
+# 1. Harbor Origin Container and OCI Registry
+- name: "Play [Harbor]: Configure Harbor Origin Cluster"
+  hosts: "{{ 'harbor_origin' if 'harbor_origin' in groups else [] }}"
   become: true
   roles:
-    - shared_harbor_bootstrapper
+    - platform_harbor_origin
 
 # 2. Keycloak for OIDC
 - name: "Play [Keycloak]: Configure Keycloak Container"
   hosts: "{{ 'keycloak' if 'keycloak' in groups else [] }}"
   become: true
   roles:
-    - shared_keycloak
+    - platform_keycloak
 # 3. Generic MicroK8s Cluster
 # Commented out: infra_microk8s role is not committed yet.
 # - name: "Play [Kubernetes]: Provision and Configure MicroK8s Cluster"

@@ -202,6 +202,6 @@ variable "credentials_application" {
       for k in ["haproxy_stats_user", "haproxy_stats_pass", "keepalived_auth_pass"] :
       contains(keys(var.credentials_application), k)
     ])
-    error_message = "Map must contain `haproxy_stats_user`, `haproxy_stats_pass`, and `keepalived_auth_pass` for `shared_load_balancer` role template rendering."
+    error_message = "Map must contain `haproxy_stats_user`, `haproxy_stats_pass`, and `keepalived_auth_pass` for `platform_load_balancer` role template rendering."
   }
 }

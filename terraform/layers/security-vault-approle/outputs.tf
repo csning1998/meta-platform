@@ -26,7 +26,7 @@ output "prod_vault_endpoint" {
 }
 
 output "prod_vault_svc_vip" {
-  description = "Export production Vault Virtual IP address from `shared-vault-frontend` state for downstream consumed layers."
+  description = "Export production Vault Virtual IP address from `platform-vault-frontend` state for downstream consumed layers."
   value       = data.terraform_remote_state.vault_production.outputs.service_vip
 }
 

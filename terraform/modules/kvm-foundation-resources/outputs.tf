@@ -1,6 +1,6 @@
 
 output "infrastructure_map" {
-  description = "Physical realization bridging foundation-metadata Math and HAProxy VIPs, mapped perfectly to O(1) SSoT Identity keys. Consumed by all shared-*-frontend and provision-* layers."
+  description = "Physical realization bridging foundation-metadata Math and HAProxy VIPs, mapped perfectly to O(1) SSoT Identity keys. Consumed by all platform-*-frontend and provision-* layers."
 
   value = {
     for seg in local.net_service_segments : seg.name => {
@@ -33,7 +33,7 @@ output "central_lb_info" {
 }
 
 output "service_segments" {
-  description = "Stable map of service segments, consumed by shared-load-balancer-frontend for HAProxy and Keepalived configuration."
+  description = "Stable map of service segments, consumed by platform-load-balancer-frontend for HAProxy and Keepalived configuration."
   value       = local.net_service_segments
 }
 

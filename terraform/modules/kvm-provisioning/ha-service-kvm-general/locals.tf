@@ -72,7 +72,7 @@ locals {
   }
 
   ansible_playbook_paths = [
-    "${var.ansible_root_path}/playbooks/playbook_shared.yaml",
+    "${var.ansible_root_path}/playbooks/playbook_platform.yaml",
     "${var.ansible_root_path}/playbooks/playbook_infra_statesfulsets.yaml",
     "${var.ansible_root_path}/playbooks/playbook_infra_frontend.yaml",
     "${var.ansible_root_path}/playbooks/playbook_provision.yaml",

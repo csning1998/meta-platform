@@ -99,7 +99,7 @@ service_catalog = {
       }
     }
   },
-  "harbor-bootstrapper" = {
+  "harbor-origin" = {
     owner        = "devops"
     project_code = "platform"
     stage        = "production"

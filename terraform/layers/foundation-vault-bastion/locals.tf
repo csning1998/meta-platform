@@ -19,9 +19,9 @@ locals {
   bastion_pki_inter_mount_path = local.state.metadata.global_pki_config.mount_path
 
   bastion_pki_leaf_extra_domains = {
-    "vault-frontend"               = ["vault", "localhost"]
-    "central-lb-frontend"          = []
-    "harbor-bootstrapper-frontend" = []
+    "vault-frontend"         = ["vault", "localhost"]
+    "central-lb-frontend"    = []
+    "harbor-origin-frontend" = []
   }
 
   bastion_pki_leaf_roles = {

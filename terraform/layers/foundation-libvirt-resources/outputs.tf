@@ -1,6 +1,6 @@
 
 output "infrastructure_map" {
-  description = "Physical realization bridging topology identity and HAProxy VIPs, mapped perfectly to O(1) SSoT Identity keys. Consumed by all shared-*-frontend and provision-* layers."
+  description = "Physical realization bridging topology identity and HAProxy VIPs, mapped perfectly to O(1) SSoT Identity keys. Consumed by all platform-*-frontend and provision-* layers."
   value       = module.foundation_libvirt_resources.infrastructure_map
 }
 
@@ -10,7 +10,7 @@ output "central_lb_info" {
 }
 
 output "service_segments" {
-  description = "Stable map of service segments, consumed by shared-load-balancer-frontend for HAProxy and Keepalived configuration."
+  description = "Stable map of service segments, consumed by platform-load-balancer-frontend for HAProxy and Keepalived configuration."
   value       = module.foundation_libvirt_resources.service_segments
 }
 
@@ -25,22 +25,22 @@ output "storage_infrastructure_map" {
 }
 
 output "global_topology_identity" {
-  description = "Topology identity map; consumed by shared-load-balancer-frontend to build segments_map."
+  description = "Topology identity map; consumed by platform-load-balancer-frontend to build segments_map."
   value       = module.foundation_libvirt_resources.global_topology_identity
 }
 
 output "global_topology_network" {
-  description = "Topology network map; consumed by shared-load-balancer-frontend to build segments_map."
+  description = "Topology network map; consumed by platform-load-balancer-frontend to build segments_map."
   value       = module.foundation_libvirt_resources.global_topology_network
 }
 
 output "global_network_baseline" {
-  description = "Global network baseline (global_mtu, global_mss); consumed by shared-load-balancer-frontend for Ansible extra vars."
+  description = "Global network baseline (global_mtu, global_mss); consumed by platform-load-balancer-frontend for Ansible extra vars."
   value       = module.foundation_libvirt_resources.global_network_baseline
 }
 
 output "global_domain_suffix" {
-  description = "Root domain suffix; consumed by shared-load-balancer-frontend for Ansible template service_domain."
+  description = "Root domain suffix; consumed by platform-load-balancer-frontend for Ansible template service_domain."
   value       = module.foundation_libvirt_resources.global_domain_suffix
 }
 

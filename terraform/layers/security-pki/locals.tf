@@ -78,8 +78,8 @@ locals {
   # Extra ACL rules merged into each workload identity's generated policy, beyond the
   # baseline PKI issue capability.
   workload_identity_extra_rules = {
-    "harbor-bootstrapper-frontend" = {
-      "secret/data/${local.vault_kv_namespace}/harbor-bootstrapper/frontend" = { capabilities = ["read"] }
+    "harbor-origin-frontend" = {
+      "secret/data/${local.vault_kv_namespace}/harbor-origin/frontend" = { capabilities = ["read"] }
     }
     "oidc-admin" = {
       "secret/metadata/"                              = { capabilities = ["list"] }

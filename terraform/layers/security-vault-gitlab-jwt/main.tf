@@ -1,5 +1,5 @@
 
-# 1. Shared JWT Auth Backend, GitLab CI id_tokens as the sole federation source.
+# 1. Mounts the shared JWT authentication backend using SaaS GitLab CI id_tokens as the sole workload identity provider.
 resource "vault_jwt_auth_backend" "gitlab" {
   provider           = vault.bastion
   description        = "GitLab CI id_token federation, shared across repositories"
@@ -7,9 +7,8 @@ resource "vault_jwt_auth_backend" "gitlab" {
   type               = "jwt"
   oidc_discovery_url = "https://gitlab.com"
 
-  # max_lease_ttl is a ceiling applied to every role's token_max_ttl. It is
-  # set well above the current role default (900s) so a future consumer
-  # requesting a larger token_max_ttl is not silently clamped by the mount.
+  # Defines lease TTL parameters for the authentication backend.
+  # max_lease_ttl MUST maintain headroom above role-level token_max_ttl settings to prevent implicit token lifetime truncation.
   tune {
     listing_visibility = "unauth"
     default_lease_ttl  = "5m"
@@ -17,7 +16,8 @@ resource "vault_jwt_auth_backend" "gitlab" {
   }
 }
 
-# 2. Per-repository role, gitlab-ci-with-code-reviewer.
+# 2. Configures Vault JWT workload identity federation for gitlab-ci-with-code-reviewer.
+#    Authorizes read access to secret paths matching gitlab-ci-with-code-reviewer/*.
 module "gitlab_ci_with_code_reviewer" {
   source = "../../modules/vault-provisioning/vault-jwt-workload-identity-federation"
 
@@ -32,8 +32,8 @@ module "gitlab_ci_with_code_reviewer" {
   kv_read_paths     = ["gitlab-ci-with-code-reviewer/*"]
 }
 
-# Preserved for future work on on-premise-gitlab
-# 3. Shared JWT Auth Backend, self-hosted GitLab CI id_tokens as the federation source.
+# 3. Reserved: Shared JWT authentication backend for self-hosted GitLab CI id_token federation.
+#    Retained for future self-managed GitLab workload identity integration.
 # resource "vault_jwt_auth_backend" "gitlab_instance" {
 #   provider           = vault.bastion
 #   description        = "On-premise GitLab CI id_token federation, shared across repositories"

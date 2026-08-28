@@ -22,15 +22,15 @@ module "keycloak_frontend" {
   }
 }
 
-module "harbor_bootstrapper_frontend" {
+module "harbor_origin_frontend" {
   source = "../../modules/vault-provisioning/vault-credential"
 
-  domain    = "harbor-bootstrapper"
+  domain    = "harbor-origin"
   component = "frontend"
 
   generate = {
-    harbor_bootstrapper_admin_password = { length = 32 }
-    harbor_bootstrapper_pg_db_password = { length = 32 }
+    harbor_origin_admin_password = { length = 32 }
+    harbor_origin_pg_db_password = { length = 32 }
   }
 
   vault_kv_namespace = local.vault_kv_namespace

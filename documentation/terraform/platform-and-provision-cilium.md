@@ -1,6 +1,6 @@
 # Platform and Provision Cilium Frontend
 
-This layer provisions a Talos Linux cluster replacing `shared-load-balancer-frontend` as the Central Load Balancer, with strategic justification documented in `documentation/architecture-decision-record/20260813_1630-clb-migration-to-talos-cilium.md`. This specification captures technical implementation constraints unexpressible in HCL configuration.
+This layer provisions a Talos Linux cluster replacing `platform-load-balancer-frontend` as the Central Load Balancer, with strategic justification documented in `documentation/architecture-decision-record/20260813_1630-clb-migration-to-talos-cilium.md`. This specification captures technical implementation constraints unexpressible in HCL configuration.
 
 ## Section 1. Platform Cilium Layer
 
@@ -9,9 +9,9 @@ This layer provisions a Talos Linux cluster replacing `shared-load-balancer-fron
 Ownership boundaries, downstream output interfaces, and catalog constraints constitute the contractual interface consumed by dependent layers.
 
 1. Ownership Split. Layer `platform-cilium-frontend` manages guest virtual machines, Talos machine configurations, and the Cilium bootstrap manifest, while `provision-cilium-frontend` manages Kubernetes API resources requiring an active control plane. This separation maintains architectural symmetry across repository platform and provision pairs.
-2. Downstream Output Names. Five exported output names (`infrastructure_map`, `infrastructure_vips`, `global_topology_identity`, `global_topology_network`, and `global_network_baseline`) maintain compatibility with existing exports from `shared-load-balancer-frontend`. Downstream consumers (`shared-harbor-bootstrapper-frontend`, `shared-keycloak-frontend`, and `shared-vault-frontend`) require only updated remote state references without modification to their underlying HCL declarations.
-3. Catalog Projection. The `segments_map` structure is duplicated from `shared-load-balancer-frontend` as a service catalog property, decoupled from specific HAProxy or Cilium load-balancer implementations. Short identifiers in `var.node_config` (e.g., `00`) are expanded into fully qualified hostnames (e.g., `platform-cilium-frontend-node-00`), exposing strictly qualified keys to downstream modules.
-4. Inherited SSoT Defect. The Central Load Balancer cluster remains omitted from `net_service_segments` and lacks a Single Source of Truth (SSoT) IP reservation, inheriting a known architectural defect from `shared-load-balancer-frontend`. This migration intentionally preserves the defect, with remediation tracking documented in the Architecture Decision Record (ADR).
+2. Downstream Output Names. Five exported output names (`infrastructure_map`, `infrastructure_vips`, `global_topology_identity`, `global_topology_network`, and `global_network_baseline`) maintain compatibility with existing exports from `platform-load-balancer-frontend`. Downstream consumers (`platform-harbor-origin-frontend`, `platform-keycloak-frontend`, and `platform-vault-frontend`) require only updated remote state references without modification to their underlying HCL declarations.
+3. Catalog Projection. The `segments_map` structure is duplicated from `platform-load-balancer-frontend` as a service catalog property, decoupled from specific HAProxy or Cilium load-balancer implementations. Short identifiers in `var.node_config` (e.g., `00`) are expanded into fully qualified hostnames (e.g., `platform-cilium-frontend-node-00`), exposing strictly qualified keys to downstream modules.
+4. Inherited SSoT Defect. The Central Load Balancer cluster remains omitted from `net_service_segments` and lacks a Single Source of Truth (SSoT) IP reservation, inheriting a known architectural defect from `platform-load-balancer-frontend`. This migration intentionally preserves the defect, with remediation tracking documented in the Architecture Decision Record (ADR).
 
 ### Item B. Bootstrap Sequence
 

@@ -81,7 +81,7 @@ locals {
 }
 
 # 5. Vault Agent Identities. These are partial identity structures where the secret_id is injected by the root module after AppRole generation.
-#    When security_pki_outputs is absent (shared-vault-frontend and earlier), all_vault_agent_identity_bases resolves to {} and vault_agent_identity_base resolves to null.
+#    When security_pki_outputs is absent (platform-vault-frontend and earlier), all_vault_agent_identity_bases resolves to {} and vault_agent_identity_base resolves to null.
 locals {
   all_vault_agent_identity_bases = var.security_pki_outputs != null ? {
     for role, ctx in local.components_context : role => {

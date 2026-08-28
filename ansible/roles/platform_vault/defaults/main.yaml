@@ -1,0 +1,13 @@
+---
+# Section B: Configuration
+platform_vault_vault_ui_enabled: true
+platform_vault_vault_disable_mlock: true # Set to true to avoid memory locking issues
+
+# Section C: Initialization
+platform_vault_vault_init_key_shares: 1
+platform_vault_vault_init_key_threshold: 1
+platform_vault_vault_wait_delay_seconds: 10
+
+# Section D: Unseal
+platform_vault_vault_unseal_retries: 24
+platform_vault_vault_unseal_delay_seconds: 5

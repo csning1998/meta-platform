@@ -1,0 +1,15 @@
+
+target_clusters = { "harbor_origin" = "platform-harbor-origin-frontend" }
+primary_role    = "harbor_origin"
+
+service_config = {
+  "harbor_origin" = {
+    role            = "harbor_origin"
+    network_tier    = "default"
+    base_image_path = "../../../packer/output/base-docker-harbor/ubuntu-24-base-docker-harbor.qcow2"
+    nodes = {
+      # "00" = { ip_suffix = 200, vcpu = 2, ram_size = 1536 } # for bare-minimum for test
+      "00" = { ip_suffix = 200, vcpu = 4, ram_size = 8192 } # for production
+    }
+  }
+}

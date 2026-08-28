@@ -11,7 +11,7 @@ data "terraform_remote_state" "security_pki" {
 
 data "terraform_remote_state" "keycloak" {
   backend = "http"
-  config  = { address = "${local._state_base}/shared-keycloak-frontend" }
+  config  = { address = "${local._state_base}/platform-keycloak-frontend" }
 }
 
 ephemeral "vault_kv_secret_v2" "keycloak_admin" {

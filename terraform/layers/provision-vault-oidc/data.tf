@@ -1,7 +1,7 @@
 
 data "terraform_remote_state" "prod_vault_frontend" {
   backend = "http"
-  config  = { address = "${local._state_base}/shared-vault-frontend" }
+  config  = { address = "${local._state_base}/platform-vault-frontend" }
 }
 
 data "terraform_remote_state" "security_vault_approle" {
