@@ -22,27 +22,43 @@ variable "network_baseline" {
   description = "Base network configuration including CIDR, VIP offsets, and MAC prefixes."
   type = object({
     cidr_block         = string
-    vip_offset         = number
-    node_ip_start      = number
-    mac_prefix         = string
+    host_vip_offset    = number
+    global_mac_prefix  = string
     global_mtu         = number
     global_mss         = number
     node_exporter_port = number
+    cidr_subnet_bits   = optional(number, 8)
+    cidr_nat_offset    = optional(number, 124)
+    cidr_index_max     = optional(number, 248)
   })
 
+  # Validates IPv4 CIDR block syntax.
   validation {
     condition     = can(cidrnetmask(var.network_baseline.cidr_block))
     error_message = "The 'cidr_block' must be a valid IPv4 CIDR range (e.g., 172.16.0.0/16)."
   }
 
+  # Validates MAC address prefix syntax against colon-delimited hexadecimal format (XX:XX:XX).
   validation {
-    condition     = can(regex("^([0-9a-fA-F]{2}:){2}[0-9a-fA-F]{2}$", var.network_baseline.mac_prefix))
-    error_message = "The 'mac_prefix' must be in the format XX:XX:XX (e.g., 52:54:00)."
+    condition     = can(regex("^([0-9a-fA-F]{2}:){2}[0-9a-fA-F]{2}$", var.network_baseline.global_mac_prefix))
+    error_message = "The 'global_mac_prefix' must be in the format XX:XX:XX (e.g., 52:54:00)."
   }
 
+  # Validates the VIP offset to enforce the upper boundary for a /24 subnet.
   validation {
-    condition     = var.network_baseline.vip_offset < 255 && var.network_baseline.node_ip_start < 255
-    error_message = "IP offsets must be less than 255 to fit within a /24 subnet."
+    condition     = var.network_baseline.host_vip_offset < 255
+    error_message = "host_vip_offset must be less than 255 to fit within a /24 subnet."
+  }
+
+  # Validates that cidr_nat_offset and cidr_index_max leave a non-empty, non-overlapping range.
+  validation {
+    condition = (
+      var.network_baseline.cidr_nat_offset >= 1 &&
+      var.network_baseline.cidr_index_max > var.network_baseline.cidr_nat_offset &&
+      var.network_baseline.cidr_index_max <= 2 * var.network_baseline.cidr_nat_offset &&
+      var.network_baseline.cidr_index_max < pow(2, var.network_baseline.cidr_subnet_bits)
+    )
+    error_message = "cidr_nat_offset must be >= 1; cidr_index_max must be greater than cidr_nat_offset, no greater than 2 * cidr_nat_offset so the paired NAT range does not overlap the HostOnly range, and strictly less than 2^cidr_subnet_bits so cidrsubnet() never receives an out-of-range netnum."
   }
 }
 

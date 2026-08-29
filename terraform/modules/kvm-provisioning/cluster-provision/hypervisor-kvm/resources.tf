@@ -3,6 +3,18 @@ data "local_file" "ssh_public_key" {
   filename = pathexpand(var.credentials.ssh_public_key_path)
 }
 
+resource "terraform_data" "node_mac_uniqueness" {
+  lifecycle {
+    precondition {
+      condition = (
+        length(local.nodes_config) == length(distinct([for k, v in local.nodes_config : v.nat_mac])) &&
+        length(local.nodes_config) == length(distinct([for k, v in local.nodes_config : v.hostonly_mac]))
+      )
+      error_message = "Duplicate nat_mac or hostonly_mac detected among nodes in this hypervisor-kvm invocation."
+    }
+  }
+}
+
 resource "libvirt_network" "nat_net" {
 
   for_each = var.create_networks ? {
@@ -138,7 +150,6 @@ resource "libvirt_cloudinit_disk" "cloud_init" {
 
   network_config = templatefile("${path.module}/templates/network_config.tftpl", {
     nat_mac          = local.nodes_config[each.key].nat_mac
-    nat_ip_cidr      = local.nodes_config[each.key].nat_ip_cidr
     hostonly_mac     = local.nodes_config[each.key].hostonly_mac
     hostonly_ip_cidr = local.nodes_config[each.key].hostonly_ip_cidr
     nat_gateway      = var.libvirt_infrastructure[each.value.network_tier].network.nat.ips.address

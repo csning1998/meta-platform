@@ -3,17 +3,16 @@ domain_suffix = "iac.local"
 
 network_baseline = {
   cidr_block         = "172.16.0.0/16"
-  vip_offset         = 250
-  node_ip_start      = 200
-  mac_prefix         = "52:54:00"
+  host_vip_offset    = 250
+  global_mac_prefix  = "52:54:00"
   global_mtu         = 1450
   global_mss         = 1360
   node_exporter_port = 9100
 }
 
 global_pki_identity = {
-  root_ca_common_name         = "On-prem Infrastructure Root CA"
-  intermediate_ca_common_name = "On-prem Infrastructure Intermediate CA"
+  root_ca_common_name         = "Platform Infrastructure Root CA"
+  intermediate_ca_common_name = "Platform Infrastructure Intermediate CA"
   mount_path                  = "pki_int"
 }
 
