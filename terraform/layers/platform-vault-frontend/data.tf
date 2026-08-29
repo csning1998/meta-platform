@@ -9,9 +9,9 @@ data "terraform_remote_state" "vault_bootstrapper" {
   config  = { address = "${local._state_base}/foundation-vault-bastion" }
 }
 
-data "terraform_remote_state" "load_balancer" {
+data "terraform_remote_state" "cilium" {
   backend = "http"
-  config  = { address = "${local._state_base}/platform-load-balancer-frontend" }
+  config  = { address = "${local._state_base}/platform-cilium-frontend" }
 }
 
 data "vault_kv_secret_v2" "guest_vm" {

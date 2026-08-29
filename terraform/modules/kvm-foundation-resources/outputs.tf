@@ -22,18 +22,8 @@ output "infrastructure_map" {
   }
 }
 
-output "central_lb_info" {
-  description = "Physical network configuration for the Central LB's own segment."
-  value = merge(
-    local.net_infrastructure[local.central_lb_key],
-    {
-      ports = local.segments[local.central_lb_key].network.ports
-    }
-  )
-}
-
 output "service_segments" {
-  description = "Stable map of service segments, consumed by platform-load-balancer-frontend for HAProxy and Keepalived configuration."
+  description = "Stable map of service segments, consumed by platform-cilium-frontend for network identity outputs."
   value       = local.net_service_segments
 }
 

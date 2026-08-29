@@ -5,9 +5,9 @@ data "terraform_remote_state" "volume" {
   config  = { address = "${local._state_base}/foundation-libvirt-resources" }
 }
 
-data "terraform_remote_state" "load_balancer" {
+data "terraform_remote_state" "cilium" {
   backend = "http"
-  config  = { address = "${local._state_base}/platform-load-balancer-frontend" }
+  config  = { address = "${local._state_base}/platform-cilium-frontend" }
 }
 
 data "terraform_remote_state" "security_vault_approle" {

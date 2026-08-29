@@ -86,7 +86,7 @@ variable "global_network_baseline" {
 }
 
 variable "infrastructure_map" {
-  description = "Physical network infrastructure map from platform-load-balancer-frontend handover."
+  description = "Physical network infrastructure map from platform-cilium-frontend handover."
   type = map(object({
     network = object({
       hostonly = object({

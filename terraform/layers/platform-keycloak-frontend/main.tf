@@ -3,11 +3,11 @@ module "context" {
   source = "../../modules/kvm-provisioning/layer-context"
 
   guest_vm_data            = data.vault_kv_secret_v2.guest_vm.data
-  global_topology_identity = data.terraform_remote_state.load_balancer.outputs.global_topology_identity
-  global_topology_network  = data.terraform_remote_state.load_balancer.outputs.global_topology_network
   global_pki_map           = data.terraform_remote_state.security_vault_approle.outputs.global_pki_map
-  global_network_baseline  = data.terraform_remote_state.load_balancer.outputs.global_network_baseline
-  infrastructure_map       = data.terraform_remote_state.load_balancer.outputs.infrastructure_map
+  global_topology_identity = data.terraform_remote_state.cilium.outputs.global_topology_identity
+  global_topology_network  = data.terraform_remote_state.cilium.outputs.global_topology_network
+  global_network_baseline  = data.terraform_remote_state.cilium.outputs.global_network_baseline
+  infrastructure_map       = data.terraform_remote_state.cilium.outputs.infrastructure_map
   prod_vault_svc_vip       = data.terraform_remote_state.security_vault_approle.outputs.prod_vault_svc_vip
   security_pki_outputs     = data.terraform_remote_state.security_pki.outputs
 

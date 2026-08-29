@@ -29,15 +29,13 @@ locals {
 
 # Exclude the Cilium cluster segment from Service generation to prevent circular routing dependencies and self-referential load balancing.
 locals {
-  cilium_cluster_name     = local.state.cilium_frontend.global_topology_identity["cilium"]["frontend"].cluster_name
-  central_lb_cluster_name = local.state.cilium_frontend.global_topology_identity["central-lb"]["frontend"].cluster_name
+  cilium_cluster_name = local.state.cilium_frontend.global_topology_identity["cilium"]["frontend"].cluster_name
 
   # Excludes entries missing an SSoT VIP (an open ADR defect) or a backend server, both
   # of which fail downstream against Cilium or the Kubernetes API.
   fronted_segments = {
     for key, seg in local.infrastructure_map : key => seg
     if key != local.cilium_cluster_name
-    && key != local.central_lb_cluster_name
     && seg.lb_config.vip != null
     && length(seg.backend_servers) > 0
   }

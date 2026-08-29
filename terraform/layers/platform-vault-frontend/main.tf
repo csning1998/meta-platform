@@ -6,7 +6,7 @@ module "context" {
   global_topology_network  = data.terraform_remote_state.metadata.outputs.global_topology_network
   global_pki_map           = data.terraform_remote_state.metadata.outputs.global_pki_map
   global_network_baseline  = data.terraform_remote_state.metadata.outputs.global_network_baseline
-  infrastructure_map       = data.terraform_remote_state.load_balancer.outputs.infrastructure_map
+  infrastructure_map       = data.terraform_remote_state.cilium.outputs.infrastructure_map
   guest_vm_data            = data.vault_kv_secret_v2.guest_vm.data
 
   target_clusters = var.target_clusters

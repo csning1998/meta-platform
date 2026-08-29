@@ -1,0 +1,18 @@
+---
+- name: "Play: Provision Common Operation on Base Image"
+  hosts: "all"
+  become: true
+  roles:
+    - foundation_common
+
+- name: "Play: Provision HAProxy (Base) Image"
+  hosts: "base-baremetal-haproxy"
+  become: true
+  roles:
+    - base_baremetal_haproxy
+
+- name: "Play: Final Permission Check and Clean up"
+  hosts: "all"
+  become: true
+  roles:
+    - foundation_image_finalization

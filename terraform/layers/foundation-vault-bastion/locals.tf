@@ -20,7 +20,6 @@ locals {
 
   bastion_pki_leaf_extra_domains = {
     "vault-frontend"         = ["vault", "localhost"]
-    "central-lb-frontend"    = []
     "harbor-origin-frontend" = []
   }
 

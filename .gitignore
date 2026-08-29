@@ -55,6 +55,9 @@ claude-review
 # GitLab Runner configuration
 runner-config/
 
+# Ollama
+ollama_data/
+
 # Environment files
 .env
 .env*.local

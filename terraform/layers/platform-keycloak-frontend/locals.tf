@@ -51,7 +51,7 @@ locals {
     ][0]
 
     keycloak_static_routes = [
-      for name, vip in data.terraform_remote_state.load_balancer.outputs.infrastructure_vips : {
+      for name, vip in data.terraform_remote_state.cilium.outputs.infrastructure_vips : {
         to     = "${vip}/32"
         via    = module.context.primary_net_config.lb_config.vip
         metric = 100

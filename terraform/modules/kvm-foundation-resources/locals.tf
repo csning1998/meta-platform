@@ -28,9 +28,6 @@ locals {
       }
     }
   ]...)
-
-  # SSoT Naming: Directly use the cluster_name of the Central Load Balancer frontend.
-  central_lb_key = local.metadata.global_topology_identity["central-lb"]["frontend"].cluster_name
 }
 
 # Full Infrastructure Map (All Segments: Consumed by libvirt_network resources)
@@ -59,11 +56,11 @@ locals {
   }
 }
 
-# Service Segments excluding the Central Load Balancer, used for HAProxy, Keepalived, and Identity outputs.
+# Service Segments with at least one exposed port, used for Identity outputs.
 locals {
   net_sorted_segment_keys = sort([
     for k, v in local.segments : k
-    if k != local.central_lb_key && length(v.network.ports) > 0
+    if length(v.network.ports) > 0
   ])
 
   net_service_segments = {

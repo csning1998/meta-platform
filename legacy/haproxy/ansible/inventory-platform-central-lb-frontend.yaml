@@ -1,0 +1,134 @@
+---
+# Note: This is legacy inventory file
+"all":
+  "children":
+    "lb":
+      "hosts":
+        "platform-central-lb-frontend-node-00":
+          "advertise_ip": "172.16.125.10"
+          "ansible_host": "172.16.125.10"
+          "node_id": "platform-central-lb-frontend-node-00"
+          "node_role": "load_balancer"
+          "service_ips":
+            "platform-harbor-origin-frontend": "172.16.137.10"
+            "platform-keycloak-frontend": "172.16.142.10"
+            "platform-vault-frontend": "172.16.136.10"
+        "platform-central-lb-frontend-node-01":
+          "advertise_ip": "172.16.125.11"
+          "ansible_host": "172.16.125.11"
+          "node_id": "platform-central-lb-frontend-node-01"
+          "node_role": "load_balancer"
+          "service_ips":
+            "platform-harbor-origin-frontend": "172.16.137.11"
+            "platform-keycloak-frontend": "172.16.142.11"
+            "platform-vault-frontend": "172.16.136.11"
+  "vars":
+    "lb_service_segments":
+      - "backend_servers":
+          - "ip": "172.16.137.200"
+            "name": "platform-harbor-origin-frontend-node-200"
+        "cidr": "172.16.137.0/24"
+        "interface_alias": "v_harborbo_5334"
+        "mss": 1360
+        "mtu": 1450
+        "name": "platform-harbor-origin-frontend"
+        "ports":
+          "http":
+            "backend": 80
+            "frontend": 80
+            "health_check_http_expect": "status 200"
+            "health_check_http_path": "/"
+            "health_check_port": null
+            "health_check_sni": null
+            "health_check_ssl": false
+            "health_check_type": "tcp"
+            "send_proxy_v2": false
+          "https":
+            "backend": 443
+            "frontend": 443
+            "health_check_http_expect": "status 200"
+            "health_check_http_path": "/"
+            "health_check_port": null
+            "health_check_sni": null
+            "health_check_ssl": false
+            "health_check_type": "tcp"
+            "send_proxy_v2": false
+          "metrics":
+            "backend": 9090
+            "frontend": 9090
+            "health_check_http_expect": "status 200"
+            "health_check_http_path": "/"
+            "health_check_port": null
+            "health_check_sni": null
+            "health_check_ssl": false
+            "health_check_type": "tcp"
+            "send_proxy_v2": false
+        "runtime": "docker"
+        "tags": []
+        "vip": "172.16.137.250"
+        "vrid": 137
+      - "backend_servers":
+          - "ip": "172.16.142.200"
+            "name": "platform-keycloak-frontend-node-200"
+        "cidr": "172.16.142.0/24"
+        "interface_alias": "v_keycloak_06e9"
+        "mss": 1360
+        "mtu": 1450
+        "name": "platform-keycloak-frontend"
+        "ports":
+          "https":
+            "backend": 8080
+            "frontend": 443
+            "health_check_http_expect": "status 200"
+            "health_check_http_path": "/"
+            "health_check_port": 9000
+            "health_check_sni": null
+            "health_check_ssl": false
+            "health_check_type": "tcp"
+            "send_proxy_v2": false
+          "mgmt":
+            "backend": 9000
+            "frontend": 9000
+            "health_check_http_expect": "status 200"
+            "health_check_http_path": "/"
+            "health_check_port": null
+            "health_check_sni": null
+            "health_check_ssl": false
+            "health_check_type": "tcp"
+            "send_proxy_v2": false
+        "runtime": "docker"
+        "tags": []
+        "vip": "172.16.142.250"
+        "vrid": 142
+      - "backend_servers":
+          - "ip": "172.16.136.200"
+            "name": "platform-vault-frontend-node-200"
+          - "ip": "172.16.136.201"
+            "name": "platform-vault-frontend-node-201"
+          - "ip": "172.16.136.202"
+            "name": "platform-vault-frontend-node-202"
+        "cidr": "172.16.136.0/24"
+        "interface_alias": "v_vaultfro_79fd"
+        "mss": 1360
+        "mtu": 1450
+        "name": "platform-vault-frontend"
+        "ports":
+          "api":
+            "backend": 8200
+            "frontend": 443
+            "health_check_http_expect": "rstatus (200|429)"
+            "health_check_http_path": "/v1/sys/health"
+            "health_check_port": null
+            "health_check_sni": null
+            "health_check_ssl": true
+            "health_check_type": "http"
+            "send_proxy_v2": false
+        "runtime": "baremetal"
+        "tags": []
+        "vip": "172.16.136.250"
+        "vrid": 136
+    "service_domain": "homelab-infra.dev"
+    "service_identifier": "platform-central-lb-frontend"
+    "service_name": "platform-central-lb-frontend"
+
+# Terraform Status Trigger: "5230970135439589660"

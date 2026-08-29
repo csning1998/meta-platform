@@ -1,23 +1,21 @@
 ---
 include:
-  - component: $CI_SERVER_FQDN/csning1998/gitlab-ci-with-code-reviewer/core@1.6.1
+  - component: $CI_SERVER_FQDN/csning1998/gitlab-ci-with-code-reviewer/core@1.6.2
     inputs:
-      reviewer_image: $CI_REGISTRY/csning1998/gitlab-ci-with-code-reviewer/reviewer:1.6.1
+      reviewer_image: $CI_REGISTRY/csning1998/gitlab-ci-with-code-reviewer/reviewer:1.6.2
       claude_model: claude-opus-5
       enable_sonarqube: true
-  - component: $CI_SERVER_FQDN/csning1998/gitlab-ci-with-code-reviewer/iac-terraform@1.6.1
+  - component: $CI_SERVER_FQDN/csning1998/gitlab-ci-with-code-reviewer/iac-terraform@1.6.2
     inputs:
       # CKV_GLB_1, CKV_GLB_3, CKV_GLB_4: require GitLab Premium/Ultimate merge request approval and push rules.
       # CKV_TF_1: enforces commit-pinned Git URLs; modules use immutable semantic versions from GitLab Terraform Registry.
       checkov_skip: "CKV_GLB_1,CKV_GLB_3,CKV_GLB_4,CKV_TF_1"
-  - component: $CI_SERVER_FQDN/csning1998/gitlab-ci-with-code-reviewer/iac-ansible@1.6.1
+  - component: $CI_SERVER_FQDN/csning1998/gitlab-ci-with-code-reviewer/iac-ansible@1.6.2
     inputs:
       ansible_globs: ["ansible/**/*", "ansible.cfg"]
-  - component: $CI_SERVER_FQDN/csning1998/gitlab-ci-with-code-reviewer/auto-tag@1.6.1
-    rules:
-      - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  - component: $CI_SERVER_FQDN/csning1998/gitlab-ci-with-code-reviewer/auto-tag@1.6.2
     inputs:
-      reviewer_image: $CI_REGISTRY/csning1998/gitlab-ci-with-code-reviewer/reviewer:1.6.1
+      reviewer_image: $CI_REGISTRY/csning1998/gitlab-ci-with-code-reviewer/reviewer:1.6.2
       # Module publishing paused until terraform/modules/ gains an external consumer repository;
       # currently, layers reference modules by relative path.
       # - local: ".gitlab/ci/modules-terraform.yml"
