@@ -1,0 +1,12 @@
+---
+# Libvirt networks configured with `forward mode="route"` permit external connectivity by default
+# but isolate inter-bridge traffic. The auto-managed `libvirt-routed` firewalld zone disables
+# forwarding upon initialization, dropping inter-segment traffic between routed networks
+# unless explicit forwarding is enabled.
+- name: "Enable inter-segment forwarding within the libvirt-routed zone"
+  ansible.posix.firewalld:
+    zone: libvirt-routed
+    forward: true
+    permanent: true
+    state: enabled
+  notify: Reload firewalld

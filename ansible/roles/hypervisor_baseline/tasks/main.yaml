@@ -40,3 +40,8 @@
 #    resolves the recurring AVC denial produced by the exporter scrape path.
 - name: "Include: virtproxyd SELinux policy module"
   ansible.builtin.include_tasks: selinux-virtproxyd.yaml
+
+# 8. Inter-Segment Routed Network Forwarding
+#    Allows guest VMs on different forward mode="route" libvirt networks to reach each other.
+- name: "Include: libvirt-routed zone forwarding"
+  ansible.builtin.include_tasks: libvirt-routed-forward.yaml

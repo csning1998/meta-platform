@@ -9,6 +9,11 @@ data "terraform_remote_state" "vault_bastion" {
   config  = { address = "${local._state_base}/foundation-vault-bastion" }
 }
 
+data "terraform_remote_state" "spire_parent" {
+  backend = "http"
+  config  = { address = "${local._state_base}/platform-spire-parent-frontend" }
+}
+
 data "vault_kv_secret_v2" "guest_vm" {
   mount = "secret"
   name  = "${local.vault_kv_namespace}/guest_vm"

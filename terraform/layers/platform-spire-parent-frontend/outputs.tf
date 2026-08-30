@@ -11,3 +11,12 @@ output "node_exporter_targets" {
     port = module.context.node_exporter_port
   }
 }
+
+output "spire_agent_bootstrap" {
+  description = "Values a SPIRE Agent consumer needs to reach and trust this SPIRE Parent."
+  value = {
+    node_ip      = one(module.context.svc_network.node_ips)
+    trust_domain = local.spire_trust_domain
+    server_port  = local.spire_server_port
+  }
+}

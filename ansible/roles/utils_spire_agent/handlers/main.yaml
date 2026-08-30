@@ -1,0 +1,6 @@
+---
+- name: Restart SPIRE Agent Service
+  ansible.builtin.systemd:
+    name: spire-agent
+    state: restarted
+    daemon_reload: true

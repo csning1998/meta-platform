@@ -105,3 +105,17 @@
       tags:
         - bootstrapping
         - registered
+
+- name: "Role 83: Provision SPIRE Agent for Workload Identity"
+  tags:
+    - registered
+  ansible.builtin.include_role:
+    name: utils_spire_agent
+    apply:
+      tags:
+        - registered
+  when:
+    - spire_parent_node_ip is defined
+    - spire_trust_domain is defined
+    - spire_server_port is defined
+    - spire_cluster_name is defined

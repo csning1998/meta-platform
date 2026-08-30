@@ -1,0 +1,24 @@
+---
+# System Config
+utils_spire_agent_target_os: "linux"
+utils_spire_agent_target_arch: "amd64"
+utils_spire_agent_target_libc: "musl"
+utils_spire_agent_target_version: "1.15.3"
+utils_spire_agent_target_sha256: "ca1a4d1155317bdd2afc7f36663828a10410c7c840e54725b90b4064b0a301c7"
+
+# Standard Directory Structure
+utils_spire_agent_dir_config: "/etc/spire/agent"
+
+# Workload API Socket
+utils_spire_agent_socket_dir: "/run/spire-agent/public"
+
+# Bastion Vault kv2 Path Storing This Host's Generated join_token
+utils_spire_agent_join_token_vault_path: >-
+  {{ vault_kv_namespace }}/spire-agent-join-token/{{ spire_cluster_name }}/{{
+    inventory_hostname | regex_replace('^' ~ (spire_cluster_name | regex_escape) ~ '-', '') }}
+
+# Log Level
+utils_spire_agent_log_level: "INFO"
+
+# Bootstrap Attestation Timeout (seconds)
+utils_spire_agent_bootstrap_timeout: 60

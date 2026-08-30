@@ -1,0 +1,30 @@
+[Unit]
+Description="SPIRE Agent - SPIFFE Runtime Environment"
+Documentation=https://spiffe.io/docs/latest/spire-about/spire-concepts/
+Requires=network-online.target
+After=network-online.target
+ConditionFileNotEmpty={{ utils_spire_agent_dir_config }}/agent.conf
+
+[Service]
+User=root
+Group=root
+ProtectSystem=full
+ProtectHome=read-only
+ProtectClock=yes
+ReadWritePaths={{ spire_agent_dir_data }}
+# No RuntimeDirectoryPreserve=yes: a restart tearing down and recreating this
+# directory is what keeps Block C's SELinux fcontext valid without restorecon.
+RuntimeDirectory=spire-agent/public
+RuntimeDirectoryMode=0755
+PrivateTmp=yes
+NoNewPrivileges=yes
+ExecStart=/usr/local/bin/spire-agent run -config {{ utils_spire_agent_dir_config }}/agent.conf
+KillMode=process
+KillSignal=SIGINT
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

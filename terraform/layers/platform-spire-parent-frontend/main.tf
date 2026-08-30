@@ -24,7 +24,6 @@ module "platform_spire_parent" {
   topology_cluster           = module.context.topology_cluster
   network_infrastructure_map = module.context.network_infrastructure_map
   credentials_system         = module.context.sec_vm_credentials
-  static_routes              = module.context.asymmetric_static_routes
   storage_infrastructure_map = data.terraform_remote_state.metadata.outputs.storage_infrastructure_map
 
   ansible_generic_config = {

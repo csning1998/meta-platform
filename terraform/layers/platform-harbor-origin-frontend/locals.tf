@@ -9,6 +9,7 @@ locals {
   state = {
     network       = data.terraform_remote_state.network.outputs
     vault_bastion = data.terraform_remote_state.vault_bastion.outputs
+    spire_parent  = data.terraform_remote_state.spire_parent.outputs
   }
   vault_kv_namespace = local.state.network.vault_kv_namespace
 }
@@ -25,7 +26,9 @@ locals {
   # Pin the bootstrap listener to the lowest node IP; map iteration order is not intent-bearing.
   harbor_listen_ip = sort(local.harbor_node_ips)[0]
 
-  # The bootstrapping stage precedes Cilium VIP announcement.
+  # "registered" gates Section C's registered-only tasks (utils_vault_agent,
+  # Configure Network Routing), requiring the Cilium VIP announcement to
+  # already be live. utils_spire_agent is not gated by this stage.
   harbor_origin_stage = "bootstrapping"
 
   bastion_pki_chain_pem = "${local.state.vault_bastion.bastion_pki_root_cert_pem}\n${local.state.vault_bastion.bastion_pki_inter_cert_pem}"
@@ -59,5 +62,9 @@ locals {
     harbor_origin_stage          = local.harbor_origin_stage
     harbor_origin_admin_password = sensitive(local.harbor_origin_secrets["harbor_origin_admin_password"])
     harbor_origin_pg_db_password = sensitive(local.harbor_origin_secrets["harbor_origin_pg_db_password"])
+    spire_parent_node_ip         = local.state.spire_parent.spire_agent_bootstrap.node_ip
+    spire_trust_domain           = local.state.spire_parent.spire_agent_bootstrap.trust_domain
+    spire_server_port            = tostring(local.state.spire_parent.spire_agent_bootstrap.server_port)
+    spire_cluster_name           = module.context.svc_identity.cluster_name
   }
 }

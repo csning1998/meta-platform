@@ -7,8 +7,5 @@ spire_group: spire
 spire_dir_config: "/etc/spire/server"
 spire_dir_data: "/opt/spire/server/data"
 
-# Network Defaults
-spire_server_port: 8081
-
-# Identity Defaults
-spire_trust_domain: "production.homelab-infra.dev"
+# Agent Side: Persisted Identity Directory
+spire_agent_dir_data: "/opt/spire/agent/data"

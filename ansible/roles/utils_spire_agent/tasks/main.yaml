@@ -1,0 +1,291 @@
+---
+- name: "Block A: Install SPIRE Agent Binary"
+  become: true
+  block:
+    - name: "Step A0. Check installed SPIRE Agent version"
+      ansible.builtin.command: spire-agent --version
+      register: utils_spire_agent_installed_version
+      changed_when: false
+      failed_when: false
+
+    - name: "Step A1a. Create extraction directory"
+      ansible.builtin.file:
+        path: /tmp/spire-agent-install
+        state: directory
+        mode: "0755"
+      when: >-
+        utils_spire_agent_installed_version.rc != 0 or
+        utils_spire_agent_installed_version.stdout | default('') | trim != utils_spire_agent_target_version
+
+    - name: "Step A1b. Download SPIRE archive with checksum verification (v{{ utils_spire_agent_target_version }})"
+      vars:
+        utils_spire_agent_platform: >-
+          {{ utils_spire_agent_target_os ~ "-" ~ utils_spire_agent_target_arch
+              ~ "-" ~ utils_spire_agent_target_libc }}
+        utils_spire_agent_tarball: >-
+          {{ "spire-" ~ utils_spire_agent_target_version ~ "-"
+              ~ utils_spire_agent_platform ~ ".tar.gz" }}
+      ansible.builtin.get_url:
+        url: >-
+          {{ "https://github.com/spiffe/spire/releases/download/v" ~ utils_spire_agent_target_version
+              ~ "/" ~ utils_spire_agent_tarball }}
+        dest: "/tmp/spire-agent-install/{{ utils_spire_agent_tarball }}"
+        checksum: "sha256:{{ utils_spire_agent_target_sha256 }}"
+        mode: "0644"
+      when: >-
+        utils_spire_agent_installed_version.rc != 0 or
+        utils_spire_agent_installed_version.stdout | default('') | trim != utils_spire_agent_target_version
+
+    - name: "Step A1c. Unarchive SPIRE (v{{ utils_spire_agent_target_version }})"
+      vars:
+        utils_spire_agent_platform: >-
+          {{ utils_spire_agent_target_os ~ "-" ~ utils_spire_agent_target_arch
+              ~ "-" ~ utils_spire_agent_target_libc }}
+        utils_spire_agent_tarball: >-
+          {{ "spire-" ~ utils_spire_agent_target_version ~ "-"
+              ~ utils_spire_agent_platform ~ ".tar.gz" }}
+      ansible.builtin.unarchive:
+        src: "/tmp/spire-agent-install/{{ utils_spire_agent_tarball }}"
+        dest: /tmp/spire-agent-install
+        remote_src: true
+      when: >-
+        utils_spire_agent_installed_version.rc != 0 or
+        utils_spire_agent_installed_version.stdout | default('') | trim != utils_spire_agent_target_version
+
+    - name: "Step A2. Install spire-agent binary"
+      ansible.builtin.copy:
+        src: "/tmp/spire-agent-install/spire-{{ utils_spire_agent_target_version }}/bin/spire-agent"
+        dest: /usr/local/bin/spire-agent
+        remote_src: true
+        mode: "0755"
+        owner: root
+        group: root
+      when: >-
+        utils_spire_agent_installed_version.rc != 0 or
+        utils_spire_agent_installed_version.stdout | default('') | trim != utils_spire_agent_target_version
+
+    - name: "Step A3. Remove extracted archive contents"
+      ansible.builtin.file:
+        path: /tmp/spire-agent-install
+        state: absent
+      when: >-
+        utils_spire_agent_installed_version.rc != 0 or
+        utils_spire_agent_installed_version.stdout | default('') | trim != utils_spire_agent_target_version
+
+  rescue:
+    - name: "Block A: Install SPIRE Agent Binary failed"
+      ansible.builtin.fail:
+        msg: "{{ ansible_failed_result.msg | default('see task output above') }}"
+
+- name: "Block B: Directory Layout"
+  become: true
+  block:
+    - name: "Step B1. Ensure SPIRE Agent config directory exists"
+      ansible.builtin.file:
+        path: "{{ utils_spire_agent_dir_config }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0750"
+
+    - name: "Step B2. Ensure SPIRE Agent persisted identity directory exists"
+      ansible.builtin.file:
+        path: "{{ spire_agent_dir_data }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+  rescue:
+    - name: "Block B: Directory Layout failed"
+      ansible.builtin.fail:
+        msg: "{{ ansible_failed_result.msg | default('see task output above') }}"
+
+- name: "Block C: SELinux Labeling for the Workload API Socket Directory"
+  become: true
+  block:
+    - name: "Step C0. Detect SELinux availability"
+      ansible.builtin.stat:
+        path: /sys/fs/selinux
+      register: utils_spire_agent_selinux_fs
+
+    # No restorecon step: systemd's RuntimeDirectory= (Block G) recreates this tmpfs
+    # directory fresh on every start, leaving no pre-existing mislabeled file to fix.
+    - name: "Step C1. Register persistent fcontext rule for the Workload API socket directory"
+      community.general.sefcontext:
+        target: "{{ utils_spire_agent_socket_dir }}(/.*)?"
+        setype: container_file_t
+        state: present
+      when: utils_spire_agent_selinux_fs.stat.exists
+
+  rescue:
+    - name: "Block C: SELinux Labeling failed"
+      ansible.builtin.fail:
+        msg: "{{ ansible_failed_result.msg | default('see task output above') }}"
+
+- name: "Block D: Determine Bootstrap State"
+  become: true
+  block:
+    # The disk KeyManager persists agent-data.json and a local keypair before attempting
+    # attestation. Their presence alone does not distinguish a completed attestation from
+    # a failed one; only a non-null "svid" field confirms attestation succeeded.
+    - name: "Step D1. Check for a persisted agent-data.json file"
+      ansible.builtin.stat:
+        path: "{{ spire_agent_dir_data }}/agent-data.json"
+      register: utils_spire_agent_data_file
+
+    - name: "Step D2. Parse persisted agent data and record bootstrap state"
+      when: utils_spire_agent_data_file.stat.exists
+      block:
+        - name: "Step D2a. Read persisted agent data"
+          ansible.builtin.slurp:
+            src: "{{ spire_agent_dir_data }}/agent-data.json"
+          register: utils_spire_agent_data_raw
+
+        - name: "Step D2b. Record bootstrap state from a valid SVID"
+          ansible.builtin.set_fact:
+            utils_spire_agent_already_attested: >-
+              {{ ((utils_spire_agent_data_raw.content | b64decode | from_json) is mapping) and
+                 ((utils_spire_agent_data_raw.content | b64decode | from_json).get('svid')) is not none }}
+      rescue:
+        # A crashed or partial bootstrap can leave agent-data.json empty or truncated.
+        # Unparsable content means no confirmed identity, the same as a missing file.
+        - name: "Step D2 (rescue). Treat unparsable agent data as not attested"
+          ansible.builtin.set_fact:
+            utils_spire_agent_already_attested: false
+
+    - name: "Step D3. Default bootstrap state when no data file exists"
+      ansible.builtin.set_fact:
+        utils_spire_agent_already_attested: "{{ utils_spire_agent_already_attested | default(false) }}"
+
+  rescue:
+    - name: "Block D: Determine Bootstrap State failed"
+      ansible.builtin.fail:
+        msg: "{{ ansible_failed_result.msg | default('see task output above') }}"
+
+- name: "Block E: Provision join_token for First Attestation"
+  when: not utils_spire_agent_already_attested
+  block:
+    - name: "Step E1. Generate join_token on SPIRE Parent"
+      ansible.builtin.command:
+        cmd: >-
+          spire-server token generate
+          -socketPath {{ spire_dir_data }}/private/api.sock
+          -output json
+      register: utils_spire_agent_generated_token
+      changed_when: true
+      delegate_to: "{{ spire_parent_node_ip }}"
+      become: true
+      no_log: true
+
+    - name: "Step E2. Record join_token"
+      ansible.builtin.set_fact:
+        utils_spire_agent_join_token: "{{ (utils_spire_agent_generated_token.stdout | from_json).value }}"
+      no_log: true
+
+    - name: "Step E3. Persist join_token to Bastion Vault for audit"
+      community.hashi_vault.vault_kv2_write:
+        url: "{{ dev_vault_url }}"
+        engine_mount_point: "secret"
+        path: "{{ utils_spire_agent_join_token_vault_path }}"
+        data:
+          join_token: "{{ utils_spire_agent_join_token }}"
+        validate_certs: true
+        ca_cert: "{{ playbook_dir }}/../../vault/tls/ca.pem"
+      delegate_to: localhost
+      become: false
+      no_log: true
+
+  rescue:
+    - name: "Block E: Provision join_token failed"
+      ansible.builtin.fail:
+        msg: >-
+          Unable to generate a join_token via `spire-server token generate` on the SPIRE Parent,
+          or unable to persist it to {{ utils_spire_agent_join_token_vault_path }} in Bastion Vault.
+          Reason: {{ ansible_failed_result.msg | default('see task output above') }}
+
+- name: "Block F: Fetch Trust Bundle from SPIRE Parent"
+  become: true
+  block:
+    - name: "Step F1. Read the trust bundle from SPIRE Parent"
+      ansible.builtin.command:
+        cmd: "spire-server bundle show -socketPath {{ spire_dir_data }}/private/api.sock"
+      register: utils_spire_agent_remote_bundle
+      changed_when: false
+      failed_when: "'BEGIN CERTIFICATE' not in utils_spire_agent_remote_bundle.stdout"
+      delegate_to: "{{ spire_parent_node_ip }}"
+
+    - name: "Step F2. Deploy the trust bundle locally"
+      ansible.builtin.copy:
+        content: "{{ utils_spire_agent_remote_bundle.stdout }}"
+        dest: "{{ utils_spire_agent_dir_config }}/bundle.pem"
+        owner: root
+        group: root
+        mode: "0644"
+
+  rescue:
+    - name: "Block F: Fetch Trust Bundle failed"
+      ansible.builtin.fail:
+        msg: "{{ ansible_failed_result.msg | default('see task output above') }}"
+
+- name: "Block G: System & Service Configuration"
+  become: true
+  block:
+    - name: "Step G1. Deploy SPIRE Agent Config"
+      ansible.builtin.template:
+        src: agent.conf.j2
+        dest: "{{ utils_spire_agent_dir_config }}/agent.conf"
+        owner: root
+        group: root
+        mode: "0640"
+      no_log: true
+      notify: Restart SPIRE Agent Service
+
+    - name: "Step G2. Create SPIRE Agent Systemd Service"
+      ansible.builtin.template:
+        src: spire-agent.service.j2
+        dest: /etc/systemd/system/spire-agent.service
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart SPIRE Agent Service
+
+  rescue:
+    - name: "Block G: System & Service Configuration failed"
+      ansible.builtin.fail:
+        msg: "{{ ansible_failed_result.msg | default('see task output above') }}"
+
+- name: "Block H: Start SPIRE Agent Service"
+  become: true
+  block:
+    - name: "Step H1. Enable and start SPIRE Agent"
+      ansible.builtin.systemd:
+        name: spire-agent
+        enabled: true
+        state: started
+        daemon_reload: true
+
+    - name: "Step H2. Flush handlers before validation"
+      ansible.builtin.meta: flush_handlers
+
+  rescue:
+    - name: "Block H: Start SPIRE Agent Service failed"
+      ansible.builtin.fail:
+        msg: "{{ ansible_failed_result.msg | default('see task output above') }}"
+
+- name: "Block I: Validate SPIRE Agent Instance"
+  become: true
+  block:
+    - name: "Step I1. Check SPIRE Agent health, retrying while first attestation completes"
+      ansible.builtin.command:
+        cmd: "spire-agent healthcheck -socketPath {{ utils_spire_agent_socket_dir }}/api.sock"
+      register: utils_spire_agent_healthcheck
+      until: utils_spire_agent_healthcheck.rc == 0
+      retries: "{{ (utils_spire_agent_bootstrap_timeout | int / 5) | int }}"
+      delay: 5
+      changed_when: false
+
+  rescue:
+    - name: "Block I: Validate SPIRE Agent Instance failed"
+      ansible.builtin.fail:
+        msg: "{{ ansible_failed_result.msg | default('see task output above') }}"
