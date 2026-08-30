@@ -1,0 +1,16 @@
+
+target_clusters = { "spire-parent" = "platform-spire-parent-frontend" }
+primary_role    = "spire-parent"
+
+service_config = {
+  "spire-parent" = {
+    role            = "spire-parent"
+    network_tier    = "default"
+    base_image_path = "../../../packer/output/base-baremetal-spire-parent/ubuntu-24-base-baremetal-spire-parent.qcow2"
+
+    nodes = {
+      # Single instance, no HA per Task K (sqlite datastore, no horizontal scaling).
+      "00" = { ip_suffix = 200, vcpu = 1, ram_size = 512 }
+    }
+  }
+}

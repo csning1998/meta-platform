@@ -1,0 +1,6 @@
+---
+# inventory-*.yaml is yamlencode() output from ansible-runner's local_file.inventory
+# resource, whose indentation style Terraform's built-in encoder fixes beyond reach
+# of lint-rule reformatting.
+exclude_paths:
+  - inventory-*.yaml

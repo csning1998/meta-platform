@@ -1,0 +1,35 @@
+server {
+  bind_address = "{{ spire_parent_node_ip }}"
+  bind_port    = "{{ spire_server_port }}"
+  trust_domain = "{{ spire_trust_domain }}"
+  data_dir     = "{{ spire_dir_data }}"
+  log_level    = "{{ platform_spire_parent_log_level }}"
+
+  ca_ttl                 = "{{ platform_spire_parent_ca_ttl }}"
+  default_x509_svid_ttl  = "{{ platform_spire_parent_default_svid_ttl }}"
+
+  socket_path = "{{ spire_dir_data }}/private/api.sock"
+}
+
+plugins {
+  DataStore "sql" {
+    plugin_data {
+      database_type     = "sqlite3"
+      connection_string = "{{ spire_dir_data }}/datastore.sqlite3"
+    }
+  }
+
+  # Attests this host only; other consumers register with their own entries.
+  NodeAttestor "join_token" {
+    plugin_data {}
+  }
+
+  KeyManager "disk" {
+    plugin_data {
+      keys_path = "{{ spire_dir_data }}/keys.json"
+    }
+  }
+
+  # UpstreamAuthority omitted: SPIRE self-signs its own root
+  # until the Vault-backed upstream authority is configured.
+}

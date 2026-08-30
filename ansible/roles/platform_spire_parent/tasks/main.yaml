@@ -1,0 +1,9 @@
+---
+- name: "Section A. Mount SPIRE Data Disk"
+  ansible.builtin.include_tasks: A-data-disk.yaml
+
+- name: "Section B. Configure SPIRE Server Instance"
+  ansible.builtin.include_tasks: B-configure.yaml
+
+- name: "Section C. Validate SPIRE Server Instance"
+  ansible.builtin.include_tasks: C-validate.yaml

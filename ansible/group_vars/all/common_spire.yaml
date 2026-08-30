@@ -1,0 +1,14 @@
+---
+# System Identity
+spire_owner: spire
+spire_group: spire
+
+# Standard Directory Structure
+spire_dir_config: "/etc/spire/server"
+spire_dir_data: "/opt/spire/server/data"
+
+# Network Defaults
+spire_server_port: 8081
+
+# Identity Defaults
+spire_trust_domain: "production.homelab-infra.dev"

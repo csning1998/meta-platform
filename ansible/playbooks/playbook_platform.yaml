@@ -14,3 +14,10 @@
   become: true
   roles:
     - platform_vault
+
+# Phase 3: SPIRE Parent
+- name: "Play [SPIRE]: Configure SPIRE Parent Server"
+  hosts: "{{ 'spire_parent' if 'spire_parent' in groups else [] }}"
+  become: true
+  roles:
+    - platform_spire_parent

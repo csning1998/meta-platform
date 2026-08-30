@@ -1,0 +1,22 @@
+---
+- name: "Block C: Validate SPIRE Server Instance"
+  become: true
+  vars:
+    platform_spire_parent_socket_path: "{{ spire_dir_data }}/private/api.sock"
+  block:
+    - name: "C1. Check SPIRE Server health"
+      ansible.builtin.command:
+        cmd: "spire-server healthcheck -socketPath {{ platform_spire_parent_socket_path }}"
+      changed_when: false
+
+    - name: "C2. Verify Root CA bundle is issued"
+      ansible.builtin.command:
+        cmd: "spire-server bundle show -socketPath {{ platform_spire_parent_socket_path }}"
+      register: platform_spire_parent_bundle
+      changed_when: false
+      failed_when: "'BEGIN CERTIFICATE' not in platform_spire_parent_bundle.stdout"
+
+  rescue:
+    - name: "Block C: Validate SPIRE Server Instance failed"
+      ansible.builtin.fail:
+        msg: "{{ ansible_failed_result.msg | default('see task output above') }}"

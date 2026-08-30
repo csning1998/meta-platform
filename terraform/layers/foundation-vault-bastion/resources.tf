@@ -1,85 +1,96 @@
 
-# Define Terraform Administrative Policy
+# Defines administrative ACL policy capabilities for Bastion Vault infrastructure management.
 resource "vault_policy" "terraform_admin" {
   provider = vault.bastion
   name     = "terraform-admin-policy"
   policy   = <<EOT
-# [1] Data Operations: Includes read, create, update, and soft delete of the latest version
+# [1] KV v2 Data Operations: Authorizes read, create, update, and soft-delete capabilities for secret payloads.
 path "secret/data/meta-platform/*" {
   capabilities = ["read", "create", "update", "delete"]
 }
 
-# [2] Metadata Operations: Required for Terraform to read and purge metadata during plan and destroy
+# [2] KV v2 Metadata Operations: Authorizes read, list, and delete capabilities for secret metadata required during plan execution and resource destruction.
 path "secret/metadata/meta-platform/*" {
   capabilities = ["read", "list", "delete"]
 }
 
-# [3] Version Deletion: Allows Terraform to mark specific old versions as deleted
+# [3] KV v2 Version Deletion: Authorizes update capabilities on secret version deletion endpoints.
 path "secret/delete/meta-platform/*" {
   capabilities = ["update"]
 }
 
-# [4] Permanent Destruction: Allows Terraform to perform forced physical removal (Destroy)
+# [4] KV v2 Version Destruction: Authorizes update capabilities on permanent secret destruction endpoints.
 path "secret/destroy/meta-platform/*" {
   capabilities = ["update"]
 }
 
-# [5] Bootstrap Leaf Issuance: Required by downstream layers requesting certificates
-# from the Bootstrap Issuing Intermediate before the Production Vault is reachable
+# [5] Bootstrap Certificate Issuance: Authorizes leaf certificate issuance against the bootstrap issuing intermediate authority prior to production Vault availability.
 path "${local.bastion_pki_inter_mount_path}/issue/*" {
   capabilities = ["create", "update"]
 }
 
-# [6] Mount Metadata Read: vault_pki_secret_backend_cert reads mount config on refresh
+# [6] PKI Mount Configuration Read: Authorizes read access to intermediate PKI mount configurations required for provider state refresh.
 path "sys/mounts/${local.bastion_pki_inter_mount_path}" {
   capabilities = ["read"]
 }
 
-# [7] Intermediate Signing: allows the Production Vault's intermediate CSR to be signed
-# by the Bootstrap Issuing Intermediate
+# [7] Intermediate CA Signing: Authorizes intermediate certificate signing requests submitted to the bootstrap issuing intermediate.
 path "${local.bastion_pki_inter_mount_path}/root/sign-intermediate" {
   capabilities = ["create", "update"]
 }
 
-# [8] JWT Auth Backend Management: mount/unmount the gitlab-saas-jwt backend
-# only. Scoped to the exact name so this role cannot delete a future
-# gitlab-instance-jwt backend it does not own.
+# [8] SaaS GitLab JWT Auth Backend Management: Authorizes lifecycle management scoped exclusively to sys/auth/gitlab-saas-jwt.
 path "sys/auth/gitlab-saas-jwt" {
   capabilities = ["create", "read", "update", "delete", "sudo"]
 }
 
-# [8a] Auth Mount Table Read: the provider reads the full mount table to look
-# up a single backend by path. Read-only, lists paths/types/accessors only.
+# [8a] Auth Mount Table Inspection: Authorizes read-only access to sys/auth for auth backend path resolution.
 path "sys/auth" {
   capabilities = ["read"]
 }
 
-# [8b] JWT Auth Backend Read/Tune: the provider reads and tunes mount config
-# via sys/mounts/auth/*, a separate endpoint from sys/auth/*. The trailing
-# glob is scoped safely here because "gitlab-saas-jwt" is already the full,
-# unique backend name, unlike the earlier "gitlab*" prefix.
+# [8b] SaaS GitLab JWT Auth Mount Configuration: Authorizes configuration read and tuning operations under sys/mounts/auth/gitlab-saas-jwt*.
 path "sys/mounts/auth/gitlab-saas-jwt*" {
   capabilities = ["read", "create", "update"]
 }
 
-# [8c] Exact-Path Scoping: Vault ACL `*` only globs as the final path
-# character, so the paths below name the backend exactly instead of "gitlab*"
+# [8c] SaaS GitLab JWT Auth Mount Tuning: Authorizes explicit tuning capabilities for sys/auth/gitlab-saas-jwt/tune.
 path "sys/auth/gitlab-saas-jwt/tune" {
   capabilities = ["create", "read", "update"]
 }
 
-# [9] JWT Backend Config: writes oidc_discovery_url and related backend settings
+# [9] SaaS GitLab OIDC Configuration: Authorizes writing OIDC discovery URL and backend parameter settings under auth/gitlab-saas-jwt/config.
 path "auth/gitlab-saas-jwt/config" {
   capabilities = ["create", "read", "update"]
 }
 
-# [10] JWT Role Management: per-consumer roles under a GitLab JWT auth backend
+# [10] SaaS GitLab JWT Role Provisioning: Authorizes creation, reading, updating, and deletion of roles under auth/gitlab-saas-jwt/role/*.
 path "auth/gitlab-saas-jwt/role/*" {
   capabilities = ["create", "read", "update", "delete"]
 }
 
-# [11] JWT Policy Management: scoped to the federation module's naming convention
+# [11] Federation Policy Management: Authorizes ACL policy CRUD operations scoped to jwt-policy-* naming conventions.
 path "sys/policies/acl/jwt-policy-*" {
+  capabilities = ["create", "read", "update", "delete"]
+}
+
+# [12] SPIRE OIDC JWT Auth Backend Management: Authorizes lifecycle management scoped exclusively to sys/auth/spire-oidc-jwt.
+path "sys/auth/spire-oidc-jwt" {
+  capabilities = ["create", "read", "update", "delete", "sudo"]
+}
+
+# [12a] SPIRE OIDC JWT Auth Mount Configuration: Authorizes configuration read and tuning operations under sys/mounts/auth/spire-oidc-jwt.
+path "sys/mounts/auth/spire-oidc-jwt" {
+  capabilities = ["read", "create", "update"]
+}
+
+# [13] SPIRE OIDC Discovery Configuration: Authorizes writing OIDC discovery URL parameters under auth/spire-oidc-jwt/config.
+path "auth/spire-oidc-jwt/config" {
+  capabilities = ["create", "read", "update"]
+}
+
+# [14] SPIRE Workload Identity Role Provisioning: Authorizes creation, reading, updating, and deletion of SPIFFE-bound roles under auth/spire-oidc-jwt/role/*.
+path "auth/spire-oidc-jwt/role/*" {
   capabilities = ["create", "read", "update", "delete"]
 }
 EOT

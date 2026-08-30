@@ -62,11 +62,11 @@
   roles:
     - base_baremetal_vault
 
-# - name: "Play: Provision SPIRE Parent (Baremetal) Base Image"
-#   hosts: "base-baremetal-spire-parent"
-#   become: true
-#   roles:
-#     - base_baremetal_spire
+- name: "Play: Provision SPIRE Parent (Baremetal) Base Image"
+  hosts: "base-baremetal-spire-parent"
+  become: true
+  roles:
+    - base_baremetal_spire
 
 - name: "Play: Provision Etcd (Base) Image"
   hosts: "base-baremetal-etcd"

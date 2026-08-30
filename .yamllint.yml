@@ -1,6 +1,10 @@
 ---
 extends: default
 
+# Excludes generated inventory files. Terraform yamlencode() indentation formatting is non-configurable by linter rules.
+ignore: |
+  ansible/inventory-*.yaml
+
 rules:
   comments:
     min-spaces-from-content: 1

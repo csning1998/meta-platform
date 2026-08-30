@@ -1,0 +1,7 @@
+---
+# System Config
+base_baremetal_spire_target_os: "linux"
+base_baremetal_spire_target_arch: "amd64"
+base_baremetal_spire_target_libc: "musl"
+base_baremetal_spire_target_version: "1.15.3"
+base_baremetal_spire_target_sha256: "ca1a4d1155317bdd2afc7f36663828a10410c7c840e54725b90b4064b0a301c7"

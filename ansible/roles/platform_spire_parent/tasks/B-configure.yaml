@@ -1,0 +1,52 @@
+---
+- name: "Block B1: System & Service Configuration"
+  become: true
+  block:
+    - name: "B1a. Create SPIRE Config Directory"
+      ansible.builtin.file:
+        path: "{{ spire_dir_config }}"
+        state: directory
+        owner: "{{ spire_owner }}"
+        group: "{{ spire_group }}"
+        mode: "0750"
+
+    - name: "B1b. Deploy SPIRE Server Config"
+      ansible.builtin.template:
+        src: server.conf.j2
+        dest: "{{ spire_dir_config }}/server.conf"
+        owner: "{{ spire_owner }}"
+        group: "{{ spire_group }}"
+        mode: "0640"
+      notify: Restart SPIRE Server Service
+
+    - name: "B1c. Create SPIRE Server Systemd Service"
+      ansible.builtin.template:
+        src: spire-server.service.j2
+        dest: "/etc/systemd/system/spire-server.service"
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart SPIRE Server Service
+
+  rescue:
+    - name: "Block B1: System & Service Configuration failed"
+      ansible.builtin.fail:
+        msg: "{{ ansible_failed_result.msg | default('see task output above') }}"
+
+- name: "Block B2: Start SPIRE Server Service"
+  become: true
+  block:
+    - name: "B2a. Enable and start SPIRE Server"
+      ansible.builtin.systemd:
+        name: spire-server
+        enabled: true
+        state: started
+        daemon_reload: true
+
+    - name: "B2b. Flush handlers before validation"
+      ansible.builtin.meta: flush_handlers
+
+  rescue:
+    - name: "Block B2: Start SPIRE Server Service failed"
+      ansible.builtin.fail:
+        msg: "{{ ansible_failed_result.msg | default('see task output above') }}"
