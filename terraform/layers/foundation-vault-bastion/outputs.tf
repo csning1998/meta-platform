@@ -45,6 +45,15 @@ output "bastion_pki_inter_mount_path" {
   value       = vault_mount.pki_inter.path
 }
 
+output "spire_upstream_authority" {
+  description = "The IDs of the SPIRE Server upstream authority AppRole."
+  value = {
+    role_id   = vault_approle_auth_backend_role.spire_upstream_authority.role_id
+    secret_id = vault_approle_auth_backend_role_secret_id.spire_upstream_authority.secret_id
+  }
+  sensitive = true
+}
+
 output "credential_paths" {
   description = "Mount-relative Bastion KV paths written by this layer, nested by domain and component."
   value = {

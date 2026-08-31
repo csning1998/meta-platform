@@ -1,5 +1,9 @@
 ---
 # Section B: Configuration
 platform_spire_parent_log_level: "INFO"
-platform_spire_parent_ca_ttl: "8760h" # 1 year, self-signed placeholder until Task H's Vault upstream authority lands
+platform_spire_parent_ca_ttl: "8760h" # 1 year, matches the Bootstrap Issuing Intermediate's signed lease
 platform_spire_parent_default_svid_ttl: "1h"
+
+# Section B: Upstream Authority
+platform_spire_parent_upstream_ca_cert_path: "{{ spire_dir_config }}/upstream-ca.pem"
+platform_spire_parent_upstream_approle_auth_mount_point: "{{ spire_vault_upstream_approle_mount_path }}"

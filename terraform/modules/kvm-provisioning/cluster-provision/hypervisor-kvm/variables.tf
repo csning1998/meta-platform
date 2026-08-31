@@ -23,6 +23,11 @@ variable "guest_config" {
         volume      = string
         device_name = optional(string)
       })), [])
+
+      # Specifies pre-existing libvirt networks for secondary interfaces beyond the primary NAT/HostOnly pair. The calling layer SHALL define all target networks.
+      # Map key: Target libvirt network name.
+      # Map value: Guest static CIDR address assigned to the corresponding target libvirt network.
+      extra_networks = optional(map(string), {})
     }))
   })
 }

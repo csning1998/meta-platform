@@ -6,7 +6,6 @@ hypervisor_baseline_operator_user: "{{ lookup('env', 'SUDO_USER') | default(look
 
 hypervisor_baseline_libvirtd_socket_dropin_dir: /etc/systemd/system/libvirtd.socket.d
 
-# Refer to documentation/en/configuration/kernel-tuning.md Section 3 for the MTU/overlay rationale.
 # Divided into target/suffix (shared by query-rule and add-rule commands in mss-clamp.yaml)
 # and the differing verb prefixes, centralizing the rule definition in a single location.
 hypervisor_baseline_mss_clamp_cidr: 172.16.0.0/16
@@ -41,3 +40,10 @@ hypervisor_baseline_libvirt_exporter_rpm_name: >-
 # libvirt exporter /proc entry. Refer to files/virtproxyd_libvirt_exporter.te.
 hypervisor_baseline_selinux_local_dir: /etc/selinux/local
 hypervisor_baseline_virtproxyd_policy_module: virtproxyd_libvirt_exporter
+
+# Bastion Vault guest-reachability segment. Lives outside service_catalog:
+# cidr_index must exceed cidr_nat_offset (124), leaving octet 0 of
+# 172.16.0.0/24 outside the catalog's expressible range.
+hypervisor_baseline_publish_network_name: "vault-bastion-publish"
+hypervisor_baseline_publish_network_address: "172.16.0.1"
+hypervisor_baseline_publish_network_netmask: "255.255.255.0"

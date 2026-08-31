@@ -30,6 +30,16 @@ plugins {
     }
   }
 
-  # UpstreamAuthority omitted: SPIRE self-signs its own root
-  # until the Vault-backed upstream authority is configured.
+  UpstreamAuthority "vault" {
+    plugin_data {
+      vault_addr       = "{{ spire_vault_upstream_addr }}"
+      pki_mount_point  = "{{ spire_vault_upstream_pki_mount_path }}"
+      ca_cert_path     = "{{ platform_spire_parent_upstream_ca_cert_path }}"
+      approle_auth {
+        approle_auth_mount_point = "{{ platform_spire_parent_upstream_approle_auth_mount_point }}"
+        approle_id               = "{{ spire_vault_upstream_role_id }}"
+        approle_secret_id        = "{{ spire_vault_upstream_secret_id }}"
+      }
+    }
+  }
 }

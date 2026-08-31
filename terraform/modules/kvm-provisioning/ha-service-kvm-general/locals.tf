@@ -37,6 +37,8 @@ locals {
         base_image_path = comp_data.base_image_path
         role            = comp_data.role
         network_tier    = comp_data.network_tier
+
+        extra_networks = node_data.extra_networks
       }
     }
   ]...)
@@ -59,6 +61,7 @@ locals {
         attached_volumes     = v.attached_volumes
         network_tier         = v.network_tier
         cpu_mode             = v.cpu_mode
+        extra_networks       = v.extra_networks
       }
     }
   }

@@ -138,7 +138,7 @@ vault_bastion_tls_generator() {
   run_command "openssl genrsa -out vault/tls/vault-key.pem 2048" || return 1
   run_command "openssl req -subj '/CN=localhost' -sha256 -new -key vault/tls/vault-key.pem -out vault/tls/vault.csr" || return 1
 
-  echo "subjectAltName = DNS:localhost,IP:127.0.0.1" > "${BASTION_TLS_DIR}/extfile.cnf"
+  echo "subjectAltName = DNS:localhost,IP:127.0.0.1,IP:172.16.0.1" > "${BASTION_TLS_DIR}/extfile.cnf"
 
 	run_command "openssl x509 -req -days 365 -sha256 -in vault/tls/vault.csr \
     -CA vault/tls/ca.pem -CAkey vault/tls/ca-key.pem \
@@ -221,7 +221,9 @@ vault_bastion_init_handler() {
   tmp_init=$(mktemp "${BASTION_INIT_FILE}.XXXXXX")
 	if ! podman exec -i "${BASTION_VAULT_CONTAINER}" vault operator init -address="${BASTION_VAULT_ADDR}" -ca-cert="${BASTION_CA}" -format=json > "$tmp_init"; then
     rm -f "$tmp_init"
-    log_print "FATAL" "Initialization failed. Is ${BASTION_VAULT_CONTAINER} running?"
+    log_print "FATAL" "Initialization failed against ${BASTION_VAULT_ADDR}."
+    log_print "INFO" "Recent ${BASTION_VAULT_CONTAINER} logs (podman ps shows running does not mean the listener is up, a restart loop reports the same status):"
+    podman logs --tail 15 "${BASTION_VAULT_CONTAINER}" 2>&1 | sed 's/^/    /'
     return 1
   fi
   mv "$tmp_init" "$BASTION_INIT_FILE"

@@ -10,6 +10,15 @@
         group: "{{ spire_group }}"
         mode: "0750"
 
+    - name: "B1a2. Deploy Bastion Vault Listener CA Certificate"
+      ansible.builtin.copy:
+        content: "{{ spire_vault_upstream_ca_cert_b64 | b64decode }}"
+        dest: "{{ platform_spire_parent_upstream_ca_cert_path }}"
+        owner: "{{ spire_owner }}"
+        group: "{{ spire_group }}"
+        mode: "0640"
+      notify: Restart SPIRE Server Service
+
     - name: "B1b. Deploy SPIRE Server Config"
       ansible.builtin.template:
         src: server.conf.j2

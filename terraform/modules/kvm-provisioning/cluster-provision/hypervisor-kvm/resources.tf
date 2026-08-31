@@ -7,10 +7,19 @@ resource "terraform_data" "node_mac_uniqueness" {
   lifecycle {
     precondition {
       condition = (
-        length(local.nodes_config) == length(distinct([for k, v in local.nodes_config : v.nat_mac])) &&
-        length(local.nodes_config) == length(distinct([for k, v in local.nodes_config : v.hostonly_mac]))
+        length(flatten([
+          for k, v in local.nodes_config : concat(
+            [v.nat_mac, v.hostonly_mac],
+            [for net, iface in v.extra_network_interfaces : iface.mac]
+          )
+          ])) == length(distinct(flatten([
+            for k, v in local.nodes_config : concat(
+              [v.nat_mac, v.hostonly_mac],
+              [for net, iface in v.extra_network_interfaces : iface.mac]
+            )
+        ])))
       )
-      error_message = "Duplicate nat_mac or hostonly_mac detected among nodes in this hypervisor-kvm invocation."
+      error_message = "Duplicate nat_mac, hostonly_mac, or extra_network_interfaces MAC entry detected among nodes in this hypervisor-kvm invocation."
     }
   }
 }
@@ -149,13 +158,14 @@ resource "libvirt_cloudinit_disk" "cloud_init" {
   })}"
 
   network_config = templatefile("${path.module}/templates/network_config.tftpl", {
-    nat_mac          = local.nodes_config[each.key].nat_mac
-    hostonly_mac     = local.nodes_config[each.key].hostonly_mac
-    hostonly_ip_cidr = local.nodes_config[each.key].hostonly_ip_cidr
-    nat_gateway      = var.libvirt_infrastructure[each.value.network_tier].network.nat.ips.address
-    hostonly_gateway = var.libvirt_infrastructure[each.value.network_tier].network.hostonly.ips.address
-    mtu              = var.libvirt_infrastructure[each.value.network_tier].network.hostonly.mtu
-    static_routes    = lookup(var.static_routes, each.value.network_tier, [])
+    nat_mac                  = local.nodes_config[each.key].nat_mac
+    hostonly_mac             = local.nodes_config[each.key].hostonly_mac
+    hostonly_ip_cidr         = local.nodes_config[each.key].hostonly_ip_cidr
+    nat_gateway              = var.libvirt_infrastructure[each.value.network_tier].network.nat.ips.address
+    hostonly_gateway         = var.libvirt_infrastructure[each.value.network_tier].network.hostonly.ips.address
+    mtu                      = var.libvirt_infrastructure[each.value.network_tier].network.hostonly.mtu
+    static_routes            = lookup(var.static_routes, each.value.network_tier, [])
+    extra_network_interfaces = local.nodes_config[each.key].extra_network_interfaces
   })
 }
 
@@ -273,38 +283,55 @@ resource "libvirt_domain" "nodes" {
     )
 
     # Network Interfaces search by network tier
-    interfaces = [
-      # 1. NAT Interface
-      {
+    interfaces = concat(
+      [
+        # 1. NAT Interface
+        {
+          type = "network"
+          source = {
+            network = {
+              network = var.libvirt_infrastructure[each.value.network_tier].network.nat.name_network
+            }
+          }
+          mac = {
+            address = local.nodes_config[each.key].nat_mac
+          }
+          model = {
+            type = "virtio"
+          }
+        },
+        # 2. HostOnly Interface
+        {
+          type = "network"
+          source = {
+            network = {
+              network = var.libvirt_infrastructure[each.value.network_tier].network.hostonly.name_network
+            }
+          }
+          mac = {
+            address = local.nodes_config[each.key].hostonly_mac
+          }
+          model = {
+            type = "virtio"
+          }
+        }
+      ],
+      # 3+. Extra Interfaces (pre-existing networks the caller names)
+      [for net, iface in local.nodes_config[each.key].extra_network_interfaces : {
         type = "network"
         source = {
           network = {
-            network = var.libvirt_infrastructure[each.value.network_tier].network.nat.name_network
+            network = net
           }
         }
         mac = {
-          address = local.nodes_config[each.key].nat_mac
+          address = iface.mac
         }
         model = {
           type = "virtio"
         }
-      },
-      # 2. HostOnly Interface
-      {
-        type = "network"
-        source = {
-          network = {
-            network = var.libvirt_infrastructure[each.value.network_tier].network.hostonly.name_network
-          }
-        }
-        mac = {
-          address = local.nodes_config[each.key].hostonly_mac
-        }
-        model = {
-          type = "virtio"
-        }
-      }
-    ]
+      }]
+    )
 
     # Other Peripherals
     consoles = [

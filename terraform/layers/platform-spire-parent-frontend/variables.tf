@@ -20,6 +20,7 @@ variable "service_config" {
       vcpu                 = number
       ram_size             = number
       os_disk_capacity_gib = optional(number)
+      extra_networks       = optional(map(string), {})
     }))
   }))
 }

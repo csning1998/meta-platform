@@ -10,7 +10,12 @@ service_config = {
 
     nodes = {
       # Single instance, no HA per Task K (sqlite datastore, no horizontal scaling).
-      "00" = { ip_suffix = 200, vcpu = 1, ram_size = 512 }
+      "00" = {
+        ip_suffix      = 200
+        vcpu           = 1
+        ram_size       = 512
+        extra_networks = { "vault-bastion-publish" = "172.16.0.10/24" }
+      }
     }
   }
 }

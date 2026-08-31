@@ -24,6 +24,31 @@ path "secret/destroy/meta-platform/*" {
   capabilities = ["update"]
 }
 
+# [4a] KV v2 Preflight Mount Lookup: Authorizes the Vault CLI's KV v1/v2 mount-type detection request issued before every kv read or write against the secret/ mount.
+path "sys/internal/ui/mounts/secret/*" {
+  capabilities = ["read"]
+}
+
+# [4b] Credential Bootstrap Data Operations: Authorizes read, create, update, and soft-delete capabilities for bootstrap credential payloads.
+path "secret/data/meta-platform-credentials/*" {
+  capabilities = ["read", "create", "update", "delete"]
+}
+
+# [4c] Credential Bootstrap Metadata Operations: Authorizes read, list, and delete capabilities for bootstrap credential metadata.
+path "secret/metadata/meta-platform-credentials/*" {
+  capabilities = ["read", "list", "delete"]
+}
+
+# [4d] Credential Bootstrap Version Deletion: Authorizes update capabilities on bootstrap credential version deletion endpoints.
+path "secret/delete/meta-platform-credentials/*" {
+  capabilities = ["update"]
+}
+
+# [4e] Credential Bootstrap Version Destruction: Authorizes update capabilities on permanent bootstrap credential destruction endpoints.
+path "secret/destroy/meta-platform-credentials/*" {
+  capabilities = ["update"]
+}
+
 # [5] Bootstrap Certificate Issuance: Authorizes leaf certificate issuance against the bootstrap issuing intermediate authority prior to production Vault availability.
 path "${local.bastion_pki_inter_mount_path}/issue/*" {
   capabilities = ["create", "update"]

@@ -4,12 +4,11 @@ data "terraform_remote_state" "metadata" {
   config  = { address = "${local._state_base}/foundation-libvirt-resources" }
 }
 
-data "terraform_remote_state" "vault_bootstrapper" {
+data "terraform_remote_state" "vault_bastion" {
   backend = "http"
   config  = { address = "${local._state_base}/foundation-vault-bastion" }
 }
 
-data "vault_kv_secret_v2" "guest_vm" {
-  mount = "secret"
-  name  = "meta-platform/guest_vm"
+data "vault_generic_secret" "guest_vm" {
+  path = "secret/meta-platform/guest_vm"
 }

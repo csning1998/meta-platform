@@ -28,3 +28,12 @@ network:
           metric: ${route.metric}
 %{ endfor ~}
       mtu: ${mtu}
+%{ for net, iface in extra_network_interfaces ~}
+
+    extra-${replace(net, ".", "-")}:
+      match:
+        macaddress: "${iface.mac}"
+      dhcp4: false
+      addresses:
+        - "${iface.address}"
+%{ endfor ~}

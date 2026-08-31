@@ -204,6 +204,11 @@ variable "service_config" {
         pool   = string
         volume = string
       })), [])
+
+      # Passed through unchanged to hypervisor-kvm.
+      # Map key: Target libvirt network name.
+      # Map value: Guest static CIDR address assigned to the corresponding target libvirt network.
+      extra_networks = optional(map(string), {})
     }))
   }))
 }

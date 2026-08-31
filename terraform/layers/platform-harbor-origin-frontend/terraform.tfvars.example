@@ -9,7 +9,12 @@ service_config = {
     base_image_path = "../../../packer/output/base-docker-harbor/ubuntu-24-base-docker-harbor.qcow2"
     nodes = {
       # "00" = { ip_suffix = 200, vcpu = 2, ram_size = 1536 } # for bare-minimum for test
-      "00" = { ip_suffix = 200, vcpu = 4, ram_size = 8192 } # for production
+      "00" = {
+        ip_suffix      = 200
+        vcpu           = 4
+        ram_size       = 8192 # for production
+        extra_networks = { "vault-bastion-publish" = "172.16.0.11/24" }
+      }
     }
   }
 }
