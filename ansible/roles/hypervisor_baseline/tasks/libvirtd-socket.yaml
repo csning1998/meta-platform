@@ -40,3 +40,28 @@
     - Stop legacy libvirtd units
     - Disable libvirtd service
     - Restart libvirtd socket
+
+# The monolithic libvirtd socket stays disabled on a modular-daemon host.
+# virtqemud, virtnetworkd, and virtstoraged own the live client-facing sockets.
+- name: "Step 5. Ensure modular libvirt daemon socket drop-in directories exist"
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ item }}.socket.d"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop: "{{ hypervisor_baseline_libvirt_modular_sockets }}"
+
+# A dedicated template prevents a future libvirtd-specific directive added to
+# libvirtd-socket-override.conf.j2 from silently breaking the modular sockets.
+- name: "Step 6. Deploy modular libvirt daemon socket overrides"
+  ansible.builtin.template:
+    src: virt-modular-socket-override.conf.j2
+    dest: "/etc/systemd/system/{{ item }}.socket.d/override.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ hypervisor_baseline_libvirt_modular_sockets }}"
+  notify:
+    - Reload systemd daemon
+    - Restart modular libvirt sockets

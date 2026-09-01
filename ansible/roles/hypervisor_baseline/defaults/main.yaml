@@ -6,6 +6,12 @@ hypervisor_baseline_operator_user: "{{ lookup('env', 'SUDO_USER') | default(look
 
 hypervisor_baseline_libvirtd_socket_dropin_dir: /etc/systemd/system/libvirtd.socket.d
 
+# Modular libvirt daemon split (virtqemud/virtnetworkd/virtstoraged) replacing the monolithic libvirtd.
+hypervisor_baseline_libvirt_modular_sockets:
+  - virtqemud
+  - virtnetworkd
+  - virtstoraged
+
 # Divided into target/suffix (shared by query-rule and add-rule commands in mss-clamp.yaml)
 # and the differing verb prefixes, centralizing the rule definition in a single location.
 hypervisor_baseline_mss_clamp_cidr: 172.16.0.0/16

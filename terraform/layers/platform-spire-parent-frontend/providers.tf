@@ -20,6 +20,10 @@ terraform {
   }
 }
 
+provider "libvirt" {
+  uri = "qemu:///system?socket=/var/run/libvirt/virtqemud-sock"
+}
+
 # Default for Bootstrap, connect to Local Podman Vault
 provider "vault" {
   address      = data.terraform_remote_state.vault_bastion.outputs.bastion_vault_endpoint
