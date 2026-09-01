@@ -1,4 +1,5 @@
 
+# Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 1 Item D.
 resource "vault_pki_secret_backend_cert" "vault_listener" {
   backend     = data.terraform_remote_state.vault_bootstrapper.outputs.bastion_pki_inter_mount_path
   name        = "vault-frontend"

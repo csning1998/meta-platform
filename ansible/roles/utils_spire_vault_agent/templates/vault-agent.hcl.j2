@@ -1,0 +1,61 @@
+
+pid_file = "/var/run/vault-agent.pid"
+
+vault {
+  address = "{{ vault_endpoint | trim('/') }}"
+  ca_cert = "{{ utils_spire_vault_agent_config_dir }}/vault-ca.crt"
+}
+
+auto_auth {
+  method "jwt" {
+    mount_path = "auth/{{ utils_spire_vault_agent_auth_path | trim('/') }}"
+    config = {
+      path = "{{ utils_spire_vault_agent_jwt_dir }}/{{ utils_spire_vault_agent_jwt_file }}"
+      role = "{{ utils_spire_vault_agent_auth_role_name }}"
+      remove_jwt_after_reading = false
+    }
+  }
+
+  sink "file" {
+    config = {
+      path = "{{ utils_spire_vault_agent_config_dir }}/vault-token"
+      mode = 0600
+    }
+  }
+}
+
+# Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 7 Item C.
+template {
+  destination = "{{ utils_spire_vault_agent_config_dir }}/deploy-certs.sh"
+  perms       = "0700"
+  contents    = <<EOH
+{{ '{{- with secret "' ~ utils_spire_vault_agent_pki_mount_path ~ '/issue/' ~ utils_spire_vault_agent_pki_role_name ~ '" "common_name=' ~ utils_spire_vault_agent_common_name ~ '" "ip_sans=' ~ utils_spire_vault_agent_ip_sans ~ '" "ttl=' ~ vault_agent_cert_ttl ~ '" -}}' }}
+#!/bin/sh
+umask 077
+
+{% for dir in utils_spire_vault_agent_cert_dirs %}
+mkdir -p "{{ dir }}"
+{% endfor %}
+
+{% for cert in utils_spire_vault_agent_cert_files %}
+# Ensure subdirectories exist for the specific cert file if needed
+mkdir -p "$(dirname "{{ cert.dest }}")"
+cat << '_VAULT_AGENT_EOF_' > {{ cert.dest }}
+{{ cert.content }}
+_VAULT_AGENT_EOF_
+{% endfor %}
+
+{% for dir in utils_spire_vault_agent_cert_dirs %}
+chown -R {{ utils_spire_vault_agent_owner }}:{{ utils_spire_vault_agent_group }} {{ dir }}
+{% endfor %}
+
+{% for cert in utils_spire_vault_agent_cert_files %}
+chmod {{ cert.mode }} {{ cert.dest }}
+{% endfor %}
+
+{{ utils_spire_vault_agent_post_command }}
+{{ '{{- end -}}' }}
+EOH
+
+  command = "/bin/sh {{ utils_spire_vault_agent_config_dir }}/deploy-certs.sh"
+}

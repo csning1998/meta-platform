@@ -20,3 +20,8 @@ output "spire_agent_bootstrap" {
     server_port  = local.spire_server_port
   }
 }
+
+output "spire_oidc_auth_backend_path" {
+  description = "Mount path of the SPIRE Parent workload JWT-SVID federation backend, for role provisioning by workload-identity-federation module callers."
+  value       = vault_jwt_auth_backend.spire_oidc.path
+}

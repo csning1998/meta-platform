@@ -21,6 +21,7 @@ locals {
   bastion_pki_leaf_extra_domains = {
     "vault-frontend"         = ["vault", "localhost"]
     "harbor-origin-frontend" = []
+    "spire-parent-frontend"  = []
   }
 
   bastion_pki_leaf_roles = {

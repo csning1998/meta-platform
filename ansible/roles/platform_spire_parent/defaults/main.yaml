@@ -7,3 +7,12 @@ platform_spire_parent_default_svid_ttl: "1h"
 # Section B: Upstream Authority
 platform_spire_parent_upstream_ca_cert_path: "{{ spire_dir_config }}/upstream-ca.pem"
 platform_spire_parent_upstream_approle_auth_mount_point: "{{ spire_vault_upstream_approle_mount_path }}"
+
+# Section D: OIDC Discovery Provider
+platform_spire_parent_oidc_dir_config: "/etc/spire/oidc-discovery-provider"
+platform_spire_parent_oidc_cert_path: "{{ platform_spire_parent_oidc_dir_config }}/server.crt"
+platform_spire_parent_oidc_key_path: "{{ platform_spire_parent_oidc_dir_config }}/server.key"
+platform_spire_parent_oidc_ca_path: "{{ platform_spire_parent_oidc_dir_config }}/ca-chain.pem"
+platform_spire_parent_oidc_bind_port: "{{ spire_oidc_discovery_port }}"
+platform_spire_parent_oidc_health_port: "8008"
+platform_spire_parent_oidc_log_level: "INFO"

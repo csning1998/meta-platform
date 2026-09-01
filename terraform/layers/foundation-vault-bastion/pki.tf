@@ -1,4 +1,5 @@
 
+# Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 1 Item C.
 # Root CA mount and certificate generation for the internal trust hierarchy.
 resource "vault_mount" "pki_root" {
   provider    = vault.bastion

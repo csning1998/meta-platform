@@ -16,8 +16,8 @@ resource "vault_approle_auth_backend_role" "spire_upstream_authority" {
   backend        = vault_auth_backend.approle.path
   role_name      = "spire-upstream-authority-role"
   token_policies = [vault_policy.spire_upstream_authority.name]
-  token_ttl      = 3600
-  token_max_ttl  = 14400
+  token_ttl      = 60 * 60     # 1 Hour
+  token_max_ttl  = 60 * 60 * 4 # 4 Hours
 }
 
 resource "vault_approle_auth_backend_role_secret_id" "spire_upstream_authority" {

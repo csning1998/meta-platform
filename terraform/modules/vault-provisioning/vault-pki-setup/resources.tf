@@ -1,4 +1,5 @@
 
+# Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 1 Item C.
 locals {
   pki_api_base_url = "${var.prod_vault_endpoint}/v1/${vault_mount.pki_issuer.path}"
 }

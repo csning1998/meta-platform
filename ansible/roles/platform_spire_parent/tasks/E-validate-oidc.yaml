@@ -1,0 +1,31 @@
+---
+- name: "Block E: Validate OIDC Discovery Provider Instance"
+  become: true
+  block:
+    - name: "E1. Verify OIDC Discovery Provider health endpoint"
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ platform_spire_parent_oidc_health_port }}/ready"
+        status_code: 200
+      register: platform_spire_parent_oidc_health
+      until: platform_spire_parent_oidc_health.status == 200
+      retries: 6
+      delay: 5
+
+    - name: "E2. Verify JWKS endpoint serves signing keys over TLS"
+      ansible.builtin.uri:
+        url: "https://{{ spire_parent_node_ip }}:{{ platform_spire_parent_oidc_bind_port }}/keys"
+        ca_path: "{{ platform_spire_parent_oidc_ca_path }}"
+        status_code: 200
+        return_content: true
+      register: platform_spire_parent_oidc_jwks
+      until: >-
+        platform_spire_parent_oidc_jwks.status == 200 and
+        'keys' in (platform_spire_parent_oidc_jwks.content | from_json)
+      retries: 6
+      delay: 5
+      failed_when: "'keys' not in (platform_spire_parent_oidc_jwks.content | from_json)"
+
+  rescue:
+    - name: "Block E: Validate OIDC Discovery Provider Instance failed"
+      ansible.builtin.fail:
+        msg: "{{ ansible_failed_result.msg | default('see task output above') }}"

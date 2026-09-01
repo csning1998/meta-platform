@@ -14,12 +14,10 @@ data "terraform_remote_state" "spire_parent" {
   config  = { address = "${local._state_base}/platform-spire-parent-frontend" }
 }
 
-data "vault_kv_secret_v2" "guest_vm" {
-  mount = "secret"
-  name  = "${local.vault_kv_namespace}/guest_vm"
+data "vault_generic_secret" "guest_vm" {
+  path = "secret/${local.vault_kv_namespace}/guest_vm"
 }
 
-data "vault_kv_secret_v2" "harbor_origin" {
-  mount = "secret"
-  name  = "${local.vault_kv_namespace}/harbor-origin/frontend"
+data "vault_generic_secret" "harbor_origin" {
+  path = "secret/${local.vault_kv_namespace}/harbor-origin/frontend"
 }

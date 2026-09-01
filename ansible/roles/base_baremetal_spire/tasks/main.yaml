@@ -103,3 +103,85 @@
     - name: "Block A: Install SPIRE Server Binary failed"
       ansible.builtin.fail:
         msg: "{{ ansible_failed_result.msg | default('see task output above') }}"
+
+# Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 4 Item A.
+- name: "Block B: Install SPIRE OIDC Discovery Provider Binary"
+  become: true
+  block:
+    - name: "Step B0. Check installed OIDC Discovery Provider version"
+      ansible.builtin.command: oidc-discovery-provider --version
+      register: base_baremetal_spire_oidc_installed_version
+      changed_when: false
+      failed_when: false
+
+    - name: "Step B1. Download and extract spire-extras archive"
+      when: >-
+        base_baremetal_spire_oidc_installed_version.rc != 0 or
+        base_baremetal_spire_oidc_installed_version.stdout | default('') | trim != base_baremetal_spire_target_version
+      vars:
+        base_baremetal_spire_platform: >-
+          {{ base_baremetal_spire_target_os ~ "-" ~ base_baremetal_spire_target_arch
+              ~ "-" ~ base_baremetal_spire_target_libc }}
+        base_baremetal_spire_extras_tarball: >-
+          {{ "spire-extras-" ~ base_baremetal_spire_target_version ~ "-"
+              ~ base_baremetal_spire_platform ~ ".tar.gz" }}
+      block:
+        - name: "Step B1a. Create extraction directory"
+          ansible.builtin.file:
+            path: /tmp/spire-extras-install
+            state: directory
+            mode: "0755"
+
+        - name: >-
+            Step B1b. Download spire-extras archive with checksum verification
+            (v{{ base_baremetal_spire_target_version }})
+          ansible.builtin.get_url:
+            url: >-
+              {{ "https://github.com/spiffe/spire/releases/download/v" ~ base_baremetal_spire_target_version
+                  ~ "/" ~ base_baremetal_spire_extras_tarball }}
+            dest: "/tmp/spire-extras-install/{{ base_baremetal_spire_extras_tarball }}"
+            checksum: "sha256:{{ base_baremetal_spire_extras_target_sha256 }}"
+            mode: "0644"
+
+        - name: "Step B1c. Unarchive spire-extras (v{{ base_baremetal_spire_target_version }})"
+          ansible.builtin.unarchive:
+            src: "/tmp/spire-extras-install/{{ base_baremetal_spire_extras_tarball }}"
+            dest: /tmp/spire-extras-install
+            remote_src: true
+
+    - name: "Step B2. Install oidc-discovery-provider binary"
+      vars:
+        base_baremetal_spire_extras_bin_dir: >-
+          /tmp/spire-extras-install/spire-extras-{{ base_baremetal_spire_target_version }}/bin
+      ansible.builtin.copy:
+        src: "{{ base_baremetal_spire_extras_bin_dir }}/oidc-discovery-provider"
+        dest: /usr/local/bin/oidc-discovery-provider
+        remote_src: true
+        mode: "0755"
+        owner: root
+        group: root
+      when: >-
+        base_baremetal_spire_oidc_installed_version.rc != 0 or
+        base_baremetal_spire_oidc_installed_version.stdout | default('') | trim != base_baremetal_spire_target_version
+
+    - name: "Step B3. Remove extracted archive contents"
+      ansible.builtin.file:
+        path: /tmp/spire-extras-install
+        state: absent
+      when: >-
+        base_baremetal_spire_oidc_installed_version.rc != 0 or
+        base_baremetal_spire_oidc_installed_version.stdout | default('') | trim != base_baremetal_spire_target_version
+
+    - name: "Step B4. Verify OIDC Discovery Provider installation"
+      ansible.builtin.command: oidc-discovery-provider --version
+      register: base_baremetal_spire_oidc_version_output
+      changed_when: false
+
+    - name: "Step B5. Print OIDC Discovery Provider version"
+      ansible.builtin.debug:
+        msg: "SPIRE OIDC Discovery Provider installed: {{ base_baremetal_spire_oidc_version_output.stdout }}"
+
+  rescue:
+    - name: "Block B: Install SPIRE OIDC Discovery Provider Binary failed"
+      ansible.builtin.fail:
+        msg: "{{ ansible_failed_result.msg | default('see task output above') }}"

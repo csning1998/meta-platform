@@ -25,6 +25,7 @@ module "platform_spire_parent" {
   network_infrastructure_map = module.context.network_infrastructure_map
   credentials_system         = module.context.sec_vm_credentials
   storage_infrastructure_map = data.terraform_remote_state.metadata.outputs.storage_infrastructure_map
+  security_pki_bundle_b64    = local.oidc_listener_bundle
 
   ansible_generic_config = {
     template_vars = local.ansible_template_config

@@ -1,0 +1,56 @@
+---
+# Identity: Config Level
+# Matches vault-agent.service.j2's User=root/Group=root since the systemd unit runs as root.
+utils_spire_vault_agent_config_owner: "root"
+utils_spire_vault_agent_config_group: "root"
+
+# Identity: Systemd Level
+utils_spire_vault_agent_service_owner: "root"
+utils_spire_vault_agent_service_group: "root"
+
+# Identity: Target Certificate Level (Overridable)
+utils_spire_vault_agent_owner: "root"
+utils_spire_vault_agent_group: "root"
+
+# Paths (Generic Defaults)
+utils_spire_vault_agent_config_dir: "/etc/vault.d"
+utils_spire_vault_agent_cert_base_dir: "{{ utils_spire_vault_agent_config_dir }}/certs"
+utils_spire_vault_agent_cert_dirs:
+  - "{{ utils_spire_vault_agent_cert_base_dir }}"
+utils_spire_vault_agent_cert_mode: "0755"
+
+# Filenames (Generic Defaults)
+utils_spire_vault_agent_cert_name: "server.crt"
+utils_spire_vault_agent_key_name: "server.key"
+utils_spire_vault_agent_ca_name: "ca.crt"
+
+# Internal Content Templates
+# Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 7 Item B.
+utils_spire_vault_agent_cert_content: "{{ '{{ .Data.certificate }}' }}\n{{ vault_intermediate_ca_b64 | b64decode }}"
+utils_spire_vault_agent_key_content: "{{ '{{ .Data.private_key }}' }}"
+
+# The Abstracted Mapping List
+utils_spire_vault_agent_cert_files:
+  - dest: "{{ utils_spire_vault_agent_cert_base_dir }}/{{ utils_spire_vault_agent_cert_name }}"
+    content: "{{ utils_spire_vault_agent_cert_content }}"
+    mode: "0644"
+  - dest: "{{ utils_spire_vault_agent_cert_base_dir }}/{{ utils_spire_vault_agent_key_name }}"
+    content: "{{ utils_spire_vault_agent_key_content }}"
+    mode: "0600"
+
+# Operational Defaults
+# The default matches Bastion Vault's current bastion_pki_inter_mount_path.
+# The caller MUST override this with the Terraform-sourced value.
+utils_spire_vault_agent_pki_mount_path: "pki_int"
+utils_spire_vault_agent_wait_file: "{{ utils_spire_vault_agent_cert_base_dir }}/{{ utils_spire_vault_agent_cert_name }}"
+utils_spire_vault_agent_post_command: "true"
+utils_spire_vault_agent_ip_sans: "" # Corresponding to advertise_ip
+
+# spiffe-helper Container
+utils_spire_vault_agent_helper_container_name: "spiffe-helper"
+utils_spire_vault_agent_helper_image: "spiffe-helper:{{ spiffe_helper_version }}"
+utils_spire_vault_agent_socket_dir: "{{ utils_spire_agent_socket_dir | default('/run/spire-agent/public') }}"
+utils_spire_vault_agent_jwt_dir: "/run/spiffe-helper"
+utils_spire_vault_agent_jwt_file: "vault.jwt"
+utils_spire_vault_agent_jwt_audience: "vault"
+utils_spire_vault_agent_helper_health_port: 8090

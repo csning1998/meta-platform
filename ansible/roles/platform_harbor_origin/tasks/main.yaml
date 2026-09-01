@@ -52,29 +52,60 @@
         - bootstrapping
         - registered
 
-- name: "Role 82: Prepare Environment for Vault Agent"
+# Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 9.
+- name: "Role 83: Provision SPIRE Agent for Workload Identity"
   tags:
     - registered
   ansible.builtin.include_role:
-    name: utils_vault_agent
+    name: utils_spire_agent
+    apply:
+      tags:
+        - registered
+  when:
+    - spire_parent_node_ip is defined
+    - spire_trust_domain is defined
+    - spire_server_port is defined
+    - spire_cluster_name is defined
+
+- name: "Role 84: Register SPIRE Workload Entry"
+  tags:
+    - registered
+  ansible.builtin.include_role:
+    name: utils_spire_workload_entry
     apply:
       tags:
         - registered
   vars:
-    utils_vault_agent_owner: "{{ _platform_harbor_origin_harbor_uid }}"
-    utils_vault_agent_group: "{{ _platform_harbor_origin_harbor_gid }}"
-    utils_vault_agent_cert_base_dir: "{{ platform_harbor_origin_harbor_pki_dir }}"
-    utils_vault_agent_cert_dirs:
+    utils_spire_workload_entry_spiffe_id: "{{ spire_workload_spiffe_id }}"
+    utils_spire_workload_entry_selector: "docker:label:spiffe-workload:{{ spire_cluster_name }}"
+  when:
+    - spire_workload_spiffe_id is defined
+    - spire_parent_node_ip is defined
+
+- name: "Role 82: Prepare Environment for Vault Agent"
+  tags:
+    - registered
+  ansible.builtin.include_role:
+    name: utils_spire_vault_agent
+    apply:
+      tags:
+        - registered
+  vars:
+    utils_spire_vault_agent_owner: "{{ _platform_harbor_origin_harbor_uid }}"
+    utils_spire_vault_agent_group: "{{ _platform_harbor_origin_harbor_gid }}"
+    utils_spire_vault_agent_cert_base_dir: "{{ platform_harbor_origin_harbor_pki_dir }}"
+    utils_spire_vault_agent_cert_dirs:
       - "{{ platform_harbor_origin_harbor_pki_dir }}"
       - "{{ platform_harbor_origin_harbor_config_cert_dir }}"
-    utils_vault_agent_wait_file: "{{ platform_harbor_origin_harbor_cert_path }}"
-    utils_vault_agent_ip_sans: "{{ advertise_ip }},{{ harbor_origin_vip }}"
-    utils_vault_agent_role_id: "{{ vault_agent_role_id }}"
-    utils_vault_agent_secret_id: "{{ vault_agent_secret_id }}"
-    utils_vault_agent_auth_path: "{{ vault_auth_path }}"
-    utils_vault_agent_role_name: "{{ vault_role_name }}"
-    utils_vault_agent_common_name: "{{ vault_agent_common_name }}"
-    utils_vault_agent_post_command: |
+    utils_spire_vault_agent_wait_file: "{{ platform_harbor_origin_harbor_cert_path }}"
+    utils_spire_vault_agent_ip_sans: "{{ advertise_ip }},{{ harbor_origin_vip }}"
+    utils_spire_vault_agent_auth_path: "{{ spire_oidc_auth_path }}"
+    utils_spire_vault_agent_auth_role_name: "{{ spire_workload_vault_role_name }}"
+    utils_spire_vault_agent_pki_role_name: "{{ vault_role_name }}"
+    utils_spire_vault_agent_pki_mount_path: "{{ vault_pki_mount_path }}"
+    utils_spire_vault_agent_common_name: "{{ vault_agent_common_name }}"
+    utils_spire_vault_agent_vault_listener_ca_cert_b64: "{{ vault_listener_ca_cert_b64 }}"
+    utils_spire_vault_agent_post_command: |
       install -m 0644 -o {{ _platform_harbor_origin_harbor_uid }} -g {{ _platform_harbor_origin_harbor_gid }} \
         {{ platform_harbor_origin_harbor_cert_path }} {{ platform_harbor_origin_harbor_config_cert_dir }}/server.crt
       install -m 0600 -o {{ _platform_harbor_origin_harbor_uid }} -g {{ _platform_harbor_origin_harbor_gid }} \
@@ -82,7 +113,8 @@
       docker ps -q -f name=^nginx$ | grep -q . && docker exec -i nginx nginx -s reload || true
   when:
     - harbor_origin_stage == "registered"
-    - vault_agent_role_id is defined
+    - spire_oidc_auth_path is defined
+    - spire_workload_vault_role_name is defined
 
 - name: "Section C. Deploy Harbor Instance"
   tags:
@@ -105,17 +137,3 @@
       tags:
         - bootstrapping
         - registered
-
-- name: "Role 83: Provision SPIRE Agent for Workload Identity"
-  tags:
-    - registered
-  ansible.builtin.include_role:
-    name: utils_spire_agent
-    apply:
-      tags:
-        - registered
-  when:
-    - spire_parent_node_ip is defined
-    - spire_trust_domain is defined
-    - spire_server_port is defined
-    - spire_cluster_name is defined

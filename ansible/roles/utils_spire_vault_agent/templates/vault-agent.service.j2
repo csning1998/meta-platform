@@ -1,0 +1,20 @@
+
+[Unit]
+Description=HashiCorp Vault Agent (SPIFFE JWT auto_auth)
+Documentation=https://www.vaultproject.io/docs/
+Requires=network-online.target docker.service
+After=network-online.target docker.service
+
+[Service]
+User=root
+Group=root
+ExecStart=/usr/local/bin/vault agent -config={{ utils_spire_vault_agent_config_dir }}/vault-agent.hcl
+ExecReload=/bin/kill --signal HUP $MAINPID
+KillMode=process
+KillSignal=SIGINT
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,5 @@
+---
+- name: Restart spiffe-helper Container
+  community.docker.docker_container:
+    name: "{{ utils_spire_vault_agent_helper_container_name }}"
+    restart: true

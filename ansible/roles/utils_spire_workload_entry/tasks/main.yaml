@@ -1,0 +1,61 @@
+---
+- name: "Block A: Resolve inventory_hostname's Current Agent SPIFFE ID"
+  become: false
+  block:
+    # Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 8 Item A.
+    - name: "Step A1. Read inventory_hostname's join_token from Bastion Vault"
+      community.hashi_vault.vault_kv2_get:
+        url: "{{ dev_vault_url }}"
+        engine_mount_point: "secret"
+        path: "{{ utils_spire_workload_entry_join_token_vault_path }}"
+        validate_certs: true
+        ca_cert: "{{ playbook_dir }}/../../vault/tls/ca.pem"
+      register: _utils_spire_workload_entry_join_token_secret
+      delegate_to: localhost
+      no_log: true
+
+    - name: "Step A2. Compute inventory_hostname's Agent SPIFFE ID"
+      ansible.builtin.set_fact:
+        _utils_spire_workload_entry_parent_id: >-
+          {{ "spiffe://" ~ spire_trust_domain ~ "/spire/agent/join_token/"
+              ~ _utils_spire_workload_entry_join_token_secret.raw.data.data.join_token }}
+      no_log: true
+
+  rescue:
+    - name: "Block A: Resolve inventory_hostname's Current Agent SPIFFE ID failed"
+      ansible.builtin.fail:
+        msg: "{{ ansible_failed_result.msg | default('see task output above') }}"
+
+- name: "Block B: Register Workload Entry"
+  become: true
+  block:
+    - name: "Step B1. Check for an existing registration entry"
+      ansible.builtin.command:
+        cmd: >-
+          spire-server entry show
+          -socketPath {{ utils_spire_workload_entry_socket_path }}
+          -spiffeID {{ utils_spire_workload_entry_spiffe_id }}
+          -output json
+      register: _utils_spire_workload_entry_existing
+      changed_when: false
+      failed_when: >-
+        _utils_spire_workload_entry_existing.rc != 0 or
+        (_utils_spire_workload_entry_existing.stdout | trim) == ''
+      delegate_to: "{{ spire_parent_node_ip }}"
+
+    - name: "Step B2. Create the registration entry"
+      when: (_utils_spire_workload_entry_existing.stdout | from_json).entries | default([]) | length == 0
+      ansible.builtin.command:
+        cmd: >-
+          spire-server entry create
+          -socketPath {{ utils_spire_workload_entry_socket_path }}
+          -parentID {{ _utils_spire_workload_entry_parent_id }}
+          -spiffeID {{ utils_spire_workload_entry_spiffe_id }}
+          -selector {{ utils_spire_workload_entry_selector }}
+      changed_when: true
+      delegate_to: "{{ spire_parent_node_ip }}"
+
+  rescue:
+    - name: "Block B: Register Workload Entry failed"
+      ansible.builtin.fail:
+        msg: "{{ ansible_failed_result.msg | default('see task output above') }}"

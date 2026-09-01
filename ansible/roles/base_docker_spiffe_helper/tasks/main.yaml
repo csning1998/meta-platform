@@ -1,0 +1,64 @@
+---
+- name: "Block A: Build spiffe-helper Container Image"
+  become: true
+  block:
+    - name: "Step A0. Check if target image already exists"
+      community.docker.docker_image_info:
+        name: "{{ base_docker_spiffe_helper_image_tag }}"
+      register: base_docker_spiffe_helper_existing_image
+
+    - name: "Step A1. Download and build image (v{{ base_docker_spiffe_helper_target_version }})"
+      when: base_docker_spiffe_helper_existing_image.images | length == 0
+      vars:
+        base_docker_spiffe_helper_build_dir: "/tmp/spiffe-helper-build"
+        base_docker_spiffe_helper_tarball: >-
+          {{ "spiffe-helper_v" ~ base_docker_spiffe_helper_target_version
+              ~ "_Linux-" ~ base_docker_spiffe_helper_target_arch ~ ".tar.gz" }}
+      block:
+        - name: "Step A1a. Create build directory"
+          ansible.builtin.file:
+            path: "{{ base_docker_spiffe_helper_build_dir }}"
+            state: directory
+            mode: "0755"
+
+        - name: "Step A1b. Download spiffe-helper binary with checksum verification"
+          ansible.builtin.get_url:
+            url: >-
+              {{ "https://github.com/spiffe/spiffe-helper/releases/download/v" ~ base_docker_spiffe_helper_target_version
+                  ~ "/" ~ base_docker_spiffe_helper_tarball }}
+            dest: "{{ base_docker_spiffe_helper_build_dir }}/{{ base_docker_spiffe_helper_tarball }}"
+            checksum: "sha256:{{ base_docker_spiffe_helper_target_sha256 }}"
+            mode: "0644"
+
+        - name: "Step A1c. Unarchive spiffe-helper"
+          ansible.builtin.unarchive:
+            src: "{{ base_docker_spiffe_helper_build_dir }}/{{ base_docker_spiffe_helper_tarball }}"
+            dest: "{{ base_docker_spiffe_helper_build_dir }}"
+            remote_src: true
+
+        # Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 6 Item B.
+        - name: "Step A1d. Write Dockerfile"
+          ansible.builtin.copy:
+            dest: "{{ base_docker_spiffe_helper_build_dir }}/Dockerfile"
+            content: |
+              FROM scratch
+              COPY spiffe-helper /spiffe-helper
+              ENTRYPOINT ["/spiffe-helper"]
+            mode: "0644"
+
+        - name: "Step A1e. Build spiffe-helper image"
+          community.docker.docker_image:
+            name: "{{ base_docker_spiffe_helper_image_tag }}"
+            source: build
+            build:
+              path: "{{ base_docker_spiffe_helper_build_dir }}"
+
+        - name: "Step A1f. Remove build directory"
+          ansible.builtin.file:
+            path: "{{ base_docker_spiffe_helper_build_dir }}"
+            state: absent
+
+  rescue:
+    - name: "Block A: Build spiffe-helper Container Image failed"
+      ansible.builtin.fail:
+        msg: "{{ ansible_failed_result.msg | default('see task output above') }}"

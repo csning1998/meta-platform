@@ -239,7 +239,7 @@
         group: root
         mode: "0640"
       no_log: true
-      notify: Restart SPIRE Agent Service
+      register: utils_spire_agent_config_result
 
     - name: "Step G2. Create SPIRE Agent Systemd Service"
       ansible.builtin.template:
@@ -248,7 +248,7 @@
         owner: root
         group: root
         mode: "0644"
-      notify: Restart SPIRE Agent Service
+      register: utils_spire_agent_service_result
 
   rescue:
     - name: "Block G: System & Service Configuration failed"
@@ -263,10 +263,15 @@
         name: spire-agent
         enabled: true
         state: started
-        daemon_reload: true
+        daemon_reload: "{{ utils_spire_agent_service_result.changed | default(false) }}"
 
-    - name: "Step H2. Flush handlers before validation"
-      ansible.builtin.meta: flush_handlers
+    - name: "Step H2. Restart SPIRE Agent immediately if config changed"
+      ansible.builtin.systemd:
+        name: spire-agent
+        state: restarted
+      when: >
+        utils_spire_agent_config_result.changed | default(false) or
+        utils_spire_agent_service_result.changed | default(false)
 
   rescue:
     - name: "Block H: Start SPIRE Agent Service failed"

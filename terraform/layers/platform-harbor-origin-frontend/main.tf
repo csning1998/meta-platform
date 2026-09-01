@@ -7,14 +7,25 @@ module "context" {
   global_pki_map           = local.state.network.global_pki_map
   global_network_baseline  = local.state.network.global_network_baseline
   infrastructure_map       = local.state.network.infrastructure_map
-  guest_vm_data            = data.vault_kv_secret_v2.guest_vm.data
+  guest_vm_data            = data.vault_generic_secret.guest_vm.data
 
   target_clusters = var.target_clusters
   primary_role    = var.primary_role
   service_config  = var.service_config
 }
 
-module "infra_harbor_origin" {
+# Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 1 Item D, Section 5.
+module "spire_workload_identity" {
+  source = "../../modules/vault-provisioning/vault-spiffe-workload-identity-federation"
+
+  name              = module.context.svc_identity.cluster_name
+  auth_backend_path = local.state.spire_parent.spire_oidc_auth_backend_path
+  spiffe_id         = local.spire_workload_spiffe_id
+  vault_role_name   = local.harbor_pki_role_name
+  pki_mount_path    = local.state.vault_bastion.bastion_pki_inter_mount_path
+}
+
+module "platform_harbor_origin" {
   source            = "../../modules/kvm-provisioning/ha-service-kvm-general"
   ansible_root_path = abspath("${path.root}/../../../ansible")
   scripts_root_path = abspath("${path.root}/../../../shell")

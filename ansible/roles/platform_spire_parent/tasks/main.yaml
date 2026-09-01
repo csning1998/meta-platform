@@ -7,3 +7,9 @@
 
 - name: "Section C. Validate SPIRE Server Instance"
   ansible.builtin.include_tasks: C-validate.yaml
+
+- name: "Section D. Configure SPIRE OIDC Discovery Provider"
+  ansible.builtin.include_tasks: D-configure-oidc.yaml
+
+- name: "Section E. Validate SPIRE OIDC Discovery Provider"
+  ansible.builtin.include_tasks: E-validate-oidc.yaml

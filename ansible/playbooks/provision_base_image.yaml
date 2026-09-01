@@ -18,6 +18,7 @@
   become: true
   roles:
     - base_docker
+    - base_docker_spiffe_helper
     - base_baremetal_vault
     - base_docker_harbor
 

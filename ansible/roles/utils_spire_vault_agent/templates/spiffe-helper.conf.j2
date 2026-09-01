@@ -1,0 +1,15 @@
+agent_address = "{{ utils_spire_vault_agent_socket_dir }}/api.sock"
+cert_dir      = "{{ utils_spire_vault_agent_jwt_dir }}"
+daemon_mode   = true
+
+jwt_svids = [
+  {
+    jwt_audience       = "{{ utils_spire_vault_agent_jwt_audience }}"
+    jwt_svid_file_name = "{{ utils_spire_vault_agent_jwt_file }}"
+  }
+]
+
+health_checks {
+  listener_enabled = true
+  bind_port        = {{ utils_spire_vault_agent_helper_health_port }}
+}

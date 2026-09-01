@@ -1,4 +1,5 @@
 
+# Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 1 Item C.
 # Configure production Issuing Intermediate, per-service PKI roles, and AppRole authentication.
 # Generates and retains the private key locally within production Vault; transmits only the CSR
 # to Bootstrap Vault for signing.

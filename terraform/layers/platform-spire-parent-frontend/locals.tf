@@ -9,17 +9,32 @@ locals {
   # Extracts the SPIRE trust domain ("<stage>.<domain_suffix>") from module.context.svc_fqdn.
   # Asserts structural alignment with "<service_name>.<stage>.<domain_suffix>".
   # Pattern mismatches MUST trigger plan-time evaluation failure to prevent invalid trust domain propagation.
-  spire_trust_domain = regex("^[^.]+\\.(${module.context.svc_identity.stage}\\..+)$", module.context.svc_fqdn)[0]
-  spire_server_port  = module.context.primary_net_config.lb_config.ports.api.frontend_port
+  spire_trust_domain   = regex("^[^.]+\\.(${module.context.svc_identity.stage}\\..+)$", module.context.svc_fqdn)[0]
+  spire_server_port    = module.context.primary_net_config.lb_config.ports.api.frontend_port
+  spire_oidc_port      = module.context.primary_net_config.lb_config.ports.oidc.frontend_port
+  spire_parent_node_ip = one(module.context.svc_network.node_ips)
+
+  # Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 1 Item C.
+  bastion_pki_chain_pem = "${data.terraform_remote_state.vault_bastion.outputs.bastion_pki_root_cert_pem}\n${data.terraform_remote_state.vault_bastion.outputs.bastion_pki_inter_cert_pem}"
+
+  oidc_listener_bundle = {
+    server_cert_b64 = base64encode(vault_pki_secret_backend_cert.oidc_discovery.certificate)
+    server_key_b64  = base64encode(vault_pki_secret_backend_cert.oidc_discovery.private_key)
+    ca_cert_b64     = base64encode(local.bastion_pki_chain_pem)
+  }
 
   ansible_template_config = {
     global_mss                 = module.context.global_mss
     spire_parent_vip           = module.context.primary_net_config.lb_config.vip
     spire_parent_cluster_name  = module.context.svc_identity.cluster_name
-    spire_parent_node_ip       = one(module.context.svc_network.node_ips)
+    spire_parent_node_ip       = local.spire_parent_node_ip
     spire_parent_static_routes = one(values(module.context.asymmetric_static_routes))
     spire_trust_domain         = local.spire_trust_domain
     spire_server_port          = local.spire_server_port
+    spire_oidc_discovery_port  = local.spire_oidc_port
+
+    # Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 4 Item B.
+    spire_oidc_domain = local.spire_parent_node_ip
   }
 
   ansible_extra_config = {
