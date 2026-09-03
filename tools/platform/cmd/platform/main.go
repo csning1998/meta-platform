@@ -4,6 +4,9 @@ package main
 
 import (
 	"bufio"
+	"errors"
+	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -16,25 +19,50 @@ import (
 // app maintains filesystem paths and bootstrapped environment configuration for CLI operations.
 // Resolves root and home directories at initialization to pass explicit parameters to internal packages.
 type app struct {
-	root        string
-	home        string
-	packerDir   string
-	packerCache string
-	terraform   string
-	ansibleDir  string
-	env         *config.Env
-	out         *ui.Printer
-	in          *bufio.Reader
+	root             string
+	home             string
+	packerDir        string
+	packerCache      string
+	terraform        string
+	bastionVaultAddr string
+	ansibleDir       string
+	env              *config.Env
+	out              *ui.Printer
+	in               *bufio.Reader
 }
 
 func main() {
 	os.Exit(execute())
 }
 
+// resolveProjectRoot anchors root resolution to .git, independent of the invoking subdirectory.
+func resolveProjectRoot(start string) (string, error) {
+	dir := start
+	for {
+		_, err := os.Stat(filepath.Join(dir, ".git"))
+		if err == nil {
+			return dir, nil
+		}
+		if !errors.Is(err, fs.ErrNotExist) {
+			return "", fmt.Errorf("stat %s: %w", filepath.Join(dir, ".git"), err)
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", fmt.Errorf("no .git entry found from %s upward", start)
+		}
+		dir = parent
+	}
+}
+
 func execute() int {
 	out := ui.New(os.Stdout, os.Stderr)
 
-	root, err := os.Getwd()
+	cwd, err := os.Getwd()
+	if err != nil {
+		out.Print(ui.Fatal, err.Error())
+		return 1
+	}
+	root, err := resolveProjectRoot(cwd)
 	if err != nil {
 		out.Print(ui.Fatal, err.Error())
 		return 1
@@ -59,7 +87,7 @@ func execute() int {
 	var rootCmd *cobra.Command
 	rootCmd = &cobra.Command{
 		Use:           "platform",
-		Short:         "IaC-driven virtualization management for meta-platform",
+		Short:         "IaC-driven Internal Developer Platform for meta-platform",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {

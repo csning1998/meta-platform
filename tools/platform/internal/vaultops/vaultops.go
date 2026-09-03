@@ -19,14 +19,31 @@ import (
 	"platform/internal/ui"
 )
 
-const BastionVaultAddr = "https://127.0.0.1:8200"
-
 // Paths groups all project-relative and user-relative paths needed by Vault operations.
 type Paths struct {
-	ProjectRoot  string
-	AnsibleDir   string
-	TerraformDir string
-	Home         string
+	ProjectRoot      string
+	AnsibleDir       string
+	TerraformDir     string
+	Home             string
+	bastionVaultAddr string
+}
+
+// NewPaths constructs Paths for a caller outside this package.
+func NewPaths(projectRoot, ansibleDir, terraformDir, home, bastionVaultAddr string) Paths {
+	return Paths{
+		ProjectRoot:      projectRoot,
+		AnsibleDir:       ansibleDir,
+		TerraformDir:     terraformDir,
+		Home:             home,
+		bastionVaultAddr: bastionVaultAddr,
+	}
+}
+
+func (p Paths) resolveBastionAddr() string {
+	if p.bastionVaultAddr != "" {
+		return p.bastionVaultAddr
+	}
+	return "https://127.0.0.1:8200"
 }
 
 func (p Paths) resolveKeysDir() string       { return filepath.Join(p.ProjectRoot, "vault", "keys") }
@@ -58,7 +75,7 @@ func newClient(addr, caCertPath, token string) (*vaultapi.Client, error) {
 }
 
 func (p Paths) newBastionClient(token string) (*vaultapi.Client, error) {
-	return newClient(BastionVaultAddr, p.resolveCACertFile(), token)
+	return newClient(p.resolveBastionAddr(), p.resolveCACertFile(), token)
 }
 
 // ProdCACertPath returns the on-disk path where shared-vault-frontend's Terraform output
@@ -88,7 +105,7 @@ func InspectStatusAt(ctx context.Context, addr, caCert string) SealStatus {
 
 // InspectBastionStatus queries Bastion Vault's full seal status.
 func InspectBastionStatus(ctx context.Context, p Paths) SealStatus {
-	return InspectStatusAt(ctx, BastionVaultAddr, p.resolveCACertFile())
+	return InspectStatusAt(ctx, p.resolveBastionAddr(), p.resolveCACertFile())
 }
 
 // GetBastionStatus checks whether Bastion Vault is reachable and reports its sealed state.
@@ -174,7 +191,7 @@ func Init(ctx context.Context, p Paths, out *ui.Printer, env interface{ Set(stri
 	}
 	resp, err := client.Sys().InitWithContext(ctx, &vaultapi.InitRequest{SecretShares: 5, SecretThreshold: 3})
 	if err != nil {
-		return fmt.Errorf("vaultops: vault init against %s: %w", BastionVaultAddr, err)
+		return fmt.Errorf("vaultops: vault init against %s: %w", p.resolveBastionAddr(), err)
 	}
 
 	if err := persistInitOutput(p, resp); err != nil {
@@ -291,7 +308,7 @@ func UnsealProduction(ctx context.Context, p Paths, inventoryFile string, out *u
 		Inventory: inventoryFile,
 		Tags:      "vault-unseal",
 		ExtraVars: map[string]interface{}{
-			"dev_vault_url":       BastionVaultAddr,
+			"dev_vault_url":       p.resolveBastionAddr(),
 			"dev_root_token_path": p.resolveRootTokenFile(),
 			"vault_ca_cert_b64":   prodCAB64,
 		},
@@ -318,7 +335,7 @@ func ReadKVv2Field(ctx context.Context, client *vaultapi.Client, mountPath, secr
 func ResolveContext(ctx context.Context, p Paths, target, prodVaultAddr string) (addr, token, caCert string, err error) {
 	if target != "prod" {
 		tokenRaw, _ := os.ReadFile(p.resolveRootTokenFile())
-		return BastionVaultAddr, strings.TrimSpace(string(tokenRaw)), p.resolveCACertFile(), nil
+		return p.resolveBastionAddr(), strings.TrimSpace(string(tokenRaw)), p.resolveCACertFile(), nil
 	}
 
 	caCert = p.resolveProdCACertFile()

@@ -4,6 +4,10 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +15,7 @@ import (
 
 	"platform/internal/config"
 	"platform/internal/ui"
+	"platform/internal/vaultops"
 )
 
 func TestSplitFields(t *testing.T) {
@@ -116,6 +121,93 @@ func TestAllTerraformLayers_KeyAbsent(t *testing.T) {
 	if len(got) != 0 {
 		t.Fatalf("getConfiguredTerraformLayers with absent key = %#v, want empty", got)
 	}
+}
+
+func TestResolveProjectRoot(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	nested := filepath.Join(root, "tools", "platform")
+	if err := os.MkdirAll(nested, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	cases := []struct {
+		name  string
+		start string
+	}{
+		{"at root", root},
+		{"nested subdirectory", nested},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got, err := resolveProjectRoot(c.start)
+			if err != nil {
+				t.Fatalf("resolveProjectRoot(%q): %v", c.start, err)
+			}
+			if got != root {
+				t.Errorf("resolveProjectRoot(%q) = %q, want %q", c.start, got, root)
+			}
+		})
+	}
+}
+
+func TestResolveProjectRootNoGitDirectoryErrors(t *testing.T) {
+	start := t.TempDir()
+
+	if _, err := resolveProjectRoot(start); err == nil {
+		t.Fatal("resolveProjectRoot: want error, got nil")
+	}
+}
+
+func TestResolveBastionVaultAddrInjectionTakesPriority(t *testing.T) {
+	env := loadTestEnv(t, `DEV_VAULT_ADDR="https://from-env:8200"`+"\n")
+	a := &app{bastionVaultAddr: "https://from-injection:8200", env: env}
+
+	if got := a.resolveBastionVaultAddr(); got != "https://from-injection:8200" {
+		t.Errorf("resolveBastionVaultAddr() = %q, want https://from-injection:8200", got)
+	}
+}
+
+func TestResolveBastionVaultAddrFallsBackToEnvDevVaultAddr(t *testing.T) {
+	env := loadTestEnv(t, `DEV_VAULT_ADDR="https://staging-bastion:8200"`+"\n")
+	a := &app{env: env}
+
+	if got := a.resolveBastionVaultAddr(); got != "https://staging-bastion:8200" {
+		t.Errorf("resolveBastionVaultAddr() = %q, want https://staging-bastion:8200", got)
+	}
+}
+
+func TestResolveBastionVaultAddrEmptyWithoutInjectionOrEnv(t *testing.T) {
+	a := &app{}
+
+	if got := a.resolveBastionVaultAddr(); got != "" {
+		t.Errorf("resolveBastionVaultAddr() = %q, want empty", got)
+	}
+}
+
+func TestPrintVaultStatusBannerNilEnvDoesNotPanic(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v1/sys/seal-status", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"initialized": true, "sealed": false})
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	root := t.TempDir()
+	a := &app{root: root, home: t.TempDir(), bastionVaultAddr: srv.URL, out: ui.New(io.Discard, io.Discard)}
+	if err := vaultops.GenerateTLS(context.Background(), a.newVaultPaths(), a.out); err != nil {
+		t.Fatalf("GenerateTLS: %v", err)
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("printVaultStatusBanner panicked with a nil a.env: %v", r)
+		}
+	}()
+	a.printVaultStatusBanner(context.Background())
 }
 
 func TestAppVaultPaths(t *testing.T) {

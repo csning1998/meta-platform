@@ -15,8 +15,8 @@ func TestContextHandlerNonProdRootTokenFileMissing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ContextHandler: %v", err)
 	}
-	if addr != BastionVaultAddr {
-		t.Errorf("addr = %q, want %q", addr, BastionVaultAddr)
+	if addr != "https://127.0.0.1:8200" {
+		t.Errorf("addr = %q, want %q", addr, "https://127.0.0.1:8200")
 	}
 	if token != "" {
 		t.Errorf("token = %q, want empty", token)
@@ -38,8 +38,8 @@ func TestContextHandlerNonProdTrimsToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ContextHandler: %v", err)
 	}
-	if addr != BastionVaultAddr {
-		t.Errorf("addr = %q, want %q", addr, BastionVaultAddr)
+	if addr != "https://127.0.0.1:8200" {
+		t.Errorf("addr = %q, want %q", addr, "https://127.0.0.1:8200")
 	}
 	if token != "s.dev-token" {
 		t.Errorf("token = %q, want s.dev-token", token)

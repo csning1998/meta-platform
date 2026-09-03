@@ -31,11 +31,17 @@ func (a *app) generateVaultTLS(ctx context.Context) error {
 }
 
 func (a *app) initVault(ctx context.Context) error {
-	return vaultops.Init(ctx, a.newVaultPaths(), a.out, a.env)
+	if err := vaultops.Init(ctx, a.newVaultPaths(), a.out, a.env); err != nil {
+		return err
+	}
+	return a.env.Save()
 }
 
 func (a *app) unsealVault(ctx context.Context) error {
-	return vaultops.UnsealBastion(ctx, a.newVaultPaths(), a.out, a.env)
+	if err := vaultops.UnsealBastion(ctx, a.newVaultPaths(), a.out, a.env); err != nil {
+		return err
+	}
+	return a.env.Save()
 }
 
 func (a *app) enableVaultKV(ctx context.Context) error {

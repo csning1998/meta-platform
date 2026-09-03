@@ -6,7 +6,18 @@ import (
 )
 
 func (a *app) newVaultPaths() vaultops.Paths {
-	return vaultops.Paths{ProjectRoot: a.root, AnsibleDir: a.ansibleDir, TerraformDir: a.terraform, Home: a.home}
+	return vaultops.NewPaths(a.root, a.ansibleDir, a.terraform, a.home, a.resolveBastionVaultAddr())
+}
+
+// Returns the explicitly injected bastion address or falls back to DEV_VAULT_ADDR from .env.
+func (a *app) resolveBastionVaultAddr() string {
+	if a.bastionVaultAddr != "" {
+		return a.bastionVaultAddr
+	}
+	if a.env != nil {
+		return a.env.Get(config.KeyDevVaultAddr)
+	}
+	return ""
 }
 
 func getConfiguredPackerBases(env *config.Env) []string {

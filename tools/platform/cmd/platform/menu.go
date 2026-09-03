@@ -69,7 +69,7 @@ func (a *app) runMenu(ctx context.Context) error {
 	}
 }
 
-// printEnvironmentBanner reads root/.env directlysince a.env remains unpopulated at this point.
+// printEnvironmentBanner reads root/.env directly since a.env remains unpopulated at this point.
 func (a *app) printEnvironmentBanner() {
 	strategy := config.StrategyNative
 	if peeked, err := config.Load(filepath.Join(a.root, ".env")); err == nil {
@@ -97,6 +97,13 @@ func (a *app) printVaultStatusBanner(ctx context.Context) {
 		a.out.Print(ui.Warn, "Bastion Vault: Running (Sealed)")
 	default:
 		a.out.Print(ui.OK, "Bastion Vault: Running (Unsealed)")
+		if a.env != nil {
+			if _, err := vaultops.SyncVaultToken(a.newVaultPaths(), a.env); err != nil {
+				a.out.Print(ui.Warn, "Vault token sync failed: "+err.Error())
+			} else if err := a.env.Save(); err != nil {
+				a.out.Print(ui.Warn, "Vault token sync failed: "+err.Error())
+			}
+		}
 	}
 
 	prodCACert := a.newVaultPaths().ProdCACertPath()
@@ -166,7 +173,7 @@ func (a *app) packerMenu(ctx context.Context) error {
 	}
 }
 
-// packerCategoryMenu reports done=true once a build ran or navigation exitedsince the caller's loop stops on that signal.
+// packerCategoryMenu reports done=true once a build ran or navigation exited since the caller's loop stops on that signal.
 func (a *app) packerCategoryMenu(ctx context.Context, subDir, title string) (done bool, err error) {
 	var bases []string
 	if subDir == "distro" {
