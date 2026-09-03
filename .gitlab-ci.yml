@@ -13,9 +13,35 @@ include:
   - component: $CI_SERVER_FQDN/csning1998/gitlab-ci-with-code-reviewer/iac-ansible@1.6.2
     inputs:
       ansible_globs: ["ansible/**/*", "ansible.cfg"]
+  - component: $CI_SERVER_FQDN/csning1998/gitlab-ci-with-code-reviewer/lang-go@1.6.2
+    inputs:
+      go_dir: 'tools/platform'
+      go_fmt_path: './tools/platform'
+      go_globs: ["tools/platform/**/*.go", "tools/platform/go.mod", "tools/platform/go.sum"]
   - component: $CI_SERVER_FQDN/csning1998/gitlab-ci-with-code-reviewer/auto-tag@1.6.2
     inputs:
       reviewer_image: $CI_REGISTRY/csning1998/gitlab-ci-with-code-reviewer/reviewer:1.6.2
       # Module publishing paused until terraform/modules/ gains an external consumer repository;
       # currently, layers reference modules by relative path.
       # - local: ".gitlab/ci/modules-terraform.yml"
+
+# internal/libvirtops uses cgo bindings against libvirt.org/go/libvirt. The lang-go component's
+# golang:*-alpine image ships CGO_ENABLED=0 and no libvirt headers by default; these overrides
+# are local to meta-platform until ported into gitlab-ci-with-code-reviewer's lang-go.yml.
+build:go:
+  variables:
+    CGO_ENABLED: "1"
+  before_script:
+    - apk add --no-cache gcc musl-dev pkgconf libvirt-dev
+
+test:go:
+  variables:
+    CGO_ENABLED: "1"
+  before_script:
+    - apk add --no-cache git gcc musl-dev pkgconf libvirt-dev
+
+lint:go:
+  variables:
+    CGO_ENABLED: "1"
+  before_script:
+    - apk add --no-cache gcc musl-dev pkgconf libvirt-dev

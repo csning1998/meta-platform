@@ -64,6 +64,7 @@ ollama_data/
 
 # Golang
 /iac-tool
+/platform
 
 # IDEs
 .vscode

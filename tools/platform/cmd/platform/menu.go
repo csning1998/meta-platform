@@ -1,0 +1,240 @@
+package main
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"platform/internal/config"
+	"platform/internal/packerops"
+	"platform/internal/ui"
+	"platform/internal/vaultops"
+)
+
+type menuOption struct {
+	label string
+	run   func(ctx context.Context) error
+}
+
+// runMenu returns after dispatching the first valid selection; an invalid selection re-prompts instead of exiting.
+func (a *app) runMenu(ctx context.Context) error {
+	options := []menuOption{
+		{"[BASTION] Set up TLS for Bastion Vault (Local)", func(ctx context.Context) error { return a.generateVaultTLS(ctx) }},
+		{"[BASTION] Initialize Bastion Vault (Local)", func(ctx context.Context) error { return a.initVault(ctx) }},
+		{"[BASTION] Enable KV-v2 Engine", func(ctx context.Context) error { return a.enableVaultKV(ctx) }},
+		{"[BASTION] Unseal Bastion Vault (Local)", func(ctx context.Context) error { return a.unsealVault(ctx) }},
+		{"[PROD] Unseal Production Vault via Ansible", func(ctx context.Context) error { return a.unsealProdVault(ctx) }},
+		{"Generate SSH Key", func(ctx context.Context) error { return a.sshKeygenMenu() }},
+		{"Verify IaC Environment", func(ctx context.Context) error { return a.verifyEnvironment() }},
+		{"Execute Hypervisor Configuration via Ansible", func(ctx context.Context) error { return a.runHypervisorPlaybook(ctx) }},
+		{"Build Packer Base Image", func(ctx context.Context) error { return a.packerMenu(ctx) }},
+		{"Verify Guest VM Connectivity via SSH", func(ctx context.Context) error { return a.sshVerifyMenu() }},
+		{"Switch Environment Strategy", func(ctx context.Context) error { return a.switchStrategy() }},
+		{"[PROD] Revert Gitaly to Standalone for Safety Pre-check", func(ctx context.Context) error { return a.confirmGitalyRevertPrecheck(ctx) }},
+		{"Purge All Packer Artifacts", func(ctx context.Context) error { return a.purgeAllPackerArtifacts() }},
+		{"Purge All Infrastructure Resources (Libvirt + Terraform)", func(ctx context.Context) error { return a.purgeAllInfrastructure() }},
+		{"Quit", nil},
+	}
+
+	a.out.Print(ui.Info, "======= Platform Management Executor =======")
+	a.printEnvironmentBanner()
+	a.out.PrintDivider("")
+
+	env, err := config.BootstrapEnv(a.root, a.packerDir, a.terraform, a.ansibleDir, a.out)
+	if err != nil {
+		return err
+	}
+	a.env = env
+
+	a.printVaultStatusBanner(ctx)
+
+	labels := make([]string, len(options))
+	for i, opt := range options {
+		labels[i] = opt.label
+	}
+
+	for {
+		index, ok := a.out.PromptSelect(a.in, "Please select an action:", labels)
+		if !ok {
+			a.out.Print(ui.Error, "Invalid option")
+			continue
+		}
+		chosen := options[index]
+		if chosen.run == nil {
+			a.out.Print(ui.Info, "Exiting.")
+			return nil
+		}
+		return chosen.run(ctx)
+	}
+}
+
+// printEnvironmentBanner reads root/.env directlysince a.env remains unpopulated at this point.
+func (a *app) printEnvironmentBanner() {
+	strategy := config.StrategyNative
+	if peeked, err := config.Load(filepath.Join(a.root, ".env")); err == nil {
+		if s := peeked.Get(config.KeyEnvironmentStrategy); s != "" {
+			strategy = s
+		}
+	}
+	a.out.Print(ui.Info, "Environment: "+strings.ToUpper(strategy))
+	if strategy == config.StrategyContainer {
+		a.out.Print(ui.Info, "Engine: PODMAN")
+	}
+}
+
+// printVaultStatusBanner reports the state of Bastion and Production Vault.
+func (a *app) printVaultStatusBanner(ctx context.Context) {
+	a.out.PrintDivider("")
+
+	bastion := vaultops.InspectBastionStatus(ctx, a.newVaultPaths())
+	switch {
+	case !bastion.Reachable:
+		a.out.Print(ui.Error, "Bastion Vault: Stopped")
+	case !bastion.Initialized:
+		a.out.Print(ui.Warn, "Bastion Vault: Running (Not Initialized)")
+	case bastion.Sealed:
+		a.out.Print(ui.Warn, "Bastion Vault: Running (Sealed)")
+	default:
+		a.out.Print(ui.OK, "Bastion Vault: Running (Unsealed)")
+	}
+
+	prodCACert := a.newVaultPaths().ProdCACertPath()
+	if _, err := os.Stat(prodCACert); err != nil {
+		a.out.Print(ui.Warn, "Production Vault: Unknown (CA Cert missing at "+prodCACert+")")
+		a.out.Print(ui.Info, "Run shared-vault-frontend Terraform to generate the Bootstrap CA file.")
+	} else {
+		prodAddr := ""
+		if a.env != nil {
+			prodAddr = a.env.Get(config.KeyProdVaultAddr)
+		}
+		prod := vaultops.InspectStatusAt(ctx, prodAddr, prodCACert)
+		switch {
+		case !prod.Reachable:
+			a.out.Print(ui.Error, "Production Vault: Stopped or Unreachable")
+		case prod.Sealed:
+			a.out.Print(ui.Warn, "Production Vault: Running (Sealed)")
+		default:
+			a.out.Print(ui.OK, "Production Vault: Running (Unsealed)")
+		}
+	}
+
+	a.out.PrintDivider("")
+}
+
+func (a *app) sshKeygenMenu() error {
+	name := a.out.PromptInput(a.in, "Enter the desired key name (default: id_ed25519_meta-platform): ", "id_ed25519_meta-platform")
+	overwrite := true // The legacy bash script's own y/n overwrite prompt already gates entry to this path.
+	return a.generateSSHKey(name, overwrite)
+}
+
+func (a *app) sshVerifyMenu() error {
+	if !a.out.PromptConfirm(a.in, "Do you want to Verify Guest VM Connectivity via SSH connections? (y/n): ") {
+		a.out.Print(ui.Info, "Skipping SSH verification.")
+		return nil
+	}
+	return a.verifySSHConnectivity()
+}
+
+func (a *app) packerMenu(ctx context.Context) error {
+	for {
+		a.out.Print(ui.Info, "Select Packer category to build:")
+		a.out.PrintDivider("")
+
+		category, ok := a.out.PromptSelect(a.in, "Select a category:", []string{
+			"Base OS Layers", "Service Layers", "Build ALL", "Back to Main Menu",
+		})
+		if !ok {
+			a.out.Print(ui.Error, "Invalid option")
+			continue
+		}
+
+		switch category {
+		case 0:
+			if done, err := a.packerCategoryMenu(ctx, "distro", "Base OS Images"); done {
+				return err
+			}
+		case 1:
+			if done, err := a.packerCategoryMenu(ctx, "services", "Service Images"); done {
+				return err
+			}
+		case 2:
+			return a.packerBuildAllMenu(ctx)
+		case 3:
+			return nil
+		}
+	}
+}
+
+// packerCategoryMenu reports done=true once a build ran or navigation exitedsince the caller's loop stops on that signal.
+func (a *app) packerCategoryMenu(ctx context.Context, subDir, title string) (done bool, err error) {
+	var bases []string
+	if subDir == "distro" {
+		bases, err = packerops.ListDistroBases(a.packerDir)
+	} else {
+		bases, err = packerops.ListServiceBases(a.packerDir)
+	}
+	if err != nil {
+		return true, err
+	}
+
+	labels := append(append([]string{}, bases...), "Build ALL in "+title, "Back")
+	index, ok := a.out.PromptSelect(a.in, "Select "+title+":", labels)
+	if !ok {
+		a.out.Print(ui.Error, "Invalid option")
+		return false, nil
+	}
+
+	switch {
+	case index == len(labels)-1: // Back
+		return false, nil
+	case index == len(labels)-2: // Build ALL in <title>
+		if subDir == "distro" {
+			if err := packerops.Clean(a.packerDir, "all", nil, a.packerCache, a.out); err != nil {
+				return true, err
+			}
+		}
+		env, err := buildPackerExecutionEnv(ctx, a)
+		if err != nil {
+			return true, err
+		}
+		for _, b := range bases {
+			if err := packerops.Clean(a.packerDir, b, nil, a.packerCache, a.out); err != nil {
+				return true, err
+			}
+			if err := packerops.Build(ctx, a.packerDir, b, env, a.out); err != nil {
+				return true, err
+			}
+		}
+		return true, nil
+	default:
+		return true, a.buildPackerImage(ctx, bases[index])
+	}
+}
+
+func (a *app) packerBuildAllMenu(ctx context.Context) error {
+	if err := packerops.Clean(a.packerDir, "all", getConfiguredPackerBases(a.env), a.packerCache, a.out); err != nil {
+		return err
+	}
+
+	env, err := buildPackerExecutionEnv(ctx, a)
+	if err != nil {
+		return err
+	}
+
+	distro, err := packerops.ListDistroBases(a.packerDir)
+	if err != nil {
+		return err
+	}
+	services, err := packerops.ListServiceBases(a.packerDir)
+	if err != nil {
+		return err
+	}
+
+	for _, b := range append(distro, services...) {
+		if err := packerops.Build(ctx, a.packerDir, b, env, a.out); err != nil {
+			return err
+		}
+	}
+	return nil
+}
