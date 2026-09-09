@@ -21,6 +21,7 @@ locals {
                 for vol_key, vol_data in var.storage_infrastructure_map : {
                   pool   = vol_data.pool_name
                   volume = vol_data.volume_name
+                  format = vol_data.os_disk_format
                 }
                 if startswith(vol_key, "${var.node_identities[comp_name].node_name_prefix}-${node_data.ip_suffix}-")
               ]

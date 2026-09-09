@@ -26,7 +26,6 @@ variable "global_topology_network" {
     nat_cidr_block  = string
     nat_cidr_index  = number
     interface_alias = string
-    vrid            = number
     runtime         = string
     mac_address     = string
     node_ips        = list(string)
@@ -112,10 +111,8 @@ variable "infrastructure_map" {
       })
     })
     lb_config = object({
-      vip            = string
-      vrid           = number
-      interface_name = string
-      tags           = list(string)
+      vip  = string
+      tags = list(string)
       ports = map(object({
         frontend_port            = number
         backend_port             = number

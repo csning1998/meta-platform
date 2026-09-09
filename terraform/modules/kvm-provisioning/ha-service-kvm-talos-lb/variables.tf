@@ -48,7 +48,6 @@ variable "svc_network_map" {
     nat_cidr_block  = string
     nat_cidr_index  = number
     interface_alias = string
-    vrid            = number
     runtime         = string
     mac_address     = string
     node_ips        = list(string)
@@ -79,13 +78,11 @@ variable "svc_network_map" {
 variable "network_service_segments" {
   description = "List of network segments (infrastructure creation only)."
   type = list(object({
-    name           = string
-    bridge_name    = string
-    interface_name = string
-    tags           = optional(list(string))
-    cidr           = string
-    vrid           = number
-    node_ips       = map(string)
+    name        = string
+    bridge_name = string
+    tags        = optional(list(string))
+    cidr        = string
+    node_ips    = map(string)
   }))
 }
 

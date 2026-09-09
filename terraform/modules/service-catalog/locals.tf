@@ -114,7 +114,6 @@ locals {
 
       # Deterministic bridge name
       interface_alias = "v_${substr(replace(key, "-", ""), 0, 8)}_${substr(item.hash_prefix, 0, 4)}"
-      vrid            = item.config.cidr_index
       runtime         = item.config.runtime
       ip_range        = item.config.ip_range
       ports           = coalesce(item.config.ports, {})

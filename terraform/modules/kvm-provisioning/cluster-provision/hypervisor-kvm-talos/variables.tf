@@ -65,10 +65,9 @@ variable "network_infrastructure" {
 variable "talos_cluster_service_segments" {
   description = "Service segment network definitions for infrastructure creation, matching the network_service_segments schema consumed by lb-interface-planner."
   type = list(object({
-    name           = string
-    bridge_name    = string
-    interface_name = string
-    cidr           = string
-    tags           = optional(list(string))
+    name        = string
+    bridge_name = string
+    cidr        = string
+    tags        = optional(list(string))
   }))
 }

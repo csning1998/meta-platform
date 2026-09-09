@@ -51,6 +51,7 @@ variable "topology_cluster" {
         attached_volumes = optional(list(object({
           pool   = string
           volume = string
+          format = optional(string, "qcow2")
         })), [])
 
         # Passed through unchanged to hypervisor-kvm.
@@ -151,10 +152,11 @@ variable "security_pki_bundle_b64" {
 variable "storage_infrastructure_map" {
   description = "Pure MECE mapping of calculated storage volume attributes, passed from foundation-volume outputs."
   type = map(object({
-    base_id      = string
-    pool_name    = string
-    volume_name  = string
-    capacity_gib = number
+    base_id        = string
+    pool_name      = string
+    volume_name    = string
+    capacity_gib   = number
+    os_disk_format = string
   }))
   default = {}
 }
