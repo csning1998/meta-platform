@@ -8,7 +8,7 @@ module "platform_cilium_frontend" {
   })
 
   topology_cluster = {
-    storage_pool_name = var.storage_pool_name
+    storage_pool_name = local.svc_identity.storage_pool_name
 
     load_balancer_config = {
       nodes = {
@@ -33,7 +33,7 @@ module "platform_cilium_frontend" {
 module "cilium_frontend_credentials" {
   source             = "../../modules/vault-provisioning/vault-credential"
   vault_kv_namespace = local.vault_kv_namespace
-  providers          = { vault.production = vault }
+  providers          = { vault = vault }
 
   domain    = "cilium"
   component = "frontend"

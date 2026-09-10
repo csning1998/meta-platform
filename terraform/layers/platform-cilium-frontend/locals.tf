@@ -9,6 +9,7 @@ locals {
   state = {
     network         = data.terraform_remote_state.network.outputs
     vault_bootstrap = data.terraform_remote_state.vault_bootstrapper.outputs
+    spire_parent    = data.terraform_remote_state.spire_parent.outputs
   }
   vault_kv_namespace = "meta-platform"
 }

@@ -13,6 +13,10 @@ terraform {
       source  = "dmacvicar/libvirt"
       version = "0.9.7"
     }
+    external = {
+      source  = "hashicorp/external"
+      version = "2.4.1"
+    }
   }
   backend "http" {
     address        = "https://gitlab.com/api/v4/projects/84608830/terraform/state/platform-cilium-frontend"
@@ -30,13 +34,13 @@ provider "libvirt" {
 
 provider "vault" {
   address      = local.state.vault_bootstrap.bastion_vault_endpoint
-  ca_cert_file = abspath("${path.root}/../../../vault/tls/ca.pem")
+  ca_cert_file = local.state.vault_bootstrap.bastion_vault_listener_ca_cert_path
 
   auth_login {
-    path = "auth/approle/login"
+    path = "auth/${local.state.spire_parent.spire_oidc_auth_backend_path}/login"
     parameters = {
-      role_id   = local.state.vault_bootstrap.role_id
-      secret_id = local.state.vault_bootstrap.secret_id
+      role = local.svc_identity.cluster_name
+      jwt  = data.external.spire_jwt.result.jwt
     }
   }
   skip_child_token = true

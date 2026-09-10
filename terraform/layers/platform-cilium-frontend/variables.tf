@@ -4,11 +4,6 @@ variable "target_cluster_name" {
   type        = string
 }
 
-variable "storage_pool_name" {
-  description = "Libvirt storage pool name for the Talos node disks."
-  type        = string
-}
-
 variable "node_config" {
   description = "Configuration for Talos load balancer nodes (resources and IP suffix)."
   type = map(object({

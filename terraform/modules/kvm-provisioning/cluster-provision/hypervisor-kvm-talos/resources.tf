@@ -79,8 +79,29 @@ resource "libvirt_volume" "os_disk" {
     format = {
       type = var.os_disk_format
     }
+  }
+}
 
+data "libvirt_node_info" "host" {}
 
+# CPU pinning MUST allocate the topmost cores of the Libvirt hypervisor to Talos control
+# plane nodes because unpinned domains migrate toward lower-numbered cores, creating contention
+# across the lower index range. Each node offset MUST equal the cumulative vCPU count of preceding nodes in sorted order.
+locals {
+  talos_node_keys_sorted = sort(keys(var.talos_cluster_vm_config.nodes))
+  talos_total_vcpus      = sum([for k in local.talos_node_keys_sorted : var.talos_cluster_vm_config.nodes[k].vcpu])
+  talos_core_base        = data.libvirt_node_info.host.cpu_cores_total - local.talos_total_vcpus
+  talos_node_core_offset = {
+    for idx, key in local.talos_node_keys_sorted : key => local.talos_core_base + sum(concat([0], [
+      for k in slice(local.talos_node_keys_sorted, 0, idx) : var.talos_cluster_vm_config.nodes[k].vcpu
+    ]))
+  }
+}
+
+check "talos_cpu_pinning_capacity" {
+  assert {
+    condition     = local.talos_core_base >= 0
+    error_message = "Cluster vCPU total (${local.talos_total_vcpus}) exceeds the physical core count (${data.libvirt_node_info.host.cpu_cores_total}) on the host. Reduce node vcpu counts or provision on a host with more cores."
   }
 }
 
@@ -105,6 +126,15 @@ resource "libvirt_domain" "nodes" {
 
   os  = { type = "hvm", arch = "x86_64" }
   cpu = { mode = "host-passthrough" }
+
+  cpu_tune = {
+    vcpu_pin = [
+      for i in range(each.value.vcpu) : {
+        vcpu    = i
+        cpu_set = tostring(local.talos_node_core_offset[each.key] + i)
+      }
+    ]
+  }
 
   devices = {
     disks = [
@@ -138,15 +168,13 @@ resource "libvirt_domain" "nodes" {
     ]
 
     interfaces = [
-      for iface in each.value.interfaces : {
-        type  = "network"
-        mac   = { address = iface.mac }
-        model = { type = "virtio" }
-        source = {
-          network = {
-            network = iface.network_name
-          }
-        }
+      for idx, iface in each.value.interfaces : {
+        type        = "network"
+        mac         = { address = iface.mac }
+        model       = { type = "virtio" }
+        source      = { network = { network = iface.network_name } }
+        wait_for_ip = idx == 0 ? { timeout = 300, source = "lease" } : null
+        # Network readiness validation MUST monitor DHCP lease acquisition exclusively on primary NAT interfaces.
       }
     ]
 
@@ -178,9 +206,8 @@ resource "libvirt_domain" "nodes" {
     }]
   }
 
-  # The libvirt provider reports disk and interface diffs that are not meaningful after first
-  # boot. A subsequent node_config topology change is masked by the same ignore and requires
-  # terraform apply -replace on the affected node.
+  # Lifecycle management MUST ignore disk and interface attribute drift
+  # because the Libvirt provider computes false difference states following initial guest bootstrap.
   lifecycle {
     ignore_changes = [devices]
   }
@@ -193,9 +220,7 @@ data "libvirt_domain_interface_addresses" "nodes" {
   domain = libvirt_domain.nodes[each.key].uuid
   source = "lease"
 
-  # The lease table read here feeds maintenance_addresses' one(), which returns null on zero
-  # matches and errors opaquely on more than one. This surfaces the same failure attributing
-  # it to the node and NAT MAC actually at fault.
+  # Postcondition checks MUST validate lease list boundaries to provide diagnostic node identification upon failure.
   lifecycle {
     postcondition {
       condition = length([

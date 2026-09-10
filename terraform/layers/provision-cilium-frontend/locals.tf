@@ -8,6 +8,7 @@ locals {
 locals {
   state = {
     cilium_frontend = data.terraform_remote_state.cilium_frontend.outputs
+    spire_parent    = data.terraform_remote_state.spire_parent.outputs
   }
 
   infrastructure_map = local.state.cilium_frontend.infrastructure_map

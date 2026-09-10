@@ -1,14 +1,18 @@
 
 resource "kubernetes_namespace_v1" "platform_lb" {
+  depends_on = [ephemeral.talos_cluster_health.this]
+
   metadata {
     name = "platform-lb"
   }
 }
 
-# Define cluster-scoped IP pool and L2 announcement resources per ADR 20260813_1630.
+# Cilium L2 announcements MUST declare dedicated IP pools to advertise frontend load balancer VIPs across the local network segment.
 # Consuming projects maintain ownership of namespaced Service and Endpoints objects.
-resource "kubectl_manifest" "lb_ip_pool" {
-  yaml_body = yamlencode({
+resource "kubernetes_manifest" "lb_ip_pool" {
+  depends_on = [ephemeral.talos_cluster_health.this]
+
+  manifest = {
     apiVersion = "cilium.io/v2alpha1"
     kind       = "CiliumLoadBalancerIPPool"
     metadata = {
@@ -22,11 +26,13 @@ resource "kubectl_manifest" "lb_ip_pool" {
         for key, seg in local.fronted_segments : { cidr = "${seg.lb_config.vip}/32" }
       ]
     }
-  })
+  }
 }
 
-resource "kubectl_manifest" "l2_announcement_policy" {
-  yaml_body = yamlencode({
+resource "kubernetes_manifest" "l2_announcement_policy" {
+  depends_on = [ephemeral.talos_cluster_health.this]
+
+  manifest = {
     apiVersion = "cilium.io/v2alpha1"
     kind       = "CiliumL2AnnouncementPolicy"
     metadata = {
@@ -38,7 +44,7 @@ resource "kubectl_manifest" "l2_announcement_policy" {
       }
       loadBalancerIPs = true
     }
-  })
+  }
 }
 
 # Bind selector-less LoadBalancer Services to explicit Endpoints objects matching

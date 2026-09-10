@@ -45,24 +45,35 @@ data "talos_machine_configuration" "this" {
           disk  = "/dev/vda"
           image = "ghcr.io/siderolabs/installer:${var.talos_version}"
         }
-        # Retain DHCP on interface index 0 for maintenance mode connectivity. Configure explicit static
-        # addresses on non-DHCP interfaces (index 1 and above).
+        # Interface configuration MUST retain DHCP on primary interfaces while binding the floating control plane VIP
+        # to host-only interfaces to ensure high availability.
         network = {
           interfaces = [
-            for iface in slice(each.value.interfaces, 1, length(each.value.interfaces)) : {
-              deviceSelector = { hardwareAddr = iface.mac }
-              dhcp           = false
-              addresses      = iface.addresses
-            }
+            for idx, iface in slice(each.value.interfaces, 1, length(each.value.interfaces)) : merge(
+              {
+                deviceSelector = { hardwareAddr = iface.mac }
+                dhcp           = false
+                addresses      = iface.addresses
+              },
+              idx == 0 ? { vip = { ip = local.svc_net.vip } } : {}
+            )
           ]
         }
         # Pin kubelet node IP binding explicitly to the service subnet CIDR block.
         kubelet = { nodeIP = { validSubnets = [local.svc_net.cidr_block] } }
       }
       cluster = {
-        network         = { cni = { name = "none" } }
-        proxy           = { disabled = true }
-        etcd            = { advertisedSubnets = [local.svc_net.cidr_block] }
+        network = { cni = { name = "none" } }
+        proxy   = { disabled = true }
+        etcd = {
+          advertisedSubnets = [local.svc_net.cidr_block]
+          # Heartbeat intervals MUST be increased beyond baseline defaults
+          # because hypervisor scheduling jitter triggers spurious etcd leader elections.
+          extraArgs = {
+            "election-timeout"   = "2500"
+            "heartbeat-interval" = "250"
+          }
+        }
         inlineManifests = [{ name = "cilium", contents = var.cilium_inline_manifest }]
       }
     })
@@ -73,6 +84,10 @@ data "talos_machine_configuration" "this" {
 resource "talos_machine_configuration_apply" "this" {
   depends_on = [module.hypervisor_kvm_talos]
   for_each   = local.talos_cluster_vm_config.nodes
+
+  # Configuration patch applications MUST trigger a full node reboot
+  # because in-place reconfiguration fails to recover inconsistent in-memory etcd learner states.
+  apply_mode = "reboot"
 
   client_configuration        = talos_machine_secrets.this.client_configuration
   machine_configuration_input = data.talos_machine_configuration.this[each.key].machine_configuration

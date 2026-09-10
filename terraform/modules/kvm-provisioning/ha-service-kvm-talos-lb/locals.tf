@@ -27,7 +27,7 @@ locals {
   }
 
   hostonly_addresses = module.hypervisor_kvm_talos.hostonly_addresses
-  cluster_endpoint   = "https://${local.hostonly_addresses[local.bootstrap_node_key]}:6443"
-  # Single point of failure: no SSoT VIP reservation exists for this segment, the same
-  # open defect tracked for central-lb in the ADR.
+  # The control plane VIP MUST bind to the canonical service catalog address
+  # through Talos leader election to provide a resilient cluster endpoint.
+  cluster_endpoint = "https://${local.svc_net.vip}:6443"
 }

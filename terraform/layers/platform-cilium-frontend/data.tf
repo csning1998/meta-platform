@@ -9,6 +9,16 @@ data "terraform_remote_state" "network" {
   config  = { address = "${local._state_base}/foundation-libvirt-resources" }
 }
 
+data "terraform_remote_state" "spire_parent" {
+  backend = "http"
+  config  = { address = "${local._state_base}/platform-spire-parent-frontend" }
+}
+
+# Vault authentication MUST obtain ephemeral JWT-SVID credentials on every execution to prevent state file persistence.
+data "external" "spire_jwt" {
+  program = ["/usr/local/bin/spire-fetch-platform-cilium-frontend"]
+}
+
 # `helm_template` renders template manifests without active API server connectivity.
 data "helm_template" "cilium" {
   name         = "cilium"
@@ -25,6 +35,9 @@ data "helm_template" "cilium" {
     kubeProxyReplacement = true
     l2announcements      = { enabled = true }
     hubble               = { enabled = false } # Disable Hubble to prevent persistent state drift.
+
+    # eBPF masquerade MUST be enabled because IPTables masquerade selects an invalid source device for baremetal backend routing.
+    bpf = { masquerade = true }
 
     # Route API server connections to node-local KubePrism endpoints. Disabling kube-proxy
     # prevents ClusterIP routing prior to CNI initialization.
