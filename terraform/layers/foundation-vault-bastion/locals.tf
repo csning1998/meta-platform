@@ -16,6 +16,8 @@ locals {
 }
 
 locals {
+  # This path MUST serve as the canonical Vault listener CA location across provider and validation definitions.
+  bastion_vault_ca_cert_path   = abspath("${path.root}/../../../vault/tls/ca.pem")
   bastion_pki_inter_mount_path = local.state.metadata.global_pki_config.mount_path
 
   bastion_pki_leaf_extra_domains = {
@@ -34,7 +36,7 @@ locals {
 
 check "vault_ca_cert_present" {
   assert {
-    condition     = fileexists("${path.module}/../../../vault/tls/ca.pem")
+    condition     = fileexists(local.bastion_vault_ca_cert_path)
     error_message = "Vault CA certificate file missing at vault/tls/ca.pem referenced by providers.tf ca_cert_file."
   }
 }

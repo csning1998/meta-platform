@@ -10,11 +10,11 @@ terraform {
 
 resource "vault_policy" "this" {
   # Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 5 Item B.
-  name = "jwt-policy-${var.name}"
+  name = "jwt-policy-${var.auth_role_name}"
   policy = jsonencode({
     path = merge(
       {
-        "${var.pki_mount_path}/issue/${var.vault_role_name}" = { capabilities = ["create", "update"] }
+        "${var.pki_mount_path}/issue/${var.pki_role_name}" = { capabilities = ["create", "update"] }
       },
       var.extra_policy_paths
     )
@@ -23,7 +23,7 @@ resource "vault_policy" "this" {
 
 resource "vault_jwt_auth_backend_role" "this" {
   backend         = var.auth_backend_path
-  role_name       = var.name
+  role_name       = var.auth_role_name
   role_type       = "jwt"
   bound_audiences = [var.audience]
   bound_subject   = var.spiffe_id

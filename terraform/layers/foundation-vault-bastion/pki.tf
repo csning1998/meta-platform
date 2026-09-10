@@ -24,14 +24,9 @@ resource "vault_pki_secret_backend_root_cert" "root" {
   }
 }
 
-# Read local Vault listener TLS CA certificate file.
-data "local_file" "vault_dev_ca" {
-  filename = abspath("${path.root}/../../../vault/tls/ca.pem")
-}
-
 # Stage the Vault listener CA certificate in the local layer directory for downstream remote state access.
-resource "local_file" "vault_dev_ca_copy" {
-  content  = data.local_file.vault_dev_ca.content
+resource "local_file" "bastion_vault_ca_copy" {
+  content  = data.local_file.bastion_vault_ca.content
   filename = "${path.root}/tls/vault-dev-ca.crt"
 }
 

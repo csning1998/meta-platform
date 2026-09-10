@@ -1,6 +1,6 @@
 
 # Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 5.
-variable "name" {
+variable "auth_role_name" {
   description = "Sets the JWT authentication backend role identifier for the target workload identity"
   type        = string
 }
@@ -21,7 +21,7 @@ variable "audience" {
   default     = "vault"
 }
 
-variable "vault_role_name" {
+variable "pki_role_name" {
   description = "Name of the Vault PKI role defined for certificate issuance"
   type        = string
 }

@@ -4,6 +4,12 @@ output "role_id" {
   value       = vault_approle_auth_backend_role.terraform_admin.role_id
 }
 
+output "secret_id" {
+  description = "The SecretID of the Terraform admin AppRole"
+  value       = vault_approle_auth_backend_role_secret_id.terraform_admin.secret_id
+  sensitive   = true
+}
+
 output "approle_path" {
   description = "The path where AppRole auth is enabled"
   value       = vault_auth_backend.approle.path
@@ -14,12 +20,6 @@ output "role_name" {
   value       = vault_approle_auth_backend_role.terraform_admin.role_name
 }
 
-output "secret_id" {
-  description = "The SecretID of the Terraform admin AppRole"
-  value       = vault_approle_auth_backend_role_secret_id.terraform_admin.secret_id
-  sensitive   = true
-}
-
 output "bastion_vault_endpoint" {
   description = "The address of the Vault server"
   value       = var.bastion_vault_endpoint
@@ -27,7 +27,7 @@ output "bastion_vault_endpoint" {
 
 output "bastion_vault_listener_ca_cert_path" {
   description = "Path to the Bastion Vault server's own listener TLS CA, for downstream layers connecting to this same Vault instance"
-  value       = abspath(local_file.vault_dev_ca_copy.filename)
+  value       = abspath(local_file.bastion_vault_ca_copy.filename)
 }
 
 output "bastion_pki_root_cert_pem" {
@@ -52,13 +52,4 @@ output "spire_upstream_authority" {
     secret_id = vault_approle_auth_backend_role_secret_id.spire_upstream_authority.secret_id
   }
   sensitive = true
-}
-
-output "credential_paths" {
-  description = "Mount-relative Bastion KV paths written by this layer, nested by domain and component."
-  value = {
-    "harbor-origin" = {
-      frontend = module.harbor_origin_credentials.path
-    }
-  }
 }

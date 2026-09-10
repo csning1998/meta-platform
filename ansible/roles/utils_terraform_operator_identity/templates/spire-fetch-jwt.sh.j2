@@ -1,0 +1,30 @@
+#!/bin/sh
+# Prints a JWT-SVID as Terraform data "external" JSON: {"jwt": "<token>"}. Runs spire-agent as
+# "{{ utils_terraform_operator_identity_service_user }}"; that UID is the SPIRE selector for this identity.
+set -eu
+
+SOCKET_PATH="{{ utils_spire_agent_socket_dir | default('/run/spire-agent/public') }}/api.sock"
+STDERR_FILE="$(mktemp)"
+trap 'rm -f "${STDERR_FILE}"' EXIT
+
+set +e
+RAW="$(sudo -n -u {{ utils_terraform_operator_identity_service_user }} \
+  {{ utils_terraform_operator_identity_spire_agent_bin }} api fetch jwt \
+  -audience {{ utils_terraform_operator_identity_jwt_audience }} -socketPath "${SOCKET_PATH}" -output json \
+  2>"${STDERR_FILE}")"
+FETCH_STATUS=$?
+set -e
+
+if [ "${FETCH_STATUS}" -ne 0 ]; then
+  echo "{{ utils_terraform_operator_identity_wrapper_name }}: spire-agent exited ${FETCH_STATUS}: $(cat "${STDERR_FILE}")" >&2
+  exit 1
+fi
+
+TOKEN="$(printf '%s' "${RAW}" | jq -r 'try .[0].svids[0].svid catch empty')"
+
+if [ -z "${TOKEN}" ] || [ "${TOKEN}" = "null" ]; then
+  echo "{{ utils_terraform_operator_identity_wrapper_name }}: spire-agent returned no JWT-SVID: ${RAW}" >&2
+  exit 1
+fi
+
+jq -n --arg jwt "${TOKEN}" '{jwt: $jwt}'

@@ -1,0 +1,14 @@
+---
+utils_terraform_operator_identity_name: "harbor-origin-provisioner"
+utils_terraform_operator_identity_wrapper_dir: "/usr/local/bin"
+utils_terraform_operator_identity_wrapper_name: "spire-fetch-{{ utils_terraform_operator_identity_name }}"
+utils_terraform_operator_identity_jwt_audience: "vault"
+utils_terraform_operator_identity_spire_agent_bin: "/usr/local/bin/spire-agent"
+
+# SPIRE Unix WorkloadAttestor attests processes connecting to the Workload API socket. To enforce per-consumer
+# selector isolation, each consumer MUST execute under a dedicated system account selected via unix:uid.
+utils_terraform_operator_identity_service_user: "svc-{{ utils_terraform_operator_identity_name }}"
+
+# Specifies the login user authorized to execute privilege escalation (sudo -u) targeting the service user.
+# Under ansible_connection: local, this variable SHALL resolve to the environment USER invoking the playbook.
+utils_terraform_operator_identity_operator_user: "{{ lookup('env', 'USER') }}"

@@ -1,0 +1,44 @@
+---
+# Triggered by provision-spire-parent-frontend via ansible-runner with tags spire_agent and
+# terraform_operator_identity. May also be run manually against a specific tag.
+- name: "Play [Setup]: Dynamic Grouping based on node_role"
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: "Create dynamic groups from node_role variable"
+      ansible.builtin.group_by:
+        key: "{{ node_role | replace('-', '_') }}"
+      tags:
+        - always
+
+# Phase 2: This host's own SPIRE Agent. Native systemd binary, per utils_spire_agent, not a container.
+- name: "Play [SPIRE Agent]: Provision this host's own SPIRE Agent"
+  hosts: "{{ 'host_terraform_operator' if 'host_terraform_operator' in groups else [] }}"
+  become: true
+  tags:
+    - spire_agent
+  roles:
+    - utils_spire_agent
+
+# Phase 3: Per-consumer Terraform-operator workload identity, consumed by data "external" in
+# each replacing layer providers.tf.
+- name: "Play [Terraform Operator Identity]: Register JWT-SVID fetch wrapper"
+  hosts: "{{ 'host_terraform_operator' if 'host_terraform_operator' in groups else [] }}"
+  become: true
+  tags:
+    - terraform_operator_identity
+  vars:
+    # The extra_vars of ansible-runner supplies this variable as a JSON-encoded string. A manual
+    # run with --tags terraform_operator_identity may instead pass a native YAML list for this
+    # variable, or omit the variable entirely.
+    _utils_terraform_operator_identity_names_raw: "{{ utils_terraform_operator_identity_names | default([]) }}"
+    _utils_terraform_operator_identity_names: >-
+      {{ (_utils_terraform_operator_identity_names_raw is string)
+        | ternary(_utils_terraform_operator_identity_names_raw | from_json, _utils_terraform_operator_identity_names_raw) }}
+  tasks:
+    - name: "Register workload identity"
+      ansible.builtin.include_role:
+        name: utils_terraform_operator_identity
+      vars:
+        utils_terraform_operator_identity_name: "{{ item }}"
+      loop: "{{ _utils_terraform_operator_identity_names }}"

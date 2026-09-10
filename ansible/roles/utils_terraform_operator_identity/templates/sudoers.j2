@@ -1,0 +1,1 @@
+{{ utils_terraform_operator_identity_operator_user }} ALL=({{ utils_terraform_operator_identity_service_user }}) NOPASSWD: {{ utils_terraform_operator_identity_spire_agent_bin }} api fetch jwt -audience {{ utils_terraform_operator_identity_jwt_audience }} -socketPath {{ utils_spire_agent_socket_dir | default('/run/spire-agent/public') }}/api.sock -output json

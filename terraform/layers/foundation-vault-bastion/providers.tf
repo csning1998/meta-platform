@@ -9,6 +9,10 @@ terraform {
       source  = "hashicorp/random"
       version = "3.6.3"
     }
+    local = {
+      source  = "hashicorp/local"
+      version = "~> 2.9.0"
+    }
   }
   backend "http" {
     address        = "https://gitlab.com/api/v4/projects/84608830/terraform/state/foundation-vault-bastion"
@@ -24,5 +28,5 @@ terraform {
 provider "vault" {
   alias        = "bastion"
   address      = var.bastion_vault_endpoint
-  ca_cert_file = abspath("${path.root}/../../../vault/tls/ca.pem")
+  ca_cert_file = local.bastion_vault_ca_cert_path
 }
