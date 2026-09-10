@@ -30,8 +30,8 @@
     state: restarted
   failed_when: false
 
-# This handler MUST NOT swallow a restart failure with failed_when: false, since a failed
-# restart would leave a socket at the default 0666 permission while Ansible reports success.
+# This handler MUST NOT suppress restart failures because an unhandled socket restart failure
+# leaves permissions at default 0666 while task execution reports success.
 - name: Restart modular libvirt sockets
   ansible.builtin.systemd:
     name: "{{ item }}.socket"

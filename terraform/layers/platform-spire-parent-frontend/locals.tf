@@ -24,21 +24,21 @@ locals {
   }
 
   ansible_template_config = {
-    global_mss                 = module.context.global_mss
-    spire_parent_vip           = module.context.primary_net_config.lb_config.vip
-    spire_parent_cluster_name  = module.context.svc_identity.cluster_name
-    spire_parent_node_ip       = local.spire_parent_node_ip
-    spire_parent_static_routes = one(values(module.context.asymmetric_static_routes))
-    spire_trust_domain         = local.spire_trust_domain
-    spire_server_port          = local.spire_server_port
-    spire_oidc_discovery_port  = local.spire_oidc_port
+    global_mss                = module.context.global_mss
+    spire_parent_vip          = module.context.primary_net_config.lb_config.vip
+    spire_parent_cluster_name = module.context.svc_identity.cluster_name
+    spire_parent_node_ip      = local.spire_parent_node_ip
+    spire_trust_domain        = local.spire_trust_domain
+    spire_server_port         = local.spire_server_port
+    spire_oidc_discovery_port = local.spire_oidc_port
 
     # Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 4 Item B.
     spire_oidc_domain = local.spire_parent_node_ip
   }
 
   ansible_extra_config = {
-    ansible_user = module.context.sec_vm_credentials.username
+    ansible_user            = module.context.sec_vm_credentials.username
+    spire_parent_wipe_state = var.wipe_spire_state
 
     spire_vault_upstream_addr               = data.terraform_remote_state.vault_bastion.outputs.bastion_vault_endpoint
     spire_vault_upstream_pki_mount_path     = data.terraform_remote_state.vault_bastion.outputs.bastion_pki_inter_mount_path

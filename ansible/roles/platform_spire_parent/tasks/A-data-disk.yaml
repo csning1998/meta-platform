@@ -55,3 +55,41 @@
     owner: "{{ spire_owner }}"
     group: "{{ spire_group }}"
     mode: "0700"
+
+# A routine OS disk rebuild MUST preserve persistent SPIRE CA keys on the persistent data volume
+# while intentional greenfield re-initialization purges datastore state.
+- name: "A4. Wipe SPIRE Server state for a deliberate greenfield reset"
+  when: spire_parent_wipe_state | default(false) | bool
+  block:
+    - name: "A4a. Check whether the SPIRE Server unit is installed yet"
+      ansible.builtin.stat:
+        path: /etc/systemd/system/spire-server.service
+      register: _platform_spire_parent_service_unit
+
+    - name: "A4b. Stop SPIRE Server before wiping state"
+      ansible.builtin.systemd:
+        name: spire-server
+        state: stopped
+      when: _platform_spire_parent_service_unit.stat.exists
+
+    - name: "A4c. Remove datastore and CA key material"
+      ansible.builtin.file:
+        path: "{{ spire_dir_data }}/{{ item }}"
+        state: absent
+      loop:
+        - datastore.sqlite3
+        - datastore.sqlite3-shm
+        - datastore.sqlite3-wal
+        - keys.json
+        - private
+
+    - name: "A4d. Restart SPIRE Server after wiping state"
+      ansible.builtin.systemd:
+        name: spire-server
+        state: started
+      when: _platform_spire_parent_service_unit.stat.exists
+
+  rescue:
+    - name: "A4. Wipe SPIRE Server state failed"
+      ansible.builtin.fail:
+        msg: "Greenfield wipe failed: {{ ansible_failed_result | default('see task output above') }}"

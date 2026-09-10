@@ -35,3 +35,8 @@
 # 9. Defines dedicated 172.16.0.0/24 network segment for guest VM access to Bastion Vault.
 - name: "Include: Bastion Vault publish network"
   ansible.builtin.include_tasks: bastion-vault-publish-network.yaml
+
+# Compilation of the CGo-based Libvirt client in tools/entry MUST utilize header files
+# which the libvirt-devel package provides.
+- name: "Include: libvirt development headers"
+  ansible.builtin.include_tasks: libvirt-dev-headers.yaml

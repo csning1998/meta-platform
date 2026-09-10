@@ -1,0 +1,8 @@
+---
+# tools/entry (the Go rewrite of entry.sh) links libvirt.org/go/libvirt via cgo, which
+# needs libvirt's pkg-config file and headers at build time, not only the runtime client.
+- name: "Install libvirt development headers for cgo builds"
+  become: true
+  ansible.builtin.dnf:
+    name: libvirt-devel
+    state: present

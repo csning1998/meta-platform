@@ -9,6 +9,12 @@ variable "primary_role" {
   type        = string
 }
 
+variable "wipe_spire_state" {
+  description = "Deletes the SPIRE Server datastore and CA keys on the next apply, forcing a fresh trust domain. Never true by default: a routine OS-disk rebuild MUST preserve the existing trust chain. Set true only for a deliberate greenfield reset, then revert to false before the next apply."
+  type        = bool
+  default     = false
+}
+
 variable "service_config" {
   description = "Compute topology per role for SPIRE Server (Parent) service."
   type = map(object({

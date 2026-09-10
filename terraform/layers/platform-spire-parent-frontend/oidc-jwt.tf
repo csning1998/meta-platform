@@ -15,5 +15,4 @@ resource "vault_jwt_auth_backend" "spire_oidc" {
     default_lease_ttl  = "5m"
     max_lease_ttl      = "1h"
   }
-
 }

@@ -16,6 +16,7 @@ output "spire_agent_bootstrap" {
   description = "Values a SPIRE Agent consumer needs to reach and trust this SPIRE Parent."
   value = {
     node_ip      = one(module.context.svc_network.node_ips)
+    ssh_host     = "${module.context.svc_identity.cluster_name}-node-00"
     trust_domain = local.spire_trust_domain
     server_port  = local.spire_server_port
   }
