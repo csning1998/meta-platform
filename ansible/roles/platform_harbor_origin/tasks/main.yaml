@@ -15,21 +15,6 @@
       harbor_origin_stage received: {{ harbor_origin_stage | default('undefined') }}.
     success_msg: "Harbor Origin stage is {{ harbor_origin_stage }}"
 
-- name: "Role 81: Configure Network Routing"
-  tags:
-    - registered
-  ansible.builtin.include_role:
-    name: utils_asymmetric_routing
-    apply:
-      tags:
-        - registered
-  vars:
-    utils_asymmetric_routing_static_routes: "{{ harbor_origin_static_routes }}"
-  when:
-    - harbor_origin_stage == "registered"
-    - harbor_origin_static_routes is defined
-    - harbor_origin_static_routes | length > 0
-
 - name: "Section A. Setup Harbor Environment"
   tags:
     - bootstrapping

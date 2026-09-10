@@ -1,19 +1,16 @@
 
 output "infrastructure_map" {
-  description = "Physical realization bridging foundation-metadata Math and HAProxy VIPs, mapped perfectly to O(1) SSoT Identity keys. Consumed by all platform-*-frontend and provision-* layers."
+  description = "Physical realization bridging foundation-metadata Math and service VIPs, mapped perfectly to O(1) SSoT Identity keys. Consumed by all platform-*-frontend and provision-* layers."
 
   value = {
     for seg in local.net_service_segments : seg.name => {
       # 1. Physical Infrastructure (Libvirt bridges, IPs)
       network = local.net_infrastructure[seg.name]
 
-      # 2. HAProxy / Keepalived Details
       lb_config = {
-        vip            = seg.vip
-        vrid           = seg.vrid
-        interface_name = seg.interface_name
-        ports          = seg.ports
-        tags           = seg.tags
+        vip   = seg.vip
+        ports = seg.ports
+        tags  = seg.tags
       }
 
       # 3. Available Node IP slots for downstream consumption
