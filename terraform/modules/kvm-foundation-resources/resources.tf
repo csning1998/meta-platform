@@ -93,7 +93,7 @@ resource "libvirt_volume" "data_disks" {
 
   target = {
     format = {
-      type = "qcow2"
+      type = each.value.os_disk_format
     }
   }
 }

@@ -72,13 +72,15 @@ resource "libvirt_volume" "os_disk" {
   for_each = var.talos_cluster_vm_config.nodes
 
   pool     = var.talos_cluster_vm_config.storage_pool_name
-  name     = "${each.key}-os.qcow2"
+  name     = "${each.key}-os.${var.os_disk_format}"
   capacity = each.value.os_disk_capacity_gib * 1024 * 1024 * 1024
 
   target = {
     format = {
-      type = "qcow2"
+      type = var.os_disk_format
     }
+
+
   }
 }
 
@@ -111,7 +113,7 @@ resource "libvirt_domain" "nodes" {
       {
         device = "disk"
         target = { dev = "vda", bus = "virtio" }
-        driver = { type = "qcow2" }
+        driver = { type = var.os_disk_format }
         boot   = { order = 1 }
         source = {
           volume = {

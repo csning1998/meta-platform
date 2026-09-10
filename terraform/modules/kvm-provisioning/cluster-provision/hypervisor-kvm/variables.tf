@@ -19,10 +19,10 @@ variable "guest_config" {
       cpu_mode             = optional(string, null)
 
       attached_volumes = optional(list(object({
-        pool        = string
-        volume      = string
-        device_name = optional(string)
-        format      = optional(string, "qcow2")
+        pool           = string
+        volume         = string
+        device_name    = optional(string)
+        os_disk_format = optional(string, "qcow2")
       })), [])
 
       # Specifies pre-existing libvirt networks for secondary interfaces beyond the primary NAT/HostOnly pair. The calling layer SHALL define all target networks.

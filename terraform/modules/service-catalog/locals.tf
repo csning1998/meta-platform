@@ -115,6 +115,7 @@ locals {
       # Deterministic bridge name
       interface_alias = "v_${substr(replace(key, "-", ""), 0, 8)}_${substr(item.hash_prefix, 0, 4)}"
       runtime         = item.config.runtime
+      os_disk_format  = item.config.os_disk_format
       ip_range        = item.config.ip_range
       ports           = coalesce(item.config.ports, {})
       tags            = coalesce(item.config.tags, [])
@@ -159,10 +160,11 @@ locals {
     for key, item in local._flat_catalog : [
       for i in range(item.config.ip_range.end_ip - item.config.ip_range.start_ip + 1) : [
         for disk in item.config.data_disks : {
-          base_id      = item.cluster_name
-          pool_name    = item.storage_pool_name
-          volume_name  = "${item.cluster_name}-node-${item.config.ip_range.start_ip + i}-${disk.name_suffix}.qcow2"
-          capacity_gib = disk.capacity_gib
+          base_id        = item.cluster_name
+          pool_name      = item.storage_pool_name
+          volume_name    = "${item.cluster_name}-node-${item.config.ip_range.start_ip + i}-${disk.name_suffix}.${item.config.os_disk_format}"
+          capacity_gib   = disk.capacity_gib
+          os_disk_format = item.config.os_disk_format
         }
       ]
     ]

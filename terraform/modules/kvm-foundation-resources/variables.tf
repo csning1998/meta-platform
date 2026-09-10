@@ -70,11 +70,12 @@ variable "service_catalog" {
     stage        = string
 
     components = map(object({
-      provider    = string
-      runtime     = string
-      cidr_index  = number
-      tags        = optional(list(string), [])
-      node_groups = optional(list(string), [])
+      provider       = string
+      runtime        = string
+      cidr_index     = number
+      os_disk_format = string
+      tags           = optional(list(string), [])
+      node_groups    = optional(list(string), [])
       ip_range = object({
         start_ip = number
         end_ip   = number
@@ -102,6 +103,13 @@ variable "service_catalog" {
         name          = string
         redirect_path = string
       }), null)
+      ssh = optional(object({
+        enabled                  = optional(bool, false)
+        username                 = optional(string, "operator")
+        identity_algorithm       = optional(string, "ed25519")
+        strict_host_key_checking = optional(bool, true)
+        password_authentication  = optional(bool, false)
+      }), {})
     }))
   }))
 }

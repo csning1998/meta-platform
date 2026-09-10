@@ -23,16 +23,76 @@ service_catalog = {
     stage        = "production"
     components = {
       "frontend" = {
-        provider   = "kvm"
-        runtime    = "talos"
-        cidr_index = 125
-        tags       = []
-        ip_range   = { start_ip = 200, end_ip = 202 }
+        provider       = "kvm"
+        runtime        = "talos"
+        os_disk_format = "raw"
+        cidr_index     = 125
+        tags           = []
+        ip_range       = { start_ip = 200, end_ip = 202 }
         ports = {
           "apid"       = { frontend_port = 50000, backend_port = 50000 } # Talos apid, management network only
           "kubernetes" = { frontend_port = 6443, backend_port = 6443 }
         }
         ingress = {}
+      }
+    }
+  },
+  "spire-parent" = {
+    owner        = "secops"
+    project_code = "platform"
+    stage        = "production"
+    components = {
+      "frontend" = {
+        provider       = "kvm"
+        runtime        = "baremetal"
+        os_disk_format = "qcow2"
+        cidr_index     = 126
+        tags           = []
+        ip_range       = { start_ip = 200, end_ip = 200 }
+        ports = {
+          "api" = {
+            frontend_port     = 8081,
+            backend_port      = 8081,
+            health_check_type = "tcp",
+            health_check_ssl  = false
+          }
+          "oidc" = {
+            frontend_port     = 8443,
+            backend_port      = 8443,
+            health_check_type = "tcp",
+            health_check_ssl  = true
+          }
+        }
+        data_disks = [{ name_suffix = "data", capacity_gib = 5 }]
+        ingress    = {}
+      }
+    }
+  },
+  "harbor-origin" = {
+    owner        = "devops"
+    project_code = "platform"
+    stage        = "production"
+    components = {
+      "frontend" = {
+        provider       = "kvm"
+        runtime        = "docker"
+        os_disk_format = "qcow2"
+        cidr_index     = 127
+        tags           = []
+        ip_range       = { start_ip = 200, end_ip = 200 }
+        ports = {
+          "http"    = { frontend_port = 80, backend_port = 80 }
+          "https"   = { frontend_port = 443, backend_port = 443 }
+          "metrics" = { frontend_port = 9090, backend_port = 9090 }
+        }
+        data_disks = [{ name_suffix = "data", capacity_gib = 50 }]
+        ingress = {
+          "frontend" = { subdomains = ["harbor-origin"] }
+        }
+        oidc_client = {
+          name          = "Harbor Origin"
+          redirect_path = "/c/oidc/callback"
+        }
       }
     }
   },
@@ -42,11 +102,12 @@ service_catalog = {
     stage        = "production"
     components = {
       "frontend" = {
-        provider   = "kvm"
-        runtime    = "baremetal"
-        cidr_index = 128
-        tags       = []
-        ip_range   = { start_ip = 200, end_ip = 202 }
+        provider       = "kvm"
+        runtime        = "baremetal"
+        os_disk_format = "raw"
+        cidr_index     = 128
+        tags           = []
+        ip_range       = { start_ip = 200, end_ip = 202 }
         ports = {
           "api" = {
             frontend_port            = 443,
@@ -70,11 +131,12 @@ service_catalog = {
     stage        = "production"
     components = {
       "frontend" = {
-        provider   = "kvm"
-        runtime    = "docker"
-        cidr_index = 129
-        tags       = []
-        ip_range   = { start_ip = 200, end_ip = 200 }
+        provider       = "kvm"
+        runtime        = "docker"
+        os_disk_format = "qcow2"
+        cidr_index     = 129
+        tags           = []
+        ip_range       = { start_ip = 200, end_ip = 200 }
         ports = {
           "https" = {
             frontend_port     = 443,

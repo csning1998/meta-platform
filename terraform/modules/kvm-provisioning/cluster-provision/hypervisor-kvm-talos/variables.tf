@@ -10,6 +10,17 @@ variable "talos_iso_path" {
   type        = string
 }
 
+variable "os_disk_format" {
+  description = "OS disk volume format. Talos runs etcd, which performs poorly on copy-on-write formats stacked over a copy-on-write host filesystem. Defaults to raw; set qcow2 to opt back into thin provisioning and snapshots."
+  type        = string
+  default     = "raw"
+
+  validation {
+    condition     = contains(["raw", "qcow2"], var.os_disk_format)
+    error_message = "os_disk_format must be 'raw' or 'qcow2'."
+  }
+}
+
 variable "talos_cluster_vm_config" {
   description = "Talos node specifications defining hardware resources and ordered interface bindings (NAT, HostOnly, followed by service segments)."
   type = object({

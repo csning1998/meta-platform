@@ -111,27 +111,29 @@ resource "libvirt_volume" "base_image" {
   }
 }
 
+# The backing_store overlay mechanism is qcow2-only. A raw target volume is declared
+# empty here at the target capacity. An Ansible role converts base_image content into
+# the raw volume path (qemu-img convert) before first boot.
 resource "libvirt_volume" "os_disk" {
   depends_on = [libvirt_volume.base_image]
 
   for_each = var.guest_config.all_nodes_map
-  name     = "${each.key}-os.qcow2"
+  name     = "${each.key}-os.${var.os_disk_format}"
   pool     = values(var.libvirt_infrastructure)[0].storage_pool_name
   capacity = each.value.os_disk_capacity_gib * 1024 * 1024 * 1024
 
   target = {
     format = {
-      type = "qcow2"
+      type = var.os_disk_format
     }
   }
 
-  # Use Copy-on-Write
-  backing_store = {
+  backing_store = var.os_disk_format == "qcow2" ? {
     path = libvirt_volume.base_image[basename(abspath(each.value.base_image_path))].path
     format = {
       type = "qcow2"
     }
-  }
+  } : null
 }
 
 resource "libvirt_cloudinit_disk" "cloud_init" {
@@ -209,7 +211,7 @@ resource "libvirt_domain" "nodes" {
   memory      = each.value.ram_size
   memory_unit = "MiB"
   autostart   = false
-  running     = true
+  running     = var.start_domains
 
   # 2. OS Configuration
   os = {
@@ -238,7 +240,7 @@ resource "libvirt_domain" "nodes" {
           }
         }
         driver = {
-          type = "qcow2"
+          type = var.os_disk_format
         }
         boot = {
           order = 1
@@ -259,7 +261,7 @@ resource "libvirt_domain" "nodes" {
           }
         }
         driver = {
-          type = "qcow2"
+          type = vol.os_disk_format
         }
       }],
 

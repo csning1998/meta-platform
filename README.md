@@ -2,7 +2,29 @@
 
 This repository provides group-scoped governance through several Terraform layers, container services, and shell entry points that provision the GitLab group topology, the shared runner, the SonarQube instance, and the Vault instance supporting this namespace.
 
-## Section 1. SELinux Configuration
+## Section 1. Hardware Reference
+
+### Item A. Development machine (for reference only)
+
+- **Chipset:** Intel® HM770
+- **CPU:** Intel® Core™ i7-14700HX
+- **RAM:** Micron Crucial Pro 64 GB (32 GB × 2) DDR5-5600
+- **SSD:** WD PC SN560 1 TB
+
+### Item B. Network Segment & VIP Allocation
+
+| Usage (Service) | Component (Role)         | Network Segment (CIDR) | Service Tier | HA-able? | CoW-able? | VIP            |
+| --------------- | ------------------------ | ---------------------- | ------------ | -------- | --------- | -------------- |
+| Cilium          | Talos (etcd)             | 172.16.125.0/24        | Platform     | True     | No        | 172.16.125.250 |
+| SPIRE Parent    | SPIRE Server (baremetal) | 172.16.126.0/24        | Platform     | False    | Yes       | 172.16.126.250 |
+| Harbor Origin   | Harbor (Docker)          | 172.16.127.0/24        | Platform     | False    | Yes       | 172.16.127.250 |
+| Vault           | Vault (Raft)             | 172.16.128.0/24        | Platform     | True     | No        | 172.16.128.250 |
+| Keycloak        | Keycloak (Docker)        | 172.16.129.0/24        | Platform     | False    | Yes       | 172.16.129.250 |
+
+> [!NOTE]
+> CoW-able indicates role compatibility with copy-on-write host filesystems. Raft-family consensus engines (such as etcd and Vault Raft) enforce strict fsync latency and quorum-timeout budgets. Intermittent I/O stalls on copy-on-write filesystems risk consensus failures. Kubeadm Master and MicroK8s embed etcd and dqlite with liveness-probe tolerances sufficient to absorb transient I/O latency without hard failures. Copy-on-write storage for these two roles remains permissible subject to operational discretion rather than strict prohibition.
+
+## Section 2. SELinux Configuration
 
 The services defined in `compose.yml` run under rootless Podman on a host with SELinux in enforcing mode. Every bind mount originates from a path beneath the user home directory, whose policy default type is `user_home_t`. A process confined as `container_t` has no access to `user_home_t`, which makes an explicit `container_file_t` label necessary on every mount source.
 

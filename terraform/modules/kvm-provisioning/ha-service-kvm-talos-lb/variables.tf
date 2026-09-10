@@ -116,6 +116,17 @@ variable "talos_iso_path" {
   type        = string
 }
 
+variable "os_disk_format" {
+  description = "OS disk volume format passed through to hypervisor-kvm-talos. Defaults to raw for etcd's write pattern; set qcow2 to opt into thin provisioning and snapshots."
+  type        = string
+  default     = "raw"
+
+  validation {
+    condition     = contains(["raw", "qcow2"], var.os_disk_format)
+    error_message = "os_disk_format must be 'raw' or 'qcow2'."
+  }
+}
+
 variable "talos_kubernetes_version" {
   description = "Kubernetes version deployed by this Talos cluster, e.g. v1.32.0."
   type        = string

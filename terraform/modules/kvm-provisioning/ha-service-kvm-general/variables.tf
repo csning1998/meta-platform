@@ -49,9 +49,9 @@ variable "topology_cluster" {
         cpu_mode             = optional(string, null)
 
         attached_volumes = optional(list(object({
-          pool   = string
-          volume = string
-          format = optional(string, "qcow2")
+          pool           = string
+          volume         = string
+          os_disk_format = optional(string, "qcow2")
         })), [])
 
         # Passed through unchanged to hypervisor-kvm.

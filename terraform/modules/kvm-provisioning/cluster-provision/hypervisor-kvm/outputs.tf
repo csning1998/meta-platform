@@ -23,3 +23,8 @@ output "guest_status_trigger" {
   description = "A trigger to indicate completion of VM provisioning"
   value       = { for key, domain in libvirt_domain.nodes : key => domain.id }
 }
+
+output "os_disk_paths" {
+  description = "Host filesystem path per node's OS disk volume. For os_disk_format = raw, an Ansible role targets these paths with qemu-img convert before start_domains flips to true."
+  value       = { for key, vol in libvirt_volume.os_disk : key => vol.path }
+}

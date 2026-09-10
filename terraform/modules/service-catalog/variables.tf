@@ -66,11 +66,12 @@ variable "service_catalog" {
     stage        = string
 
     components = map(object({
-      provider    = string
-      runtime     = string
-      cidr_index  = number
-      tags        = optional(list(string), [])
-      node_groups = optional(list(string), [])
+      provider       = string
+      runtime        = string
+      cidr_index     = number
+      os_disk_format = string
+      tags           = optional(list(string), [])
+      node_groups    = optional(list(string), [])
       ip_range = object({
         start_ip = number
         end_ip   = number
@@ -111,6 +112,18 @@ variable "service_catalog" {
       ]
     ]))
     error_message = "Component runtime contains invalid values."
+  }
+
+  # Each component MUST explicitly declare an os_disk_format setting. Raft-family consensus engines
+  # (e.g., etcd, Vault Raft) REQUIRE raw disk formats for fsync latency compliance, whereas non-consensus
+  # runtimes MAY utilize qcow2 for thin provisioning and snapshot capability.
+  validation {
+    condition = alltrue(flatten([
+      for s in var.service_catalog : [
+        for c in s.components : contains(["raw", "qcow2"], c.os_disk_format)
+      ]
+    ]))
+    error_message = "Component os_disk_format must be 'raw' or 'qcow2'."
   }
 
   # Validate Provider Enum

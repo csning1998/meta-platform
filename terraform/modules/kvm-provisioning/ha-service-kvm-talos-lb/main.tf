@@ -14,6 +14,7 @@ module "hypervisor_kvm_talos" {
   source = "../cluster-provision/hypervisor-kvm-talos"
 
   talos_iso_path                 = var.talos_iso_path
+  os_disk_format                 = var.os_disk_format
   talos_cluster_vm_config        = local.talos_cluster_vm_config
   network_infrastructure         = var.network_infrastructure_map
   talos_cluster_service_segments = var.network_service_segments
