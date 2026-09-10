@@ -2,10 +2,11 @@
 variable "ansible_config" {
   description = "Ansible execution configuration"
   type = object({
-    root_path       = string # e.g. ".../ansible"
-    ssh_config_path = string
-    inventory_file  = string # e.g. "inventory-10-vault-core.yaml"
-    verbosity       = optional(number, 4)
+    root_path         = string           # e.g. ".../ansible"
+    identity_key_path = optional(string) # Written by sshclient_identity_key. Null omits -i, letting SSH use default keys.
+    known_hosts_path  = optional(string) # Written by sshclient_known_host. Null omits -o UserKnownHostsFile, deferring to SSH config.
+    inventory_file    = string           # e.g. "inventory-platform-spire-parent-frontend.yaml"
+    verbosity         = optional(number, 4)
   })
 
   validation {
@@ -40,4 +41,16 @@ variable "extra_vars" {
 variable "status_trigger" {
   description = "Trigger to re-run the provisioner (usually VM IDs)"
   type        = any
+}
+
+variable "ansible_tags" {
+  description = "Ansible tags to pass via --tags. Empty list runs all tasks."
+  type        = list(string)
+  default     = []
+}
+
+variable "ansible_skip_tags" {
+  description = "Ansible tags to pass via --skip-tags."
+  type        = list(string)
+  default     = []
 }

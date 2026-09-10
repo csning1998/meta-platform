@@ -8,19 +8,42 @@ import (
 	"strings"
 
 	"github.com/apenella/go-ansible/v2/pkg/playbook"
+	"gitlab.com/csning1998-lab/terraform/terraform-provider-sshclient/sshops"
 
 	"platform/internal/ansibleops"
 	"platform/internal/config"
 	"platform/internal/gitalyops"
 	"platform/internal/libvirtops"
 	"platform/internal/packerops"
-	"platform/internal/sshops"
 	"platform/internal/terraformops"
 	"platform/internal/ui"
 	"platform/internal/vaultops"
 )
 
 // Operation handlers shared between Cobra command execution and interactive menu dispatching.
+
+// sshLogger MUST adapt *ui.Printer to sshops.Logger because external modules
+// cannot import internal platform UI packages.
+type sshLogger struct{ p *ui.Printer }
+
+func (l sshLogger) Print(level sshops.Level, msg string) {
+	switch level {
+	case sshops.Step:
+		l.p.Print(ui.Step, msg)
+	case sshops.Task:
+		l.p.Print(ui.Task, msg)
+	case sshops.Warn:
+		l.p.Print(ui.Warn, msg)
+	case sshops.Error:
+		l.p.Print(ui.Error, msg)
+	case sshops.OK:
+		l.p.Print(ui.OK, msg)
+	default:
+		l.p.Print(ui.Info, msg)
+	}
+}
+
+func (l sshLogger) PrintDivider(char string) { l.p.PrintDivider(char) }
 
 func (a *app) generateVaultTLS(ctx context.Context) error {
 	if !a.out.PromptConfirm(a.in, "Type 'Y' or 'y' to confirm execution: ") {
@@ -54,7 +77,7 @@ func (a *app) unsealProdVault(ctx context.Context) error {
 }
 
 func (a *app) generateSSHKey(keyName string, overwrite bool) error {
-	path, err := sshops.GenerateKey(a.home, keyName, overwrite, a.out)
+	path, err := sshops.GenerateKey(a.home, keyName, "ed25519", overwrite, sshLogger{a.out})
 	if err != nil {
 		return err
 	}
@@ -71,7 +94,7 @@ func (a *app) verifySSHConnectivity() error {
 	if !sshops.KeyExists(a.env.Get(config.KeySSHPrivateKey)) {
 		return fmt.Errorf("SSH_PRIVATE_KEY not set or missing; execute 'platform ssh keygen' first")
 	}
-	return sshops.VerifyConnectivity(a.home, a.out)
+	return sshops.VerifyConnectivity(a.home, sshLogger{a.out})
 }
 
 func (a *app) verifyEnvironment() error {

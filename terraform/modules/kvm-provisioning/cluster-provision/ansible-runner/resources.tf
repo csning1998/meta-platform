@@ -8,7 +8,7 @@ terraform {
     }
     local = {
       source  = "hashicorp/local"
-      version = "~> 2.8.0"
+      version = "~> 2.9.0"
     }
   }
 }
@@ -45,12 +45,19 @@ resource "local_file" "inventory" {
 resource "local_file" "ansible_cfg" {
   content = replace(
     replace(
-      data.local_file.base_ansible_cfg.content,
-      "roles_path = ansible/roles",
-      "roles_path = ${var.ansible_config.root_path}/roles"
+      replace(
+        data.local_file.base_ansible_cfg.content,
+        "roles_path = ansible/roles",
+        "roles_path = ${var.ansible_config.root_path}/roles"
+      ),
+      "inventory = ansible/inventory.yaml",
+      "inventory = ${local.inventory_path}"
     ),
-    "inventory = ansible/inventory.yaml",
-    "inventory = ${local.inventory_path}"
+    "ANSIBLE_RUNNER_SSH_ARGS_PLACEHOLDER",
+    join(" ", compact([
+      var.ansible_config.known_hosts_path != null ? "-o UserKnownHostsFile=${var.ansible_config.known_hosts_path} -o StrictHostKeyChecking=yes" : "",
+      var.ansible_config.identity_key_path != null ? "-i ${var.ansible_config.identity_key_path}" : "",
+    ]))
   )
   filename = "${path.cwd}/ansible.cfg"
 }
@@ -62,5 +69,7 @@ action "ansible_playbook_run" "run_playbook" {
     extra_vars              = var.extra_vars
     verbosity               = var.ansible_config.verbosity
     ansible_playbook_binary = "ansible-playbook"
+    tags                    = var.ansible_tags
+    skip_tags               = var.ansible_skip_tags
   }
 }

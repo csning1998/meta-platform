@@ -18,10 +18,10 @@ module "context" {
 module "spire_workload_identity" {
   source = "../../modules/vault-provisioning/vault-spiffe-workload-identity-federation"
 
-  name              = module.context.svc_identity.cluster_name
+  auth_role_name    = "${module.context.svc_identity.cluster_name}-workload"
   auth_backend_path = local.state.spire_parent.spire_oidc_auth_backend_path
   spiffe_id         = local.spire_workload_spiffe_id
-  vault_role_name   = local.harbor_pki_role_name
+  pki_role_name     = local.harbor_pki_role_name
   pki_mount_path    = local.state.vault_bastion.bastion_pki_inter_mount_path
 }
 
@@ -34,9 +34,17 @@ module "platform_harbor_origin" {
   node_identities            = module.context.node_identities
   topology_cluster           = module.context.topology_cluster
   network_infrastructure_map = module.context.network_infrastructure_map
-  credentials_system         = module.context.sec_vm_credentials
   storage_infrastructure_map = local.state.network.storage_infrastructure_map
   security_pki_bundle_b64    = local.bastion_pki_listener_bundle
+  ssh_config_path            = local.state.network.ssh_config_paths[module.context.svc_identity.cluster_name]
+
+  # Guest authentication MUST combine cluster-specific SSH keypairs from foundation resources
+  # with shared baseline credentials from Vault storage.
+  credentials_system = merge(module.context.sec_vm_credentials, {
+    ssh_private_key_path = local.state.network.ssh_identity_key_paths[module.context.svc_identity.cluster_name]
+    ssh_public_key_path  = local.state.network.ssh_public_key_paths[module.context.svc_identity.cluster_name]
+  })
+
   ansible_generic_config = {
     template_vars = local.ansible_template_vars
     extra_vars    = local.ansible_extra_vars

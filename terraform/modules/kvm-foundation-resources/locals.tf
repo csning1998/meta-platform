@@ -23,8 +23,10 @@ locals {
   segments = merge([
     for s_name, components in local.metadata.global_topology_identity : {
       for c_name, identity in components : identity.cluster_name => {
-        identity = identity
-        network  = local.metadata.global_topology_network[s_name][c_name]
+        identity        = identity
+        network         = local.metadata.global_topology_network[s_name][c_name]
+        ssh             = var.service_catalog[s_name].components[c_name].ssh
+        credential_path = "${var.vault_kv_namespace}/${s_name}/${c_name}"
       }
     }
   ]...)
@@ -65,20 +67,18 @@ locals {
 
   net_service_segments = {
     for key in local.net_sorted_segment_keys : key => {
-      name           = key
-      bridge_name    = local.segments[key].identity.bridge_name_host
-      cidr           = local.segments[key].network.cidr_block
-      nat_cidr       = local.segments[key].network.nat_cidr_block
-      nat_gateway    = local.segments[key].network.nat_gateway
-      vrid           = local.segments[key].network.vrid
-      vip            = local.segments[key].network.vip
-      interface_name = local.segments[key].network.interface_alias
-      ip_range       = local.segments[key].network.ip_range
-      ports          = local.segments[key].network.ports
-      tags           = local.segments[key].network.tags
-      runtime        = local.segments[key].network.runtime
-      mtu            = local.metadata.global_network_baseline.global_mtu
-      mss            = local.metadata.global_network_baseline.global_mss
+      name        = key
+      bridge_name = local.segments[key].identity.bridge_name_host
+      cidr        = local.segments[key].network.cidr_block
+      nat_cidr    = local.segments[key].network.nat_cidr_block
+      nat_gateway = local.segments[key].network.nat_gateway
+      vip         = local.segments[key].network.vip
+      ip_range    = local.segments[key].network.ip_range
+      ports       = local.segments[key].network.ports
+      tags        = local.segments[key].network.tags
+      runtime     = local.segments[key].network.runtime
+      mtu         = local.metadata.global_network_baseline.global_mtu
+      mss         = local.metadata.global_network_baseline.global_mss
 
       # Use node_ips derived from foundation-metadata directly to avoid re-calculation
       backend_servers = [
@@ -89,6 +89,30 @@ locals {
       ]
     }
   }
+}
+
+# SSH configuration definitions MUST exclude known_hosts declarations in this stage
+# because key scanning requires active guest network connectivity.
+locals {
+  ssh_hosts = {
+    for key, data in local.segments : key => {
+      enabled = data.ssh.enabled
+      # The SSH alias MUST match the zero-padded sequential suffix assigned to the guest hostname.
+      nodes = [
+        for idx, ip in data.network.node_ips : {
+          alias    = "${data.identity.node_name_prefix}-${format("%02d", idx)}"
+          hostname = ip
+          user     = data.ssh.username
+        }
+      ]
+      identity_algorithm       = data.ssh.identity_algorithm
+      strict_host_key_checking = data.ssh.strict_host_key_checking
+      password_authentication  = data.ssh.password_authentication
+    }
+  }
+
+  # Credential storage paths MUST conform to the hierarchical namespace convention established across platform services.
+  ssh_credential_paths = { for key, data in local.segments : key => data.credential_path }
 }
 
 # Global Infrastructure DNS SSoT (Requires Libvirt Provider >= 0.9.7)

@@ -25,10 +25,16 @@ module "infra_keycloak_cluster" {
   node_identities               = module.context.node_identities
   topology_cluster              = module.context.topology_cluster
   network_infrastructure_map    = module.context.network_infrastructure_map
-  credentials_system            = module.context.sec_vm_credentials
-  static_routes                 = module.context.asymmetric_static_routes
   storage_infrastructure_map    = data.terraform_remote_state.volume.outputs.storage_infrastructure_map
   security_vault_agent_identity = local.sec_vault_agent_identity
+  ssh_config_path               = data.terraform_remote_state.volume.outputs.ssh_config_paths[module.context.svc_identity.cluster_name]
+
+  # Guest authentication MUST combine cluster-specific SSH keypairs from foundation resources
+  # with shared baseline credentials from Vault storage.
+  credentials_system = merge(module.context.sec_vm_credentials, {
+    ssh_private_key_path = data.terraform_remote_state.volume.outputs.ssh_identity_key_paths[module.context.svc_identity.cluster_name]
+    ssh_public_key_path  = data.terraform_remote_state.volume.outputs.ssh_public_key_paths[module.context.svc_identity.cluster_name]
+  })
   ansible_generic_config = {
     template_vars = local.ansible_template_vars
     extra_vars    = local.ansible_extra_vars

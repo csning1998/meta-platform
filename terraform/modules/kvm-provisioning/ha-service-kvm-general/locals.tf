@@ -96,10 +96,12 @@ locals {
         # Primary Group: contains the leading node of each role.
         primary = {
           hosts = {
+            # Inventory host declarations MUST omit ansible_host definitions
+            # because OpenSSH client routing relies on hostname alias resolution for cluster configurations.
             for role, nodes in local.nodes_by_role : keys(nodes)[0] => {
-              advertise_ip     = nodes[keys(nodes)[0]].ip
               node_id          = keys(nodes)[0]
               node_role        = role
+              advertise_ip     = nodes[keys(nodes)[0]].ip
               attached_volumes = nodes[keys(nodes)[0]].attached_volumes
             }
           }

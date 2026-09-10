@@ -10,37 +10,42 @@ module "hypervisor_kvm" {
   static_routes          = var.static_routes
 }
 
-module "ssh_manager" {
-  source            = "../cluster-provision/ssh-manager"
-  scripts_root_path = var.scripts_root_path
-  status_trigger    = module.hypervisor_kvm.guest_status_trigger
+# Host SSH keys MUST originate from pre-boot cryptographic generation
+# to populate client known_hosts files before guest network initialization.
+resource "local_file" "known_hosts" {
+  filename        = pathexpand("~/.ssh/known_hosts_${var.svc_identity.cluster_name}")
+  file_permission = "0644"
+  content = join("", [
+    for k, v in local.flat_node_map :
+    "${v.ip} ${module.hypervisor_kvm.guest_host_public_keys[k]}\n"
+  ])
+}
 
-  nodes = [
-    for k, v in local.flat_node_map : {
-      key = k
-      ip  = v.ip
-    }
-  ]
+# Provisioning execution MUST block until guests complete SSH handshakes
+# to bridge the convergence interval between domain creation and operating system readiness.
+resource "sshclient_reachability" "guest_ready" {
+  depends_on = [module.hypervisor_kvm, local_file.known_hosts]
 
-  config_name = {
-    cluster_name    = var.svc_identity.cluster_name
-    ssh_config_name = var.svc_identity.ssh_config
-  }
-
-  credentials_vm = local.guest_credentials_for_ssh
+  config_name = var.svc_identity.cluster_name
+  hosts       = [for k, v in local.flat_node_map : v.ip]
 }
 
 module "ansible_runner" {
   source         = "../cluster-provision/ansible-runner"
-  status_trigger = module.ssh_manager.ssh_access_ready_trigger
+  depends_on     = [sshclient_reachability.guest_ready]
+  status_trigger = { (var.svc_identity.cluster_name) = local_file.known_hosts.id }
 
   inventory_data = local.ansible_inventory_data
   playbook_paths = local.ansible_playbook_paths
 
   ansible_config = {
-    ssh_config_path = module.ssh_manager.ssh_config_file_path
-    root_path       = local.ansible.root_path
-    inventory_file  = local.ansible.inventory_file
+    # This value MUST remain unset because OpenSSH honors only the first -o occurrence in
+    # ansible.cfg ssh_args. A fixed value overrides the per-cluster Host block
+    # which MUST govern both the primary connection and any delegate_to on another node.
+    known_hosts_path  = null
+    identity_key_path = null
+    root_path         = local.ansible.root_path
+    inventory_file    = local.ansible.inventory_file
   }
 
   extra_vars = local.ansible_extra_vars

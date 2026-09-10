@@ -1,12 +1,12 @@
 module platform
 
-go 1.26
+go 1.26.0
 
 require (
 	github.com/apenella/go-ansible/v2 v2.4.1
 	github.com/hashicorp/vault/api v1.23.0
 	github.com/spf13/cobra v1.10.2
-	golang.org/x/crypto v0.55.0
+	gitlab.com/csning1998-lab/terraform/terraform-provider-sshclient v0.0.0-20260910050740-2f2427450309
 	libvirt.org/go/libvirt v1.12006.0
 )
 
@@ -34,6 +34,7 @@ require (
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/stretchr/objx v0.5.3 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
+	golang.org/x/crypto v0.56.0 // indirect
 	golang.org/x/net v0.57.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect

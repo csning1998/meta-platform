@@ -9,5 +9,7 @@ skip_list:
 [ssh_connection]
 # Use Pipelining to prevent from Ansible using scp/sftp
 pipelining = True
-# Force to use the native openssh client instead of ansible's python implementation (paramiko).
+# Ansible execution MUST utilize OpenSSH client tooling to honor host-level known_hosts and identity declarations.
 transport = ssh
+# Dynamic template variables MUST inject resolved credential and known_hosts file locations for the target cluster.
+ssh_args = -C -o ControlMaster=auto -o ControlPersist=60s ANSIBLE_RUNNER_SSH_ARGS_PLACEHOLDER
