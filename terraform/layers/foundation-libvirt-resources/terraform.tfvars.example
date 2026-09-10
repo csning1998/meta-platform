@@ -29,6 +29,7 @@ service_catalog = {
         cidr_index     = 125
         tags           = []
         ip_range       = { start_ip = 200, end_ip = 202 }
+        ssh            = { enabled = false } # Talos Linux does not support SSH
         ports = {
           "apid"       = { frontend_port = 50000, backend_port = 50000 } # Talos apid, management network only
           "kubernetes" = { frontend_port = 6443, backend_port = 6443 }
@@ -49,6 +50,7 @@ service_catalog = {
         cidr_index     = 126
         tags           = []
         ip_range       = { start_ip = 200, end_ip = 200 }
+        ssh            = { enabled = true, username = "operator" }
         ports = {
           "api" = {
             frontend_port     = 8081,
@@ -80,6 +82,7 @@ service_catalog = {
         cidr_index     = 127
         tags           = []
         ip_range       = { start_ip = 200, end_ip = 200 }
+        ssh            = { enabled = true, username = "operator" }
         ports = {
           "http"    = { frontend_port = 80, backend_port = 80 }
           "https"   = { frontend_port = 443, backend_port = 443 }
@@ -108,6 +111,7 @@ service_catalog = {
         cidr_index     = 128
         tags           = []
         ip_range       = { start_ip = 200, end_ip = 202 }
+        ssh            = { enabled = true, username = "operator" }
         ports = {
           "api" = {
             frontend_port            = 443,
@@ -137,6 +141,7 @@ service_catalog = {
         cidr_index     = 129
         tags           = []
         ip_range       = { start_ip = 200, end_ip = 200 }
+        ssh            = { enabled = true, username = "operator" }
         ports = {
           "https" = {
             frontend_port     = 443,
@@ -160,55 +165,5 @@ service_catalog = {
       }
     }
   },
-  "harbor-origin" = {
-    owner        = "devops"
-    project_code = "platform"
-    stage        = "production"
-    components = {
-      "frontend" = {
-        provider   = "kvm"
-        runtime    = "docker"
-        cidr_index = 127
-        tags       = []
-        ip_range   = { start_ip = 200, end_ip = 200 }
-        ports = {
-          "http"    = { frontend_port = 80, backend_port = 80 }
-          "https"   = { frontend_port = 443, backend_port = 443 }
-          "metrics" = { frontend_port = 9090, backend_port = 9090 }
-        }
-        data_disks = [{ name_suffix = "data", capacity_gib = 50 }]
-        ingress = {
-          "frontend" = { subdomains = ["harbor-bootstrapper"] }
-        }
-        oidc_client = {
-          name          = "Harbor Bootstrapper"
-          redirect_path = "/c/oidc/callback"
-        }
-      }
-    }
-  },
-  "spire-parent" = {
-    owner        = "secops"
-    project_code = "platform"
-    stage        = "production"
-    components = {
-      "frontend" = {
-        provider   = "kvm"
-        runtime    = "baremetal"
-        cidr_index = 126
-        tags       = []
-        ip_range   = { start_ip = 200, end_ip = 200 }
-        ports = {
-          "api" = {
-            frontend_port     = 8081,
-            backend_port      = 8081,
-            health_check_type = "tcp",
-            health_check_ssl  = false
-          }
-        }
-        data_disks = [{ name_suffix = "data", capacity_gib = 5 }]
-        ingress    = {}
-      }
-    }
-  }
+
 }

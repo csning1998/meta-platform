@@ -68,3 +68,28 @@ output "global_credential_paths" {
   description = "Mount-relative Vault KV paths for all service component credentials, derived from the service catalog."
   value       = module.foundation_libvirt_resources.global_credential_paths
 }
+
+output "ssh_identity_key_paths" {
+  description = "Written private key path per cluster_name; consumed by each ha-service-kvm-general instance as its credentials_system.ssh_private_key_path."
+  value       = module.ssh_identity_bootstrap.identity_key_private_paths
+}
+
+output "ssh_public_key_paths" {
+  description = "Written public key path per cluster_name; consumed by each ha-service-kvm-general instance as its credentials_system.ssh_public_key_path, and by foundation-vault-bastion for the Vault upload."
+  value       = module.ssh_identity_bootstrap.identity_key_public_paths
+}
+
+output "ssh_config_paths" {
+  description = "Written ssh_config Host block path per cluster_name."
+  value       = module.ssh_identity_bootstrap.host_config_paths
+}
+
+output "ssh_known_hosts_paths" {
+  description = "known_hosts path this layer assumed for known_hosts_file, keyed by cluster_name. ha-service-kvm-general's own sshclient_known_host call MUST use the same cluster_name so the two layers resolve the same path."
+  value       = module.ssh_identity_bootstrap.known_hosts_paths
+}
+
+output "ssh_credential_paths" {
+  description = "Vault KV path per cluster_name for the generated SSH identity key material; consumed by foundation-vault-bastion."
+  value       = module.foundation_libvirt_resources.ssh_credential_paths
+}

@@ -79,6 +79,16 @@ output "global_dns_records" {
   value       = module.service_catalog.dns_records
 }
 
+output "ssh_hosts" {
+  description = "sshclient_identity_key/sshclient_host_config input map, keyed by cluster_name. Passed directly as the hosts variable of the ssh-identity-bootstrap module."
+  value       = local.ssh_hosts
+}
+
+output "ssh_credential_paths" {
+  description = "Vault KV path per cluster_name for the generated SSH identity key material. foundation-vault-bastion writes ssh_private_key/ssh_public_key under this path."
+  value       = local.ssh_credential_paths
+}
+
 output "global_credential_paths" {
   description = "Mount-relative Vault KV paths for all service component credentials, nested by service and component."
   value       = module.service_catalog.credential_paths

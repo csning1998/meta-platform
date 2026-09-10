@@ -16,7 +16,7 @@ variable "vault_kv_namespace" {
 }
 
 variable "global_pki_identity" {
-  description = "Global PKI identity settings. Defines the legal identity of the infrastructure."
+  description = "Global PKI identity configuration for infrastructure root and intermediate certificate authorities."
   type = object({
     root_ca_common_name         = string
     intermediate_ca_common_name = string
@@ -25,7 +25,7 @@ variable "global_pki_identity" {
 
   validation {
     condition     = can(regex("^[a-zA-Z0-9_-]+$", var.global_pki_identity.mount_path))
-    error_message = "mount_path must contain only alphanumeric characters, underscores, and hyphens, since it is interpolated directly into Vault policy paths."
+    error_message = "The mount_path value MUST contain only alphanumeric characters, underscores, and hyphens for Vault policy path interpolation."
   }
 }
 
@@ -114,6 +114,13 @@ variable "service_catalog" {
         name          = string
         redirect_path = string
       }), null)
+      ssh = optional(object({
+        enabled                  = optional(bool, false)
+        username                 = optional(string, "operator")
+        identity_algorithm       = optional(string, "ed25519")
+        strict_host_key_checking = optional(bool, true)
+        password_authentication  = optional(bool, false)
+      }), {})
     }))
   }))
 }

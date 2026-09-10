@@ -9,6 +9,11 @@ variable "scripts_root_path" {
   type        = string
 }
 
+variable "ssh_config_path" {
+  description = "Absolute path of this cluster's ssh_config Host block file, written by foundation-libvirt-resources' sshclient_host_config resource and read by the calling layer from that layer's remote state."
+  type        = string
+}
+
 variable "svc_identity" {
   description = "SSoT Extracted Identity containing cluster_name, storage_pool, etc. Used for shared components like Ansible & SSH."
   type = object({

@@ -5,18 +5,9 @@ resource "libvirt_network" "nat_networks" {
 
   name      = each.value.nat.name
   autostart = true
-
-  mtu = {
-    size = each.value.nat.mtu
-  }
-
-  bridge = {
-    name = each.value.nat.bridge_name
-  }
-
-  forward = {
-    mode = "nat"
-  }
+  mtu       = { size = each.value.nat.mtu }
+  bridge    = { name = each.value.nat.bridge_name }
+  forward   = { mode = "nat" }
 
   ips = [{
     address = each.value.nat.gateway
@@ -45,18 +36,9 @@ resource "libvirt_network" "hostonly_networks" {
 
   name      = each.value.hostonly.name
   autostart = true
-
-  mtu = {
-    size = each.value.hostonly.mtu
-  }
-
-  bridge = {
-    name = each.value.hostonly.bridge_name
-  }
-
-  forward = {
-    mode = "route"
-  }
+  mtu       = { size = each.value.hostonly.mtu }
+  bridge    = { name = each.value.hostonly.bridge_name }
+  forward   = { mode = "route" }
 
   ips = [{
     address = each.value.hostonly.gateway
@@ -71,13 +53,15 @@ resource "libvirt_network" "hostonly_networks" {
 }
 
 # Storage Pools
+# Dedicated storage pools MUST reside outside the default Libvirt images directory
+# to prevent nested pools from appearing as spurious volume allocations within the parent pool.
 resource "libvirt_pool" "storage_pools" {
   for_each = local.unique_pools
 
   type = "dir"
   name = each.key
   target = {
-    path = abspath("/var/lib/libvirt/images/${each.key}")
+    path = abspath("/var/lib/libvirt/pools/${each.key}")
   }
 }
 

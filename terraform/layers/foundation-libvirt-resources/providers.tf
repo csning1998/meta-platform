@@ -6,6 +6,9 @@ terraform {
       source  = "dmacvicar/libvirt"
       version = "0.9.7"
     }
+    sshclient = {
+      source = "local/csning1998-lab/sshclient"
+    }
   }
   backend "http" {
     address        = "https://gitlab.com/api/v4/projects/84608830/terraform/state/foundation-libvirt-resources"
@@ -20,3 +23,5 @@ terraform {
 provider "libvirt" {
   uri = "qemu:///system?socket=/var/run/libvirt/virtqemud-sock"
 }
+
+provider "sshclient" {}

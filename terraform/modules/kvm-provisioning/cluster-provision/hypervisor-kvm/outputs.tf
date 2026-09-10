@@ -28,3 +28,8 @@ output "os_disk_paths" {
   description = "Host filesystem path per node's OS disk volume. For os_disk_format = raw, an Ansible role targets these paths with qemu-img convert before start_domains flips to true."
   value       = { for key, vol in libvirt_volume.os_disk : key => vol.path }
 }
+
+output "guest_host_public_keys" {
+  description = "Each node's SSH host public key in known_hosts line format (key type + base64 blob), injected into the guest by cloud-init so known_hosts trust never depends on scanning the network on first connect."
+  value       = { for key, k in tls_private_key.guest_host_key : key => trimspace(k.public_key_openssh) }
+}
