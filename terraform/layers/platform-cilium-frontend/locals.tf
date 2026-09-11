@@ -11,10 +11,10 @@ locals {
     vault_bootstrap = data.terraform_remote_state.vault_bootstrapper.outputs
     spire_parent    = data.terraform_remote_state.spire_parent.outputs
   }
-  vault_kv_namespace = "meta-platform"
+  vault_kv_namespace = local.state.network.vault_kv_namespace
 }
 
-# segments_map is reused from platform-load-balancer-frontend.
+# segments_map is reused from platform-haproxy-frontend.
 # The service catalog owns segments_map, not HAProxy or Cilium.
 locals {
   segments_map = merge([
@@ -48,7 +48,7 @@ locals {
   net_lb_config = local.state.network.infrastructure_map[local.svc_cluster_name].network
 
   # net_service_segments excludes the CLB cluster, which has no SSoT reservation.
-  # The same defect exists on platform-load-balancer-frontend and remains open.
+  # The same defect exists on platform-haproxy-frontend and remains open.
   net_service_segments = [
     for name, seg in local.state.network.service_segments : merge(seg, {
       node_ips = {

@@ -129,6 +129,7 @@ variable "infrastructure_map" {
       ip   = string
       name = string
     }))
+    runtime = string
   }))
 }
 

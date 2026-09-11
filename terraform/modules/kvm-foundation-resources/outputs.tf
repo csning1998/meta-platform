@@ -13,6 +13,10 @@ output "infrastructure_map" {
         tags  = seg.tags
       }
 
+      # Runtime enum from service_catalog (baremetal, docker, podman, microk8s, kubeadm, minikube, talos, external),
+      # This is read by provision-cilium-frontend and platform-haproxy-frontend to decide which of the two owns a segment VIP.
+      runtime = seg.runtime
+
       # 3. Available Node IP slots for downstream consumption
       backend_servers = seg.backend_servers
     }

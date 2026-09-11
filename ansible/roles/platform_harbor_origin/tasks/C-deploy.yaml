@@ -16,8 +16,8 @@
     creates: "{{ platform_harbor_origin_harbor_install_dir }}/docker-compose.yml"
   register: platform_harbor_origin_install
 
-- name: "C3. Distribute Bastion CA to Harbor's own trust store"
-  when: vault_ca_cert_b64 is defined
+- name: "C3. Distribute Vault Intermediate CA to Harbor's own trust store"
+  when: vault_intermediate_ca_b64 is defined
   block:
     - name: "C3a. Ensure Harbor trust-certificates directory exists"
       ansible.builtin.file:
@@ -27,12 +27,11 @@
         group: root
         mode: "0755"
 
-    - name: "C3b. Copy Bastion CA into Harbor trust store"
+    - name: "C3b. Write Vault Intermediate CA into Harbor trust store"
       ansible.builtin.copy:
-        src: "{{ platform_harbor_origin_harbor_ca_path }}"
+        content: "{{ vault_intermediate_ca_b64 | b64decode }}"
         dest: >-
-          {{ platform_harbor_origin_harbor_install_dir }}/common/config/shared/trust-certificates/bastion-pki.crt
-        remote_src: true
+          {{ platform_harbor_origin_harbor_install_dir }}/common/config/shared/trust-certificates/vault-intermediate-pki.crt
         owner: root
         group: root
         mode: "0644"

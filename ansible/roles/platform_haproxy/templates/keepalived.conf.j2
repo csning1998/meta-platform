@@ -1,0 +1,65 @@
+global_defs {
+    router_id {{ inventory_hostname }}
+    vrrp_version 2
+    enable_script_security
+    script_user root
+}
+
+vrrp_script chk_haproxy {
+    script "/usr/bin/killall -0 haproxy"
+    interval 2
+    weight -20
+}
+
+{# Sync Group ensures all VIPs failover together #}
+vrrp_sync_group VG_ALL {
+    group {
+{% for segment in platform_haproxy_lb_keepalived_segments %}
+        VI_{{ segment.name | upper | replace('-', '_') }}
+{% endfor %}
+    }
+    notify "/usr/local/bin/keepalived-notify.sh"
+}
+
+{# Iterate to generate VRRP Instance #}
+{% for segment in platform_haproxy_lb_keepalived_segments %}
+vrrp_instance VI_{{ segment.name | upper | replace('-', '_') }} {
+    state {{ 'MASTER' if inventory_hostname == groups['haproxy'][0] else 'BACKUP' }}
+    {# Bind to the specific interface alias defined in Inventory, e.g. v_gitlab-frontend #}
+    interface {{ segment.interface_alias }}
+
+    {# Each segment must have its own VRID (computed and passed by Terraform) #}
+    virtual_router_id {{ segment.vrid }}
+
+    {# Priority setting: Master (First in lb group) = 100, Others = 90 #}
+    priority {{ 100 if inventory_hostname == groups['haproxy'][0] else 90 }}
+    advert_int 1
+    nopreempt
+
+    {# Ansible fact keys replace non-alphanumeric characters with underscores. #}
+    {% set fact_key = segment.interface_alias | replace('-', '_') | replace('.', '_') %}
+    {# The interface already carries a static address assigned by cloud-init, read from OS facts. #}
+    unicast_src_ip {{ ansible_facts[fact_key]['ipv4']['address'] }}
+    unicast_peer {
+{% for host in groups['haproxy'] %}
+{% if host != inventory_hostname %}
+        {{ (hostvars[host]['ansible_facts'][fact_key] | default({})).get('ipv4', {}).get('address', '') }}
+{% endif %}
+{% endfor %}
+    }
+
+    authentication {
+        auth_type PASS
+        auth_pass {{ keepalived_auth_pass }}
+    }
+
+    virtual_ipaddress {
+        {{ segment.vip }}
+    }
+
+    {# Bind HAProxy health state to VIP ownership #}
+    track_script {
+        chk_haproxy
+    }
+}
+{% endfor %}

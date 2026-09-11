@@ -3,6 +3,15 @@
   ansible.builtin.command: update-ca-certificates
   changed_when: false
 
+# Cilium L2 announcement and eBPF load-balancer forwarding for the catalog VIP are
+# provisioned independently of this role. This pin keeps D2 hostname-based against
+# the certificate DNS SAN without depending on Cilium forwarding this role does not own.
+- name: "D1b. Pin external hostname to the local listen address for self health-check"
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: "^[0-9.]+\\s+{{ platform_harbor_origin_external_hostname | regex_escape }}$"
+    line: "{{ harbor_origin_listen_address }} {{ platform_harbor_origin_external_hostname }}"
+
 - name: "D2. Wait for Harbor Health (HTTPS)"
   ansible.builtin.uri:
     url: "https://{{ platform_harbor_origin_external_hostname }}/api/v2.0/health"

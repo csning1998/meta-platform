@@ -1,21 +1,21 @@
 
 output "harbor_origin_fqdn" {
-  description = "The FQDN of the Bootstrap Harbor service."
+  description = "The FQDN of the Harbor Origin service."
   value       = module.context.svc_fqdn
 }
 
 output "listen_ip" {
-  description = "Node IP used to reach Harbor before Cilium announces the catalog VIP."
+  description = "Node IP used to reach Harbor Origin before HAProxy announces the catalog VIP."
   value       = local.harbor_listen_ip
 }
 
 output "service_vip" {
-  description = "Catalog VIP reserved for Harbor. Sequence 3 announces this address. Sequence 2 does not publish it."
+  description = "Catalog VIP reserved for Harbor Origin. Sequence 3 announces this address. Sequence 2 does not publish it."
   value       = module.context.primary_net_config.lb_config.vip
 }
 
 output "topology_node" {
-  description = "The actual provisioned configuration for Bootstrap Harbor node."
+  description = "The actual provisioned configuration for Harbor Origin node."
   value       = module.platform_harbor_origin.cluster_nodes
 }
 

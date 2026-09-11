@@ -7,8 +7,8 @@ agent {
   trust_domain   = "{{ spire_trust_domain }}"
   trust_bundle_path = "{{ utils_spire_agent_dir_config }}/bundle.pem"
 {% if not utils_spire_agent_already_attested %}
-  # Present only until the first successful attestation persists an identity into
-  # data_dir. A rerun of this role removes this line once data_dir holds an identity.
+  # Node configuration MUST supply a join token exclusively during initial node attestation
+  # because subsequent agent startup authenticates via persisted SVID material.
   join_token = "{{ utils_spire_agent_join_token }}"
 {% endif %}
 }
@@ -19,6 +19,12 @@ plugins {
   }
 
   WorkloadAttestor "docker" {
+    plugin_data {}
+  }
+
+  # Workload attestation MUST declare the unix plugin to validate baremetal host processes
+  # by binary path and process credentials.
+  WorkloadAttestor "unix" {
     plugin_data {}
   }
 

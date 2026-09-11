@@ -3,49 +3,24 @@
   tags: always
   ansible.builtin.assert:
     that:
-      - harbor_origin_stage is defined
-      - harbor_origin_stage in ["bootstrapping", "registered"]
       - harbor_origin_admin_password is defined
       - harbor_origin_pg_db_password is defined
       - harbor_origin_fqdn is defined
       - harbor_origin_listen_address is defined
     fail_msg: >-
-      harbor_origin_stage, harbor_origin_admin_password, harbor_origin_pg_db_password,
-      harbor_origin_fqdn, and harbor_origin_listen_address must all be supplied by the caller.
-      harbor_origin_stage received: {{ harbor_origin_stage | default('undefined') }}.
-    success_msg: "Harbor Origin stage is {{ harbor_origin_stage }}"
+      harbor_origin_admin_password, harbor_origin_pg_db_password, harbor_origin_fqdn,
+      and harbor_origin_listen_address must all be supplied by the caller.
 
 - name: "Section A. Setup Harbor Environment"
-  tags:
-    - bootstrapping
-    - registered
-  ansible.builtin.include_tasks:
-    file: A-setup.yaml
-    apply:
-      tags:
-        - bootstrapping
-        - registered
+  ansible.builtin.include_tasks: A-setup.yaml
 
 - name: "Section B. Configure PKI"
-  tags:
-    - bootstrapping
-    - registered
-  ansible.builtin.include_tasks:
-    file: B-configure.yaml
-    apply:
-      tags:
-        - bootstrapping
-        - registered
+  ansible.builtin.include_tasks: B-configure.yaml
 
 # Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 9.
 - name: "Role 83: Provision SPIRE Agent for Workload Identity"
-  tags:
-    - registered
   ansible.builtin.include_role:
     name: utils_spire_agent
-    apply:
-      tags:
-        - registered
   when:
     - spire_parent_node_ip is defined
     - spire_trust_domain is defined
@@ -53,13 +28,8 @@
     - spire_cluster_name is defined
 
 - name: "Role 84: Register SPIRE Workload Entry"
-  tags:
-    - registered
   ansible.builtin.include_role:
     name: utils_spire_workload_entry
-    apply:
-      tags:
-        - registered
   vars:
     utils_spire_workload_entry_spiffe_id: "{{ spire_workload_spiffe_id }}"
     utils_spire_workload_entry_selector: "docker:label:spiffe-workload:{{ spire_cluster_name }}"
@@ -68,57 +38,35 @@
     - spire_parent_node_ip is defined
 
 - name: "Role 82: Prepare Environment for Vault Agent"
-  tags:
-    - registered
   ansible.builtin.include_role:
-    name: utils_spire_vault_agent
-    apply:
-      tags:
-        - registered
+    name: utils_vault_agent
   vars:
-    utils_spire_vault_agent_owner: "{{ _platform_harbor_origin_harbor_uid }}"
-    utils_spire_vault_agent_group: "{{ _platform_harbor_origin_harbor_gid }}"
-    utils_spire_vault_agent_cert_base_dir: "{{ platform_harbor_origin_harbor_pki_dir }}"
-    utils_spire_vault_agent_cert_dirs:
+    utils_vault_agent_owner: "{{ _platform_harbor_origin_harbor_uid }}"
+    utils_vault_agent_group: "{{ _platform_harbor_origin_harbor_gid }}"
+    utils_vault_agent_cert_base_dir: "{{ platform_harbor_origin_harbor_pki_dir }}"
+    utils_vault_agent_cert_dirs:
       - "{{ platform_harbor_origin_harbor_pki_dir }}"
       - "{{ platform_harbor_origin_harbor_config_cert_dir }}"
-    utils_spire_vault_agent_wait_file: "{{ platform_harbor_origin_harbor_cert_path }}"
-    utils_spire_vault_agent_ip_sans: "{{ advertise_ip }},{{ harbor_origin_vip }}"
-    utils_spire_vault_agent_auth_path: "{{ spire_oidc_auth_path }}"
-    utils_spire_vault_agent_auth_role_name: "{{ spire_workload_vault_role_name }}"
-    utils_spire_vault_agent_pki_role_name: "{{ vault_role_name }}"
-    utils_spire_vault_agent_pki_mount_path: "{{ vault_pki_mount_path }}"
-    utils_spire_vault_agent_common_name: "{{ vault_agent_common_name }}"
-    utils_spire_vault_agent_vault_listener_ca_cert_b64: "{{ vault_listener_ca_cert_b64 }}"
-    utils_spire_vault_agent_post_command: |
+    utils_vault_agent_wait_file: "{{ platform_harbor_origin_harbor_cert_path }}"
+    utils_vault_agent_ip_sans: "{{ advertise_ip }},{{ harbor_origin_vip }}"
+    utils_vault_agent_auth_path: "{{ spire_oidc_auth_path }}"
+    utils_vault_agent_auth_role_name: "{{ spire_workload_vault_role_name }}"
+    utils_vault_agent_pki_role_name: "{{ vault_role_name }}"
+    utils_vault_agent_pki_mount_path: "{{ vault_pki_mount_path }}"
+    utils_vault_agent_common_name: "{{ vault_agent_common_name }}"
+    utils_vault_agent_vault_listener_ca_cert_b64: "{{ vault_listener_ca_cert_b64 }}"
+    utils_vault_agent_post_command: |
       install -m 0644 -o {{ _platform_harbor_origin_harbor_uid }} -g {{ _platform_harbor_origin_harbor_gid }} \
         {{ platform_harbor_origin_harbor_cert_path }} {{ platform_harbor_origin_harbor_config_cert_dir }}/server.crt
       install -m 0600 -o {{ _platform_harbor_origin_harbor_uid }} -g {{ _platform_harbor_origin_harbor_gid }} \
         {{ platform_harbor_origin_harbor_key_path }} {{ platform_harbor_origin_harbor_config_cert_dir }}/server.key
       docker ps -q -f name=^nginx$ | grep -q . && docker exec -i nginx nginx -s reload || true
   when:
-    - harbor_origin_stage == "registered"
     - spire_oidc_auth_path is defined
     - spire_workload_vault_role_name is defined
 
 - name: "Section C. Deploy Harbor Instance"
-  tags:
-    - bootstrapping
-    - registered
-  ansible.builtin.include_tasks:
-    file: C-deploy.yaml
-    apply:
-      tags:
-        - bootstrapping
-        - registered
+  ansible.builtin.include_tasks: C-deploy.yaml
 
 - name: "Section D. Verify Harbor Readiness"
-  tags:
-    - bootstrapping
-    - registered
-  ansible.builtin.include_tasks:
-    file: D-verify.yaml
-    apply:
-      tags:
-        - bootstrapping
-        - registered
+  ansible.builtin.include_tasks: D-verify.yaml

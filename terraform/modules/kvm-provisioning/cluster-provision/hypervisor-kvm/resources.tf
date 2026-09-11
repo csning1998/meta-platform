@@ -3,6 +3,13 @@ data "local_file" "ssh_public_key" {
   filename = pathexpand(var.credentials.ssh_public_key_path)
 }
 
+module "interface_alias" {
+  source   = "../../interface-alias"
+  for_each = toset(flatten([for k, v in var.guest_config.all_nodes_map : keys(v.extra_networks)]))
+
+  name = each.key
+}
+
 resource "terraform_data" "node_mac_uniqueness" {
   lifecycle {
     precondition {

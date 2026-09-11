@@ -19,12 +19,7 @@ platform_harbor_origin_harbor_config_cert_dir: "{{ platform_harbor_origin_harbor
 
 platform_harbor_origin_admin_password: "{{ harbor_origin_admin_password }}"
 platform_harbor_origin_pg_db_password: "{{ harbor_origin_pg_db_password }}"
-
-# Harbor ext_url MUST use the FQDN after the VIP is announced.
-platform_harbor_origin_external_hostname: >-
-  {{ harbor_origin_fqdn
-    if harbor_origin_stage == "registered"
-    else harbor_origin_listen_address }}
+platform_harbor_origin_external_hostname: "{{ harbor_origin_fqdn }}"
 
 # Helm Installation
 platform_harbor_origin_helm_version: "v3.14.3"

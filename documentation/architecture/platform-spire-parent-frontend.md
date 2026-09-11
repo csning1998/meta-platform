@@ -1,6 +1,6 @@
 # SPIRE and Vault Workload Identity Federation
 
-This specification states the coordination contract between the SPIRE trust domain rooted at `platform-spire-parent-frontend` and the Bastion Vault instance managed by `foundation-vault-bastion`. Section 1 through Section 3 state the overall Parent and Child SPIRE topology, the Bastion and Production Vault trust chain, the design rationale behind that architecture, and the tradeoffs accepted in reaching it. Section 4 through Section 9 state the implementation-level contract already realized in Terraform and Ansible. Scope covers the OIDC Discovery Provider deployment, the `vault-spiffe-workload-identity-federation` module, and the `utils_spire_vault_agent` and `utils_spire_workload_entry` Ansible roles consumed by `platform-harbor-origin-frontend`. Service-specific identity and PKI role decisions belong to the consuming layer's own configuration, rather than to the present specification. Architectural rationale for the broader SPIFFE/SPIRE and Vault convergence resides in `planning/architecture_meta-platform.md` Section 9.
+This specification states the coordination contract between the SPIRE trust domain rooted at `platform-spire-parent-frontend` and the Bastion Vault instance managed by `foundation-vault-bastion`. Section 1 through Section 3 state the overall Parent and Child SPIRE topology, the Bastion and Production Vault trust chain, the design rationale behind that architecture, and the tradeoffs accepted in reaching it. Section 4 through Section 9 state the implementation-level contract already realized in Terraform and Ansible. Scope covers the OIDC Discovery Provider deployment, the `vault-spiffe-workload-identity-federation` module, and the `utils_vault_agent` and `utils_spire_workload_entry` Ansible roles consumed by `platform-harbor-origin-frontend`. Service-specific identity and PKI role decisions belong to the consuming layer's own configuration, rather than to the present specification. Architectural rationale for the broader SPIFFE/SPIRE and Vault convergence resides in `planning/architecture_meta-platform.md` Section 9.
 
 ## Section 1. Overall Architecture and Trust Chain Topology
 
@@ -28,7 +28,7 @@ This specification states the coordination contract between the SPIRE trust doma
 3. A dedicated Issuer CA, Tier 3 of the hierarchy, signed by `pki_inter`, precedes a consumer's own leaf certificates, Tier 4, for every consumer requiring an independent signing authority.
 4. Module `vault-pki-setup`, invoked by layer `security-pki`, realizes the Tier 3 role for Production Vault as mount `pki_issuer`, producing the chain `pki_root`, `pki_inter`, `pki_issuer`, and leaf.
 5. SPIRE Parent's own Intermediate CA realizes the same Tier 3 role for the SPIFFE workload identity hierarchy, signed directly by `pki_inter` through SPIRE's built-in `upstreamauthority/vault` plugin.
-6. Production Vault's `pki_issuer` mount and SPIRE Parent's own Intermediate CA stand as sibling Tier 3 branches under the shared `pki_inter` mount, since Production Vault plays no role in signing SPIRE Parent's Intermediate CA.
+6. Production Vault's `pki_issuer` mount and SPIRE Parent's own Intermediate CA stand as sibling Tier 3 branches under the shared `pki_inter` mount since Production Vault plays no role in signing SPIRE Parent's Intermediate CA.
 7. Resource `pki_root` carries `prevent_destroy = true`, and every downstream Tier 3 and Tier 4 certificate inherits that protection through the shared `pki_inter` dependency.
 8. SPIRE Parent's own Intermediate CA additionally signs SPIRE Child's Intermediate CA on the SPIRE branch, and SPIRE Child signs a workload's leaf SVID, extending that branch to five tiers for a Child-attested workload.
 
@@ -41,12 +41,12 @@ This specification states the coordination contract between the SPIRE trust doma
 5. Resource `vault_pki_secret_backend_cert.oidc_discovery` in layer `platform-spire-parent-frontend` issues the OIDC Discovery Provider's listener certificate directly from `pki_inter`.
 6. Resource `vault_pki_secret_backend_cert.listener` in layer `platform-harbor-origin-frontend` issues Harbor's bootstrap HTTPS listener certificate directly from `pki_inter`.
 7. Module `vault-spiffe-workload-identity-federation`, invoked by layer `platform-harbor-origin-frontend` for the SPIFFE-authenticated workload certificate, receives argument `pki_mount_path` set to `pki_inter` rather than to `pki_issuer`.
-8. Each bypass in Item D.4 through Item D.7 is expected to migrate argument `pki_mount_path` from `pki_inter` to `pki_issuer` once layer `security-pki` applies, since the Tier 3 Issuer becomes the standard target for a leaf certificate at that point.
+8. Each bypass in Item D.4 through Item D.7 is expected to migrate argument `pki_mount_path` from `pki_inter` to `pki_issuer` once layer `security-pki` applies since the Tier 3 Issuer becomes the standard target for a leaf certificate at that point.
 
 ### Item E. Per-Issuer JWT Federation Boundary
 
 1. The `upstreamauthority/vault` plugin does not support the `PublishJWTKey` RPC, a limitation that would normally block global JWT-SVID interoperability across a Nested topology.
-2. Global JWT interoperability is not required across the Nested SPIRE topology, since JWT-SVID authentication follows a one-issuer-one-mount convention already established for `gitlab-saas-jwt`.
+2. Global JWT interoperability is not required across the Nested SPIRE topology since JWT-SVID authentication follows a one-issuer-one-mount convention already established for `gitlab-saas-jwt`.
 3. SPIRE Parent's workload authentication mounts on the `auth/jwt` backend fronted by SPIRE Parent's own `spire-oidc-discovery-provider` instance.
 4. SPIRE Child's workload authentication, once deployed, mounts on an independent `auth/jwt` backend fronted by SPIRE Child's own OIDC Discovery Provider instance, requiring no JWT key relay from SPIRE Parent.
 5. X.509-SVID authentication follows the PKI certificate chain established in Item C and carries no dependency on the `PublishJWTKey` RPC.
@@ -97,7 +97,7 @@ flowchart TD
 
 1. SPIFFE/SPIRE deployment is prioritized ahead of the Production Vault provisioning chain.
 2. Signing SPIRE Parent's Intermediate CA against Production Vault would require Production Vault's own PKI to already be available, and Production Vault's availability depends on the Harbor bootstrapper and Cilium completing first in the platform deployment order.
-3. Signing against Bastion Vault's `pki_inter` mount removes that ordering dependency, since Bastion Vault MUST already be available before any Terraform apply operation across the repository.
+3. Signing against Bastion Vault's `pki_inter` mount removes that ordering dependency since Bastion Vault MUST already be available before any Terraform apply operation across the repository.
 
 ### Item B. `join_token` Node Attestor Selection
 
@@ -109,7 +109,7 @@ flowchart TD
 
 1. SPIRE Server holds no SVID during a first Intermediate CA signing request, excluding SVID-based authentication for that request.
 2. The `upstreamauthority/vault` plugin supports AppRole, Token, and TLS client certificate authentication for that bootstrap request.
-3. TLS client certificate authentication is excluded, since issuance of that certificate would itself require prior authentication against `pki_inter`, the mount SPIRE seeks to reach through the bootstrap request under evaluation.
+3. TLS client certificate authentication is excluded since issuance of that certificate would itself require prior authentication against `pki_inter`, the mount SPIRE seeks to reach through the bootstrap request under evaluation.
 4. Token authentication carries a coarser permission scope than AppRole.
 5. AppRole authentication is selected, reusing the existing `security-vault-approle` layer and AppRole module without introducing a new credential type.
 
@@ -135,13 +135,13 @@ flowchart TD
 ### Item C. The Bootstrap AppRole Remains a Permanent Static Trust Root
 
 1. SPIFFE/SPIRE removes the static-credential requirement for a workload capable of runtime attestation.
-2. The `upstreamauthority/vault` plugin's own bootstrap authentication in Section 2 Item C falls outside that capability, since SPIRE Server cannot attest itself before holding a CA.
+2. The `upstreamauthority/vault` plugin's own bootstrap authentication in Section 2 Item C falls outside that capability since SPIRE Server cannot attest itself before holding a CA.
 3. The bootstrap AppRole is accepted as a permanent, deliberately retained trust root rather than an incomplete migration item.
 4. Risk reduction for that path proceeds through narrowing the AppRole's permission scope and shortening the AppRole's credential lifetime, rather than through replacing AppRole with SPIFFE authentication.
 
 ### Item D. Single Bastion Root Creates a Shared Failure Domain
 
-1. A full rebuild of Bastion Vault that discards Raft storage forces re-signing of SPIRE's Intermediate CA, since the shared `pki_root` trust anchor would no longer exist.
+1. A full rebuild of Bastion Vault that discards Raft storage forces re-signing of SPIRE's Intermediate CA since the shared `pki_root` trust anchor would no longer exist.
 2. That failure mode already exists in the pre-SPIRE PKI design, affecting Production Vault's own intermediate certificate under the same condition.
 3. SPIRE's adoption of `pki_inter` introduces no new instance of that risk.
 
@@ -150,7 +150,7 @@ flowchart TD
 ### Item A. OIDC Discovery Provider Release Artifact
 
 1. The SPIRE distribution publishes the OIDC Discovery Provider binary in a release archive named `spire-extras`, separate from the primary `spire-<version>` archive containing `spire-server` and `spire-agent`.
-2. The `base_baremetal_spire` role MUST download and checksum-verify both archives as independent steps, since neither archive supersedes or contains the other.
+2. The `base_baremetal_spire` role MUST download and checksum-verify both archives as independent steps since neither archive supersedes or contains the other.
 
 ### Item B. OIDC Discovery Provider Listener Binding
 
@@ -163,15 +163,15 @@ flowchart TD
 1. Resource `vault_jwt_auth_backend.spire_oidc` declares `oidc_discovery_url` as `https://<spire_parent_node_ip>:<spire_oidc_port>`.
 2. Vault validates `oidc_discovery_url` through an active HTTP fetch at resource creation.
 3. Resource `vault_jwt_auth_backend.spire_oidc` references no attribute of module `platform_spire_parent`, and the Terraform graph infers no implicit dependency ordering from an attribute reference alone.
-4. An explicit `depends_on = [module.platform_spire_parent]` argument enforces execution after module `platform_spire_parent` completion, since the discovery fetch in Item C.2 requires an already-running OIDC Discovery Provider listener.
-5. Argument `oidc_discovery_ca_pem` requires exactly one PEM string, since the underlying provider schema declares a scalar `string` type rather than a list type.
+4. An explicit `depends_on = [module.platform_spire_parent]` argument enforces execution after module `platform_spire_parent` completion since the discovery fetch in Item C.2 requires an already-running OIDC Discovery Provider listener.
+5. Argument `oidc_discovery_ca_pem` requires exactly one PEM string since the underlying provider schema declares a scalar `string` type rather than a list type.
 
 ### Item D. Vault ACL Scope for the JWT Mount
 
-1. Local `jwt_auth_backend_policy` generates an identical five-grant ACL template for every entry in local `jwt_auth_backends`, since `gitlab-saas-jwt` and `spire-oidc-jwt` require the same backend management, mount configuration, mount tuning, OIDC configuration, and role provisioning capabilities.
+1. Local `jwt_auth_backend_policy` generates an identical five-grant ACL template for every entry in local `jwt_auth_backends` since `gitlab-saas-jwt` and `spire-oidc-jwt` require the same backend management, mount configuration, mount tuning, OIDC configuration, and role provisioning capabilities.
 2. The generated backend management grant scopes `sudo` and lifecycle capabilities to the exact path `sys/auth/spire-oidc-jwt`, excluding any mount whose path merely shares the `spire-oidc-jwt` prefix.
 3. The generated mount configuration grant scopes read, create, and update capabilities to the trailing-glob path `sys/mounts/auth/spire-oidc-jwt*`, covering configuration operations nested under the mount path.
-4. The generated mount tuning grant scopes create, read, and update capabilities to the exact path `sys/auth/spire-oidc-jwt/tune`, since Vault separates auth-method tuning under `sys/auth/` from the mount configuration paths under `sys/mounts/`.
+4. The generated mount tuning grant scopes create, read, and update capabilities to the exact path `sys/auth/spire-oidc-jwt/tune` since Vault separates auth-method tuning under `sys/auth/` from the mount configuration paths under `sys/mounts/`.
 
 ### Item E. Bastion Vault `terraform-admin` Policy Grant Reference
 
@@ -201,7 +201,7 @@ flowchart TD
 
 ### Item B. Policy Naming Constraint
 
-1. Resource `vault_policy.this` MUST generate a policy name matching the `jwt-policy-*` prefix, since `terraform-admin-policy` restricts `sys/policies/acl/*` management to that glob for JWT-backed policies.
+1. Resource `vault_policy.this` MUST generate a policy name matching the `jwt-policy-*` prefix since `terraform-admin-policy` restricts `sys/policies/acl/*` management to that glob for JWT-backed policies.
 2. A policy name outside the `jwt-policy-*` glob causes Vault to reject the policy write with an HTTP 403 response under the calling module's own AppRole credentials.
 
 ## Section 6. Workload Attestation and Containerization Constraint
@@ -214,20 +214,20 @@ flowchart TD
 ### Item B. `spiffe-helper` Containerization at Packer Build Time
 
 1. Role `base_docker_spiffe_helper` builds a container image for `spiffe-helper` at Packer build time, appended to the `base-docker-harbor` build immediately after role `base_docker`.
-2. The container image builds from an empty `scratch` base layer, since the `spiffe-helper` binary links statically without a libc runtime dependency.
+2. The container image builds from an empty `scratch` base layer since the `spiffe-helper` binary links statically without a libc runtime dependency.
 3. A running `spiffe-helper` container carries label `spiffe-workload` set to `spire_cluster_name`, matching the selector value registered by role `utils_spire_workload_entry`.
 
 ## Section 7. Vault Agent Certificate Deployment
 
 ### Item A. JWT Auto-Auth Method
 
-1. Vault Agent's `auto_auth` stanza uses method `jwt`, reading the JWT-SVID file that `spiffe-helper` writes to `utils_spire_vault_agent_jwt_dir`.
-2. Argument `remove_jwt_after_reading` is set to `false`, departing from the HashiCorp default of `true`, since `spiffe-helper` rewrites the JWT-SVID file on a fixed rotation schedule rather than on a per-read basis.
+1. Vault Agent's `auto_auth` stanza uses method `jwt`, reading the JWT-SVID file that `spiffe-helper` writes to `utils_vault_agent_jwt_dir`.
+2. Argument `remove_jwt_after_reading` is set to `false`, departing from the HashiCorp default of `true` since `spiffe-helper` rewrites the JWT-SVID file on a fixed rotation schedule rather than on a per-read basis.
 
 ### Item B. Listener Certificate Authority Separation
 
-1. The certificate template deployed to `utils_spire_vault_agent_cert_files` appends the intermediate CA decoded from `vault_intermediate_ca_b64`.
-2. Vault Agent's own HTTPS listener certificate MUST source a trusted CA from `utils_spire_vault_agent_vault_listener_ca_cert_b64`, a variable distinct from `vault_intermediate_ca_b64`.
+1. The certificate template deployed to `utils_vault_agent_cert_files` appends the intermediate CA decoded from `vault_intermediate_ca_b64`.
+2. Vault Agent's own HTTPS listener certificate MUST source a trusted CA from `utils_vault_agent_vault_listener_ca_cert_b64`, a variable distinct from `vault_intermediate_ca_b64`.
 3. The issuing CA record for the `pki_int` chain remains self-signed pending a rotation fix, and reusing the `pki_int` issuing CA record as the listener CA would couple an unrelated rotation state to Vault Agent's own connectivity.
 
 ### Item C. Script-Based Certificate Deployment
@@ -241,7 +241,7 @@ flowchart TD
 ### Item A. Agent Parent ID Resolution
 
 1. Role `utils_spire_workload_entry` reads `join_token` from Bastion Vault as the lookup key for `inventory_hostname`'s Agent SPIFFE ID.
-2. A persisted Vault record allows a subsequent playbook run to resolve the same parent ID, since Ansible facts from the initial node attestation do not survive across separate playbook invocations.
+2. A persisted Vault record allows a subsequent playbook run to resolve the same parent ID since Ansible facts from the initial node attestation do not survive across separate playbook invocations.
 
 ### Item B. Idempotent Entry Creation
 
@@ -252,5 +252,5 @@ flowchart TD
 
 ### Item A. Role Sequencing in `platform_harbor_origin`
 
-1. Role 83 (`utils_spire_agent`) and Role 84 (`utils_spire_workload_entry`) execute before Role 82 (`utils_spire_vault_agent`), since certificate issuance in Role 82 depends on an SPIFFE ID already registered as a SPIRE workload entry.
-2. Role 82 executes only when `harbor_origin_stage == "registered"`, `spire_oidc_auth_path` is defined, and `spire_workload_vault_role_name` is defined, gating SPIFFE-based certificate issuance behind a Stage 2 Cilium VIP prerequisite that Harbor Origin's staged rollout defines.
+1. Role 83 (`utils_spire_agent`) and Role 84 (`utils_spire_workload_entry`) execute before Role 82 (`utils_vault_agent`) since certificate issuance in Role 82 depends on an SPIFFE ID already registered as a SPIRE workload entry.
+2. Role 82 executes only when `spire_oidc_auth_path` and `spire_workload_vault_role_name` are defined. `platform-harbor-origin-frontend` requires `provision-cilium-frontend` to be applied first via a hard `postcondition` on `data.terraform_remote_state.cilium_provision`; no runtime stage variable exists.

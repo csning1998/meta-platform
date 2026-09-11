@@ -110,14 +110,14 @@ flowchart TD
 
 1. Role `hypervisor_baseline` delegates the legacy `libvirtd.socket` and the three modular daemon sockets (`virtqemud.socket`, `virtnetworkd.socket`, `virtstoraged.socket`) to the `libvirt` group through a matching `SocketGroup=libvirt` and `SocketMode=0770` systemd drop-in for each unit.
 2. Role `hypervisor_baseline` adds the operator user account to the `libvirt` group, granting non-root read and write access to every delegated socket.
-3. Role `hypervisor_baseline` stops and disables the legacy `libvirtd.service` and the three legacy `libvirtd` socket units, since the host runs the modular daemon split rather than the monolithic daemon.
+3. Role `hypervisor_baseline` stops and disables the legacy `libvirtd.service` and the three legacy `libvirtd` socket units since the host runs the modular daemon split rather than the monolithic daemon.
 4. A non-root operator invokes `virsh -c qemu:///system` or the Terraform provider's `qemu:///system?socket=...` URI from Item F against the delegated modular sockets without `sudo`, satisfying the non-root access requirement without switching to `qemu:///session`.
 
 ### Item H. System Mode Retained over Session Mode
 
 1. `qemu:///session` establishes a fully isolated per-user libvirt instance with an independent storage pool and an independent default network, sharing no state with `qemu:///system`.
 2. Session mode's default networking relies on unprivileged usermode networking, and the platform's `service_catalog` and `hypervisor_baseline` firewalld integration depend on a custom bridged, routed, and NAT network topology unavailable without a separate privilege-escalation path, such as a setuid `qemu-bridge-helper` binary.
-3. Adopting session mode would require redesigning the network layer rather than migrating existing state, since every `libvirt_network`, `libvirt_pool`, and `libvirt_domain` resource under `qemu:///system` is invisible to a session-mode connection.
+3. Adopting session mode would require redesigning the network layer rather than migrating existing state since every `libvirt_network`, `libvirt_pool`, and `libvirt_domain` resource under `qemu:///system` is invisible to a session-mode connection.
 4. The socket permission delegation in Item G satisfies the non-root access requirement without that redesign, and system mode remains the platform's libvirt connection model.
 
 ## Section 2. Service Catalog Specification
@@ -470,6 +470,6 @@ Location: `ansible/roles/utils_spire_agent`.
 ### Item B. Pending Components
 
 1. Deployment of `spire-oidc-discovery-provider` for Vault JWT authentication integration remains pending.
-2. Generalized workload identity automation via `utils_spire_workload_entry` and `utils_spire_vault_agent` remains pending.
+2. Generalized workload identity automation via `utils_spire_workload_entry` and `utils_vault_agent` remains pending.
 3. Deployment of the SPIRE Nested Server tier on Talos remains pending control plane readiness.
 4. Deployment of the non-attestable external caller mTLS gateway remains outside the current platform development scope.

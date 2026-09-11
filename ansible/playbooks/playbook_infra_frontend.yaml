@@ -21,7 +21,15 @@
   become: true
   roles:
     - platform_keycloak
-# 3. Generic MicroK8s Cluster
+
+# 3. HAProxy + Keepalived exposure tier for non-Kubernetes-runtime services
+- name: "Play [HAProxy]: Configure HAProxy + Keepalived Frontend"
+  hosts: "{{ 'haproxy' if 'haproxy' in groups else [] }}"
+  become: true
+  roles:
+    - platform_haproxy
+#
+# 4. Generic MicroK8s Cluster
 # Commented out: infra_microk8s role is not committed yet.
 # - name: "Play [Kubernetes]: Provision and Configure MicroK8s Cluster"
 #   hosts: "{{ 'microk8s' if 'microk8s' in groups else [] }}"
@@ -30,7 +38,7 @@
 #   roles:
 #     - infra_microk8s
 
-# 4. Generic Kubeadm Cluster
+# 5. Generic Kubeadm Cluster
 # Commented out: infra_kubeadm role is not committed yet.
 # - name: "Play [Kubernetes]: Provision and Configure Kubeadm Cluster"
 #   hosts: "{{ (groups['master'] | default([])) + (groups['worker'] | default([])) }}"

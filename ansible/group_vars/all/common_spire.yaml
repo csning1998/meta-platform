@@ -10,6 +10,6 @@ spire_dir_data: "/opt/spire/server/data"
 # Agent Side: Persisted Identity Directory
 spire_agent_dir_data: "/opt/spire/agent/data"
 
-# Single source of truth for the spiffe-helper release, since base_docker_spiffe_helper (Packer
-# build time) and utils_spire_vault_agent (Terraform runtime) execute in disconnected contexts.
+# This variable MUST serve as the canonical release declaration because base_docker_spiffe_helper
+# and utils_vault_agent execute across disconnected build-time and runtime environments.
 spiffe_helper_version: "0.11.0"

@@ -2,11 +2,26 @@
 - name: "Block A: Install SPIRE Agent Binary"
   become: true
   block:
-    - name: "Step A0. Check installed SPIRE Agent version"
-      ansible.builtin.command: spire-agent --version
-      register: utils_spire_agent_installed_version
+    - name: "Step A0a. Check if spire-agent binary exists"
+      ansible.builtin.stat:
+        path: /usr/local/bin/spire-agent
+      register: _utils_spire_agent_binary_stat
+
+    - name: "Step A0b. Check installed SPIRE Agent version"
+      ansible.builtin.command: /usr/local/bin/spire-agent --version
+      register: _utils_spire_agent_installed_version
       changed_when: false
       failed_when: false
+      when: _utils_spire_agent_binary_stat.stat.exists
+
+    # A substring test on raw output matches "1.2.3" against installed "1.2.30" or "11.2.3".
+    # Extracting the dotted version token keeps the later `not in` comparison exact.
+    - name: "Step A0c. Combine version check stdout/stderr for downstream comparison"
+      ansible.builtin.set_fact:
+        _utils_spire_agent_installed_version_str: >-
+          {{ ((_utils_spire_agent_installed_version.stdout | default('')) ~
+            (_utils_spire_agent_installed_version.stderr | default(''))
+            ) | regex_search('[0-9]+\.[0-9]+\.[0-9]+') | default('', true) }}
 
     - name: "Step A1a. Create extraction directory"
       ansible.builtin.file:
@@ -14,8 +29,9 @@
         state: directory
         mode: "0755"
       when: >-
-        utils_spire_agent_installed_version.rc != 0 or
-        utils_spire_agent_installed_version.stdout | default('') | trim != utils_spire_agent_target_version
+        not _utils_spire_agent_binary_stat.stat.exists or
+        utils_spire_agent_target_version not in
+        _utils_spire_agent_installed_version_str
 
     - name: "Step A1b. Download SPIRE archive with checksum verification (v{{ utils_spire_agent_target_version }})"
       vars:
@@ -33,8 +49,9 @@
         checksum: "sha256:{{ utils_spire_agent_target_sha256 }}"
         mode: "0644"
       when: >-
-        utils_spire_agent_installed_version.rc != 0 or
-        utils_spire_agent_installed_version.stdout | default('') | trim != utils_spire_agent_target_version
+        not _utils_spire_agent_binary_stat.stat.exists or
+        utils_spire_agent_target_version not in
+        _utils_spire_agent_installed_version_str
 
     - name: "Step A1c. Unarchive SPIRE (v{{ utils_spire_agent_target_version }})"
       vars:
@@ -49,8 +66,9 @@
         dest: /tmp/spire-agent-install
         remote_src: true
       when: >-
-        utils_spire_agent_installed_version.rc != 0 or
-        utils_spire_agent_installed_version.stdout | default('') | trim != utils_spire_agent_target_version
+        not _utils_spire_agent_binary_stat.stat.exists or
+        utils_spire_agent_target_version not in
+        _utils_spire_agent_installed_version_str
 
     - name: "Step A2. Install spire-agent binary"
       ansible.builtin.copy:
@@ -61,16 +79,18 @@
         owner: root
         group: root
       when: >-
-        utils_spire_agent_installed_version.rc != 0 or
-        utils_spire_agent_installed_version.stdout | default('') | trim != utils_spire_agent_target_version
+        not _utils_spire_agent_binary_stat.stat.exists or
+        utils_spire_agent_target_version not in
+        _utils_spire_agent_installed_version_str
 
     - name: "Step A3. Remove extracted archive contents"
       ansible.builtin.file:
         path: /tmp/spire-agent-install
         state: absent
       when: >-
-        utils_spire_agent_installed_version.rc != 0 or
-        utils_spire_agent_installed_version.stdout | default('') | trim != utils_spire_agent_target_version
+        not _utils_spire_agent_binary_stat.stat.exists or
+        utils_spire_agent_target_version not in
+        _utils_spire_agent_installed_version_str
 
   rescue:
     - name: "Block A: Install SPIRE Agent Binary failed"
@@ -126,44 +146,67 @@
 - name: "Block D: Determine Bootstrap State"
   become: true
   block:
-    # The disk KeyManager persists agent-data.json and a local keypair before attempting
-    # attestation. Their presence alone does not distinguish a completed attestation from
-    # a failed one; only a non-null "svid" field confirms attestation succeeded.
-    - name: "Step D1. Check for a persisted agent-data.json file"
-      ansible.builtin.stat:
-        path: "{{ spire_agent_dir_data }}/agent-data.json"
-      register: utils_spire_agent_data_file
+    # Bootstrap verification MUST evaluate live agent health because static inspection of
+    # agent-data.json does not distinguish expired credentials from valid SVIDs.
+    - name: "Step D1. Check current agent health as the attestation-state signal"
+      ansible.builtin.command:
+        cmd: "spire-agent healthcheck -socketPath {{ utils_spire_agent_socket_dir }}/api.sock"
+      register: utils_spire_agent_live_healthcheck
+      changed_when: false
+      failed_when: false
 
-    - name: "Step D2. Parse persisted agent data and record bootstrap state"
-      when: utils_spire_agent_data_file.stat.exists
+    - name: "Step D2. Record bootstrap state from live health"
+      ansible.builtin.set_fact:
+        utils_spire_agent_already_attested: "{{ utils_spire_agent_live_healthcheck.rc == 0 }}"
+
+    - name: "Step D2c. Invalidate attestation state when SPIRE Server trust bundle changed"
+      when: utils_spire_agent_already_attested | default(false)
+      become: true
       block:
-        - name: "Step D2a. Read persisted agent data"
-          ansible.builtin.slurp:
-            src: "{{ spire_agent_dir_data }}/agent-data.json"
-          register: utils_spire_agent_data_raw
+        - name: "Step D2c-1. Fetch current trust bundle from SPIRE Parent"
+          ansible.builtin.command:
+            cmd: "spire-server bundle show -socketPath {{ spire_dir_data }}/private/api.sock"
+          register: _utils_spire_agent_live_bundle
+          changed_when: false
+          failed_when: >-
+            not _utils_spire_agent_live_bundle.unreachable | default(false) and
+            'BEGIN CERTIFICATE' not in (_utils_spire_agent_live_bundle.stdout | default(''))
+          ignore_unreachable: true
+          delegate_to: "{{ spire_parent_ssh_host }}"
 
-        - name: "Step D2b. Record bootstrap state from a valid SVID"
-          ansible.builtin.set_fact:
-            utils_spire_agent_already_attested: >-
-              {{ ((utils_spire_agent_data_raw.content | b64decode | from_json) is mapping) and
-                 ((utils_spire_agent_data_raw.content | b64decode | from_json).get('svid')) is not none }}
+        - name: "Step D2c-2. Read locally stored trust bundle"
+          ansible.builtin.slurp:
+            src: "{{ utils_spire_agent_dir_config }}/bundle.pem"
+          register: _utils_spire_agent_local_bundle
+          failed_when: false
+
+        - name: "Step D2c-3. Clear stale attestation when trust bundle diverged"
+          when: >-
+            _utils_spire_agent_live_bundle.unreachable | default(false) or
+            _utils_spire_agent_local_bundle.failed | default(true) or
+            (_utils_spire_agent_local_bundle.content | default('') | b64decode | trim) !=
+            (_utils_spire_agent_live_bundle.stdout | default('') | trim)
+          block:
+            - name: "Step D2c-3a. Remove stale agent identity data"
+              ansible.builtin.file:
+                path: "{{ spire_agent_dir_data }}/agent-data.json"
+                state: absent
+
+            - name: "Step D2c-3b. Set attestation state to unattested"
+              ansible.builtin.set_fact:
+                utils_spire_agent_already_attested: false
+
       rescue:
-        # A crashed or partial bootstrap can leave agent-data.json empty or truncated.
-        # Unparsable content means no confirmed identity, the same as a missing file.
-        - name: "Step D2 (rescue). Treat unparsable agent data as not attested"
+        - name: "Step D2c (rescue). Treat unreachable SPIRE Parent as stale — force re-attest"
           ansible.builtin.set_fact:
             utils_spire_agent_already_attested: false
-
-    - name: "Step D3. Default bootstrap state when no data file exists"
-      ansible.builtin.set_fact:
-        utils_spire_agent_already_attested: "{{ utils_spire_agent_already_attested | default(false) }}"
 
   rescue:
     - name: "Block D: Determine Bootstrap State failed"
       ansible.builtin.fail:
         msg: "{{ ansible_failed_result.msg | default('see task output above') }}"
 
-- name: "Block E: Provision join_token for First Attestation"
+- name: "Block E: Provision join_token"
   when: not utils_spire_agent_already_attested
   block:
     - name: "Step E1. Generate join_token on SPIRE Parent"
@@ -174,7 +217,7 @@
           -output json
       register: utils_spire_agent_generated_token
       changed_when: true
-      delegate_to: "{{ spire_parent_node_ip }}"
+      delegate_to: "{{ spire_parent_ssh_host }}"
       become: true
       no_log: true
 
@@ -213,7 +256,7 @@
       register: utils_spire_agent_remote_bundle
       changed_when: false
       failed_when: "'BEGIN CERTIFICATE' not in utils_spire_agent_remote_bundle.stdout"
-      delegate_to: "{{ spire_parent_node_ip }}"
+      delegate_to: "{{ spire_parent_ssh_host }}"
 
     - name: "Step F2. Deploy the trust bundle locally"
       ansible.builtin.copy:

@@ -1,0 +1,16 @@
+
+target_clusters = {
+  frontend = "platform-haproxy-frontend"
+}
+
+primary_role = "frontend"
+
+service_config = {
+  frontend = {
+    role            = "haproxy"
+    base_image_path = "../../../packer/output/base-baremetal-haproxy/ubuntu-24-base-baremetal-haproxy.qcow2"
+    nodes = {
+      "00" = { ip_suffix = 200, vcpu = 2, ram_size = 512 }
+    }
+  }
+}

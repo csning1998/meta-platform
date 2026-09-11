@@ -9,19 +9,15 @@ terraform {
       source  = "dmacvicar/libvirt"
       version = "0.9.7"
     }
-    http = {
-      source  = "hashicorp/http"
-      version = "3.6.1"
-    }
     external = {
       source  = "hashicorp/external"
       version = "2.4.1"
     }
   }
   backend "http" {
-    address        = "https://gitlab.com/api/v4/projects/84608830/terraform/state/platform-harbor-origin-frontend"
-    lock_address   = "https://gitlab.com/api/v4/projects/84608830/terraform/state/platform-harbor-origin-frontend/lock"
-    unlock_address = "https://gitlab.com/api/v4/projects/84608830/terraform/state/platform-harbor-origin-frontend/lock"
+    address        = "https://gitlab.com/api/v4/projects/84608830/terraform/state/platform-haproxy-frontend"
+    lock_address   = "https://gitlab.com/api/v4/projects/84608830/terraform/state/platform-haproxy-frontend/lock"
+    unlock_address = "https://gitlab.com/api/v4/projects/84608830/terraform/state/platform-haproxy-frontend/lock"
     lock_method    = "POST"
     unlock_method  = "DELETE"
     retry_wait_min = 5

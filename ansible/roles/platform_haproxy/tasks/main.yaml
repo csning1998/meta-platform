@@ -1,0 +1,20 @@
+---
+- name: "Task 0a. Assert lb_service_segments was supplied by the caller"
+  ansible.builtin.assert:
+    that:
+      - lb_service_segments is defined
+    fail_msg: "lb_service_segments must be supplied by the caller (Terraform extra_vars)."
+
+# extra-vars precedence outranks set_fact: a decoded value cannot reuse the lb_service_segments
+# name itself. Terraform sends that variable JSON-encoded (ansible-runner extra_vars requires
+# string values). platform_haproxy_lb_service_segments holds the decoded native list.
+- name: "Task 0b. Decode lb_service_segments into a native list"
+  ansible.builtin.set_fact:
+    platform_haproxy_lb_service_segments: >-
+      {{ (lb_service_segments is string) | ternary(lb_service_segments | from_json, lb_service_segments) }}
+
+- name: "Section A. Install and Configure Base Environment"
+  ansible.builtin.include_tasks: A-install.yaml
+
+- name: "Section B. Configure Load Balancer Services"
+  ansible.builtin.include_tasks: B-service-config.yaml

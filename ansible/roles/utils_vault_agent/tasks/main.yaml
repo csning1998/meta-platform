@@ -1,104 +1,138 @@
 ---
-- name: "Step 1. Create Vault Agent Config Directory"
+- name: "Block A: Fetch Authentication Material"
   become: true
-  ansible.builtin.file:
-    path: "{{ utils_vault_agent_config_dir }}/approle"
-    state: directory
-    owner: "{{ utils_vault_agent_config_owner }}"
-    group: "{{ utils_vault_agent_config_group }}"
-    mode: "0750"
+  block:
+    - name: "Step A1. Create Vault Agent Config and JWT Output Directories"
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      loop:
+        - "{{ utils_vault_agent_config_dir }}"
+        - "{{ utils_vault_agent_jwt_dir }}"
 
-- name: "Step 2. Write AppRole Credentials"
-  become: true
-  ansible.builtin.copy:
-    content: "{{ item.content }}"
-    dest: "{{ utils_vault_agent_config_dir }}/approle/{{ item.file }}"
-    owner: "{{ utils_vault_agent_config_owner }}"
-    group: "{{ utils_vault_agent_config_group }}"
-    mode: "0600"
-  loop:
-    - { file: "role_id", content: "{{ utils_vault_agent_role_id }}" }
-    - { file: "secret_id", content: "{{ utils_vault_agent_secret_id }}" }
-  no_log: true
-  register: utils_vault_agent_approle
+    # 0700 root:root keeps the sink token unreadable by the vault:vault owner shared with the
+    # rest of utils_vault_agent_config_dir.
+    - name: "Step A1b. Create dedicated Vault Agent token sink directory"
+      ansible.builtin.file:
+        path: "{{ utils_vault_agent_token_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
 
-- name: "Step 3. Deploy Vault CA Certificate"
-  become: true
-  ansible.builtin.copy:
-    content: "{{ vault_ca_cert_b64 | b64decode }}"
-    dest: "{{ utils_vault_agent_config_dir }}/vault-ca.crt"
-    owner: "{{ utils_vault_agent_config_owner }}"
-    group: "{{ utils_vault_agent_config_group }}"
-    mode: "0644"
+    - name: "Step A2. Configure spiffe-helper"
+      ansible.builtin.template:
+        src: spiffe-helper.conf.j2
+        dest: "{{ utils_vault_agent_config_dir }}/spiffe-helper.conf"
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart spiffe-helper Container
 
-- name: "Step 4. Ensure Target Certificate Directory Exists"
-  become: true
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: directory
-    owner: "{{ utils_vault_agent_owner }}"
-    group: "{{ utils_vault_agent_group }}"
-    mode: "{{ utils_vault_agent_cert_mode }}"
-  loop: "{{ utils_vault_agent_cert_dirs }}"
+    # Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 6 Item B.
+    - name: "Step A3. Run spiffe-helper Container"
+      community.docker.docker_container:
+        name: "{{ utils_vault_agent_helper_container_name }}"
+        image: "{{ utils_vault_agent_helper_image }}"
+        command: ["-config", "/config/spiffe-helper.conf"]
+        restart_policy: always
+        state: started
+        labels:
+          spiffe-workload: "{{ spire_cluster_name }}"
+        volumes:
+          - "{{ utils_vault_agent_socket_dir }}:{{ utils_vault_agent_socket_dir }}:ro"
+          - "{{ utils_vault_agent_jwt_dir }}:{{ utils_vault_agent_jwt_dir }}:rw"
+          - "{{ utils_vault_agent_config_dir }}/spiffe-helper.conf:/config/spiffe-helper.conf:ro"
 
-- name: "Step 4b. Deploy CA Certificate to Target Location"
-  become: true
-  ansible.builtin.copy:
-    src: "{{ utils_vault_agent_config_dir }}/vault-ca.crt"
-    dest: "{{ utils_vault_agent_cert_base_dir }}/{{ utils_vault_agent_ca_name }}"
-    remote_src: true
-    owner: "{{ utils_vault_agent_owner }}"
-    group: "{{ utils_vault_agent_group }}"
-    mode: "0644"
+    - name: "Step A4. Wait for a JWT-SVID to be issued"
+      ansible.builtin.wait_for:
+        path: "{{ utils_vault_agent_jwt_dir }}/{{ utils_vault_agent_jwt_file }}"
+        timeout: 60
+        msg: "Timeout waiting for spiffe-helper to fetch a JWT-SVID."
 
-- name: "Step 5. Configure Vault Agent (vault-agent.hcl)"
-  become: true
-  ansible.builtin.template:
-    src: vault-agent.hcl.j2
-    dest: "{{ utils_vault_agent_config_dir }}/vault-agent.hcl"
-    owner: "{{ utils_vault_agent_config_owner }}"
-    group: "{{ utils_vault_agent_config_group }}"
-    mode: "0640"
-  register: utils_vault_agent_hcl
+  rescue:
+    - name: "Block A: Fetch Authentication Material failed"
+      ansible.builtin.fail:
+        msg: "{{ ansible_failed_result.msg | default('see task output above') }}"
 
-- name: "Step 6. Configure Vault Agent Service"
+- name: "Block B: Vault Agent Certificate Renewal Setup"
   become: true
-  ansible.builtin.template:
-    src: vault-agent.service.j2
-    dest: /etc/systemd/system/vault-agent.service
-    owner: "{{ utils_vault_agent_service_owner }}"
-    group: "{{ utils_vault_agent_service_group }}"
-    mode: "0644"
-  register: utils_vault_agent_service
+  block:
+    - name: "Step B1. Deploy Vault CA Certificate"
+      ansible.builtin.copy:
+        content: "{{ utils_vault_agent_vault_listener_ca_cert_b64 | b64decode }}"
+        dest: "{{ utils_vault_agent_config_dir }}/vault-ca.crt"
+        owner: "{{ utils_vault_agent_config_owner }}"
+        group: "{{ utils_vault_agent_config_group }}"
+        mode: "0644"
 
-- name: "Step 7. Enable and Start Vault Agent"
-  become: true
-  ansible.builtin.systemd:
-    name: vault-agent
-    state: started
-    enabled: true
-    daemon_reload: true
+    - name: "Step B2. Ensure Target Certificate Directory Exists"
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ utils_vault_agent_owner }}"
+        group: "{{ utils_vault_agent_group }}"
+        mode: "{{ utils_vault_agent_cert_mode }}"
+      loop: "{{ utils_vault_agent_cert_dirs }}"
 
-- name: "Step 8. Restart Vault Agent immediately if config changed"
-  become: true
-  ansible.builtin.systemd:
-    name: vault-agent
-    state: restarted
-    daemon_reload: "{{ utils_vault_agent_service.changed | default(false) }}"
-  when: >
-    utils_vault_agent_approle.changed or
-    utils_vault_agent_hcl.changed or
-    utils_vault_agent_service.changed
+    - name: "Step B3. Deploy CA Certificate to Target Location"
+      ansible.builtin.copy:
+        src: "{{ utils_vault_agent_config_dir }}/vault-ca.crt"
+        dest: "{{ utils_vault_agent_cert_base_dir }}/{{ utils_vault_agent_ca_name }}"
+        remote_src: true
+        owner: "{{ utils_vault_agent_owner }}"
+        group: "{{ utils_vault_agent_group }}"
+        mode: "0644"
 
-- name: "Step 9. Wait for Certificates to be generated"
-  become: true
-  ansible.builtin.wait_for:
-    path: "{{ utils_vault_agent_wait_file }}"
-    timeout: 60
-    msg: "Timeout waiting for Vault Agent to generate certificates."
+    - name: "Step B4. Configure Vault Agent (vault-agent.hcl)"
+      ansible.builtin.template:
+        src: vault-agent.hcl.j2
+        dest: "{{ utils_vault_agent_config_dir }}/vault-agent.hcl"
+        owner: "{{ utils_vault_agent_config_owner }}"
+        group: "{{ utils_vault_agent_config_group }}"
+        mode: "0640"
+      register: _utils_vault_agent_hcl
 
-- name: "Step 10. Verify Certificate Validity"
-  become: true
-  ansible.builtin.command:
-    cmd: "openssl x509 -in {{ utils_vault_agent_wait_file }} -noout -checkend 0"
-  changed_when: false
+    - name: "Step B5. Configure Vault Agent Service"
+      ansible.builtin.template:
+        src: vault-agent.service.j2
+        dest: /etc/systemd/system/vault-agent.service
+        owner: "{{ utils_vault_agent_service_owner }}"
+        group: "{{ utils_vault_agent_service_group }}"
+        mode: "0644"
+      register: _utils_vault_agent_service
+
+    - name: "Step B6. Enable and Start Vault Agent"
+      ansible.builtin.systemd:
+        name: vault-agent
+        state: started
+        enabled: true
+        daemon_reload: true
+
+    - name: "Step B7. Restart Vault Agent immediately if config changed"
+      ansible.builtin.systemd:
+        name: vault-agent
+        state: restarted
+        daemon_reload: "{{ _utils_vault_agent_service.changed | default(false) }}"
+      when: >
+        _utils_vault_agent_hcl.changed | default(false) or
+        _utils_vault_agent_service.changed | default(false)
+
+    - name: "Step B8. Wait for Certificates to be generated"
+      ansible.builtin.wait_for:
+        path: "{{ utils_vault_agent_wait_file }}"
+        timeout: 60
+        msg: "Timeout waiting for Vault Agent to generate certificates."
+
+    - name: "Step B9. Verify Certificate Validity"
+      ansible.builtin.command:
+        cmd: "openssl x509 -in {{ utils_vault_agent_wait_file }} -noout -checkend 0"
+      changed_when: false
+
+  rescue:
+    - name: "Block B: Vault Agent Certificate Renewal Setup failed"
+      ansible.builtin.fail:
+        msg: "{{ ansible_failed_result.msg | default('see task output above') }}"

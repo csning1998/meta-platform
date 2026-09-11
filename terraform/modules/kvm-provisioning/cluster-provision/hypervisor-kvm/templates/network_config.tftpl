@@ -33,6 +33,7 @@ network:
     extra-${replace(net, ".", "-")}:
       match:
         macaddress: "${iface.mac}"
+      set-name: ${iface.alias}
       dhcp4: false
       addresses:
         - "${iface.address}"

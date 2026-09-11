@@ -32,6 +32,9 @@ locals {
 
       # Pairs each extra network's deterministically-salted MAC address with the caller-assigned static CIDR, keyed by network name.
       # The network segment provides no DHCP service; this local carries every value libvirt_domain and cloud-init require to attach the interface.
+      # `alias` is a systemd-networkd set-name derived only from the network name, stable across
+      # reboots and MAC changes. Callers binding to this interface by name (Keepalived VRRP,
+      # policy routing) do not depend on kernel PCI-slot-ordered device names.
       extra_network_interfaces = {
         for net, cidr in node_config.extra_networks : net => {
           mac = format("52:54:00:%s:%s:%s",
@@ -40,6 +43,7 @@ locals {
             substr(md5("${node_config.ip}-${net}"), 4, 2)
           )
           address = cidr
+          alias   = module.interface_alias[net].alias
         }
       }
     }

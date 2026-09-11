@@ -24,6 +24,7 @@ locals {
     "vault-frontend"         = ["vault", "localhost"]
     "harbor-origin-frontend" = []
     "spire-parent-frontend"  = []
+    "haproxy-frontend"       = []
   }
 
   bastion_pki_leaf_roles = {

@@ -18,11 +18,7 @@ data "vault_generic_secret" "guest_vm" {
   path = "secret/${local.vault_kv_namespace}/guest_vm"
 }
 
-data "vault_generic_secret" "harbor_origin" {
-  path = "secret/${local.vault_kv_namespace}/harbor-origin/frontend"
-}
-
 # Vault authentication MUST obtain ephemeral JWT-SVID credentials on every execution to prevent state file persistence.
 data "external" "spire_jwt" {
-  program = ["/usr/local/bin/spire-fetch-platform-harbor-origin-frontend"]
+  program = ["/usr/local/bin/spire-fetch-platform-haproxy-frontend"]
 }

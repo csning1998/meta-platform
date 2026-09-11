@@ -32,11 +32,17 @@ locals {
 locals {
   cilium_cluster_name = local.state.cilium_frontend.global_topology_identity["cilium"]["frontend"].cluster_name
 
+  # Kubernetes-native runtimes only. Any other runtime is an external service owned end to
+  # end by platform-haproxy-frontend, per the decisions.md entry retiring Cilium Service
+  # exposure for non-Kubernetes backends. Registering both here and there double-owns the VIP.
+  kubernetes_native_runtimes = ["talos", "kubeadm", "microk8s", "minikube"]
+
   # Excludes entries missing an SSoT VIP (an open ADR defect) or a backend server, both
   # of which fail downstream against Cilium or the Kubernetes API.
   fronted_segments = {
     for key, seg in local.infrastructure_map : key => seg
     if key != local.cilium_cluster_name
+    && contains(local.kubernetes_native_runtimes, seg.runtime)
     && seg.lb_config.vip != null
     && length(seg.backend_servers) > 0
   }

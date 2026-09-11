@@ -26,63 +26,13 @@
     - "{{ platform_harbor_origin_harbor_pki_dir }}"
     - "{{ platform_harbor_origin_harbor_config_cert_dir }}"
 
-- name: "B4. Deploy Bastion-issued listener certificate"
-  when:
-    - vault_server_cert_b64 is defined
-    - vault_server_key_b64 is defined
-    - vault_ca_cert_b64 is defined
+- name: "B5. Install Vault Intermediate CA into the OS trust store"
+  when: vault_intermediate_ca_b64 is defined
   block:
-    - name: "B4a. Write server certificate"
+    - name: "B5a. Write Vault Intermediate CA certificate"
       ansible.builtin.copy:
-        content: "{{ vault_server_cert_b64 | b64decode }}"
-        dest: "{{ platform_harbor_origin_harbor_cert_path }}"
-        owner: "{{ _platform_harbor_origin_harbor_uid }}"
-        group: "{{ _platform_harbor_origin_harbor_gid }}"
-        mode: "0644"
-      notify: Restart Harbor Service
-
-    - name: "B4b. Write server private key"
-      ansible.builtin.copy:
-        content: "{{ vault_server_key_b64 | b64decode }}"
-        dest: "{{ platform_harbor_origin_harbor_key_path }}"
-        owner: "{{ _platform_harbor_origin_harbor_uid }}"
-        group: "{{ _platform_harbor_origin_harbor_gid }}"
-        mode: "0600"
-      notify: Restart Harbor Service
-
-    - name: "B4c. Write CA chain"
-      ansible.builtin.copy:
-        content: "{{ vault_ca_cert_b64 | b64decode }}"
-        dest: "{{ platform_harbor_origin_harbor_ca_path }}"
-        owner: "{{ _platform_harbor_origin_harbor_uid }}"
-        group: "{{ _platform_harbor_origin_harbor_gid }}"
-        mode: "0644"
-
-    - name: "B4d. Copy certificate into Harbor nginx secret directory"
-      ansible.builtin.copy:
-        src: "{{ platform_harbor_origin_harbor_cert_path }}"
-        dest: "{{ platform_harbor_origin_harbor_config_cert_dir }}/server.crt"
-        remote_src: true
-        owner: "{{ _platform_harbor_origin_harbor_uid }}"
-        group: "{{ _platform_harbor_origin_harbor_gid }}"
-        mode: "0644"
-
-    - name: "B4e. Copy private key into Harbor nginx secret directory"
-      ansible.builtin.copy:
-        src: "{{ platform_harbor_origin_harbor_key_path }}"
-        dest: "{{ platform_harbor_origin_harbor_config_cert_dir }}/server.key"
-        remote_src: true
-        owner: "{{ _platform_harbor_origin_harbor_uid }}"
-        group: "{{ _platform_harbor_origin_harbor_gid }}"
-        mode: "0600"
-
-- name: "B5. Install Bastion CA into the OS trust store"
-  when: vault_ca_cert_b64 is defined
-  block:
-    - name: "B5a. Write Bastion CA certificate"
-      ansible.builtin.copy:
-        content: "{{ vault_ca_cert_b64 | b64decode }}"
-        dest: /usr/local/share/ca-certificates/bastion-pki.crt
+        content: "{{ vault_intermediate_ca_b64 | b64decode }}"
+        dest: /usr/local/share/ca-certificates/vault-intermediate-pki.crt
         owner: root
         group: root
         mode: "0644"

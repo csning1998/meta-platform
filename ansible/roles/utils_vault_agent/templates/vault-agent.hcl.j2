@@ -7,18 +7,19 @@ vault {
 }
 
 auto_auth {
-  method "approle" {
+  method "jwt" {
     mount_path = "auth/{{ utils_vault_agent_auth_path | trim('/') }}"
     config = {
-      role_id_file_path = "{{ utils_vault_agent_config_dir }}/approle/role_id"
-      secret_id_file_path = "{{ utils_vault_agent_config_dir }}/approle/secret_id"
-      remove_secret_id_file_after_reading = false
+      path = "{{ utils_vault_agent_jwt_dir }}/{{ utils_vault_agent_jwt_file }}"
+      role = "{{ utils_vault_agent_auth_role_name }}"
+      remove_jwt_after_reading = false
     }
   }
 
   sink "file" {
     config = {
-      path = "/tmp/vault-token"
+      path = "{{ utils_vault_agent_token_dir }}/vault-token"
+      mode = 0600
     }
   }
 }
@@ -29,8 +30,9 @@ template {
   destination = "{{ utils_vault_agent_config_dir }}/deploy-certs.sh"
   perms       = "0700"
   contents    = <<EOH
-{{ '{{- with secret "pki_int/issue/' ~ utils_vault_agent_role_name ~ '" "common_name=' ~ utils_vault_agent_common_name ~ '" "ip_sans=' ~ utils_vault_agent_ip_sans ~ '" "ttl=' ~ vault_agent_cert_ttl ~ '" -}}' }}
+{{ '{{- with secret "' ~ utils_vault_agent_pki_mount_path ~ '/issue/' ~ utils_vault_agent_pki_role_name ~ '" "common_name=' ~ utils_vault_agent_common_name ~ '" "ip_sans=' ~ utils_vault_agent_ip_sans ~ '"' ~ (' "ttl=' ~ vault_agent_cert_ttl ~ '"' if vault_agent_cert_ttl | default('') | length > 0 else '') ~ ' -}}' }}
 #!/bin/sh
+umask 077
 
 {% for dir in utils_vault_agent_cert_dirs %}
 mkdir -p "{{ dir }}"

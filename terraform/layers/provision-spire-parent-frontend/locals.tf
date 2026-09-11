@@ -47,7 +47,7 @@ locals {
   # Services whose Terraform operator layers run from the local machine and require a SPIRE-backed
   # JWT auth role on the Bastion Vault. Add a service name only when a corresponding
   # provision-*-frontend or platform-*-frontend consumer layer exists.
-  _spire_operator_services = toset(["cilium", "harbor-origin", "vault"])
+  _spire_operator_services = toset(["cilium", "harbor-origin", "vault", "haproxy"])
 
   # A service name absent from foundation-libvirt-resources, or missing a "frontend" component,
   # renders as null here instead of an opaque "Invalid index" crash in spire_terraform_operator_specs.

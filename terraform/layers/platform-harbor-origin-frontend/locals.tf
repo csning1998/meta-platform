@@ -12,23 +12,20 @@ locals {
     spire_parent  = data.terraform_remote_state.spire_parent.outputs
   }
   vault_kv_namespace = local.state.network.vault_kv_namespace
+  cluster_name       = local.state.network.global_topology_identity["harbor-origin"]["frontend"].cluster_name
 }
 
-# Requires inclusion of the catalog service VIP within the certificate IP SAN to support downstream Cilium service announcements.
+# Requires inclusion of the catalog service VIP within the certificate IP SAN to support the HAProxy-fronted VIP.
 locals {
+  # Bootstrap listener endpoints MUST bind to the lowest numerical IP address
+  # to guarantee deterministic configuration across non-ordered map iterations.
+  harbor_listen_ip = sort(local.harbor_node_ips)[0]
   harbor_node_ips = flatten([
     for comp_name, comp_config in var.service_config : [
       for node_suffix, node_data in comp_config.nodes :
       cidrhost(module.context.primary_net_config.network.hostonly.cidr, node_data.ip_suffix)
     ]
   ])
-
-  # Binds the bootstrap listener deterministically to the lowest numerical node IP, bypassing non-deterministic map iteration order.
-  harbor_listen_ip = sort(local.harbor_node_ips)[0]
-
-  # Specifies "bootstrapping" stage state pending live Cilium VIP announcement required for "registered" status.
-  # Execution of utils_spire_agent SHALL NOT be gated by this stage.
-  harbor_origin_stage = "bootstrapping"
 
   bastion_pki_chain_pem = "${local.state.vault_bastion.bastion_pki_root_cert_pem}\n${local.state.vault_bastion.bastion_pki_inter_cert_pem}"
   bastion_pki_listener_bundle = {
@@ -38,7 +35,7 @@ locals {
   }
 
   spire_workload_spiffe_id = "spiffe://${local.state.spire_parent.spire_agent_bootstrap.trust_domain}/${module.context.svc_identity.cluster_name}"
-  harbor_pki_role_name     = "harbor-origin-frontend"
+  harbor_pki_role_name     = module.context.primary_context.pki_key
 }
 
 locals {
@@ -52,25 +49,24 @@ locals {
     harbor_origin_mtls_node_subnet = module.context.primary_net_config.network.hostonly.cidr
     harbor_origin_vip              = module.context.primary_net_config.lb_config.vip
     harbor_origin_tls_port         = module.context.primary_net_config.lb_config.ports["https"].frontend_port
-    harbor_metrics_port            = module.context.primary_net_config.lb_config.ports["metrics"].frontend_port
+    harbor_origin_metrics_port     = module.context.primary_net_config.lb_config.ports["metrics"].frontend_port
     harbor_origin_listen_address   = local.harbor_listen_ip
     harbor_origin_cluster_ips      = local.harbor_node_ips
-    harbor_origin_stage            = local.harbor_origin_stage
   }
 
   harbor_origin_secrets = data.vault_generic_secret.harbor_origin.data
 
   ansible_extra_vars = {
-    harbor_origin_stage          = local.harbor_origin_stage
     harbor_origin_admin_password = sensitive(local.harbor_origin_secrets["harbor_origin_admin_password"])
     harbor_origin_pg_db_password = sensitive(local.harbor_origin_secrets["harbor_origin_pg_db_password"])
-    spire_parent_node_ip         = local.state.spire_parent.spire_agent_bootstrap.node_ip
-    spire_trust_domain           = local.state.spire_parent.spire_agent_bootstrap.trust_domain
-    spire_server_port            = tostring(local.state.spire_parent.spire_agent_bootstrap.server_port)
-    spire_cluster_name           = module.context.svc_identity.cluster_name
 
+    spire_server_port              = tostring(local.state.spire_parent.spire_agent_bootstrap.server_port)
+    spire_parent_node_ip           = local.state.spire_parent.spire_agent_bootstrap.node_ip
+    spire_parent_ssh_host          = local.state.spire_parent.spire_agent_bootstrap.ssh_host
+    spire_trust_domain             = local.state.spire_parent.spire_agent_bootstrap.trust_domain
     spire_workload_spiffe_id       = local.spire_workload_spiffe_id
     spire_oidc_auth_path           = local.state.spire_parent.spire_oidc_auth_backend_path
+    spire_cluster_name             = module.context.svc_identity.cluster_name
     spire_workload_vault_role_name = module.spire_workload_identity.role_name
 
     vault_endpoint             = local.state.vault_bastion.bastion_vault_endpoint
@@ -78,5 +74,6 @@ locals {
     vault_pki_mount_path       = local.state.vault_bastion.bastion_pki_inter_mount_path
     vault_listener_ca_cert_b64 = filebase64(local.state.vault_bastion.bastion_vault_listener_ca_cert_path)
     vault_agent_common_name    = module.context.svc_fqdn
+    vault_intermediate_ca_b64  = base64encode(local.bastion_pki_chain_pem)
   }
 }
