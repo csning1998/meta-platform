@@ -10,22 +10,22 @@
 
 data "terraform_remote_state" "security_vault_approle" {
   backend = "http"
-  config  = { address = "${local._state_base}/security-vault-approle" }
+  config  = { address = "${local._state_base_meta_platform}/security-vault-approle" }
 }
 
 data "terraform_remote_state" "security_pki" {
   backend = "http"
-  config  = { address = "${local._state_base}/security-pki" }
+  config  = { address = "${local._state_base_meta_platform}/security-pki" }
 }
 
 data "terraform_remote_state" "harbor_origin" {
   backend = "http"
-  config  = { address = "${local._state_base}/platform-harbor-origin-frontend" }
+  config  = { address = "${local._state_base_meta_platform}/platform-harbor-origin-frontend" }
 }
 
 data "terraform_remote_state" "keycloak_oidc" {
   backend = "http"
-  config  = { address = "${local._state_base}/provision-keycloak-oidc" }
+  config  = { address = "${local._state_base_meta_platform}/provision-keycloak-oidc" }
 }
 
 ephemeral "vault_kv_secret_v2" "harbor_origin" {

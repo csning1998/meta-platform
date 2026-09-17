@@ -2,7 +2,7 @@
 # GitLab HTTP backend base URL. Authentication credentials must be supplied via
 # `TF_HTTP_USERNAME` and `TF_HTTP_PASSWORD` environment variables.
 locals {
-  _state_base = "https://gitlab.com/api/v4/projects/84608830/terraform/state"
+  _state_base_meta_platform = "https://gitlab.com/api/v4/projects/84608830/terraform/state"
 }
 
 # Provider prerequisites: Must be defined as root-level locals because provider blocks cannot reference module outputs.
@@ -50,15 +50,6 @@ locals {
       ]
     ][0]
 
-    keycloak_static_routes = [
-      for name, vip in data.terraform_remote_state.cilium.outputs.infrastructure_vips : {
-        to     = "${vip}/32"
-        via    = module.context.primary_net_config.lb_config.vip
-        metric = 100
-      }
-      if contains(["vault-frontend"], name)
-    ]
-
     access_scope = module.context.primary_net_config.network.hostonly.cidr
     service_name = module.context.primary_context.s_name
   }
@@ -69,6 +60,5 @@ locals {
     keycloak_db_user        = local.sec_app_creds.keycloak_db_user
     keycloak_db_password    = local.sec_app_creds.keycloak_db_password
     vault_agent_common_name = local.sec_vault_agent_identity.common_name
-    vault_agent_cert_ttl    = data.terraform_remote_state.security_pki.outputs.prod_pki_configuration.lease_durations.agent
   }
 }

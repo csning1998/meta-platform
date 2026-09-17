@@ -180,10 +180,10 @@ flowchart TD
 3. Grant `[3]` authorizes update capabilities on secret version deletion endpoints under `secret/delete/meta-platform/*`.
 4. Grant `[4]` authorizes update capabilities on permanent secret destruction endpoints under `secret/destroy/meta-platform/*`.
 5. Grant `[4a]` authorizes the Vault CLI's KV v1 and v2 mount-type detection request under `sys/internal/ui/mounts/secret/*`, issued before every KV read or write against the `secret/` mount.
-6. Grant `[4b]` authorizes read, create, update, and soft-delete capabilities for bootstrap credential payloads under `secret/data/meta-platform-credentials/*`.
-7. Grant `[4c]` authorizes read, list, and delete capabilities for bootstrap credential metadata under `secret/metadata/meta-platform-credentials/*`.
-8. Grant `[4d]` authorizes update capabilities on bootstrap credential version deletion endpoints under `secret/delete/meta-platform-credentials/*`.
-9. Grant `[4e]` authorizes update capabilities on permanent bootstrap credential destruction endpoints under `secret/destroy/meta-platform-credentials/*`.
+6. Grant `[4b]` authorizes read, create, update, and soft-delete capabilities for bootstrap credential payloads under `secret/data/parent-group-governance/*`.
+7. Grant `[4c]` authorizes read, list, and delete capabilities for bootstrap credential metadata under `secret/metadata/parent-group-governance/*`.
+8. Grant `[4d]` authorizes update capabilities on bootstrap credential version deletion endpoints under `secret/delete/parent-group-governance/*`.
+9. Grant `[4e]` authorizes update capabilities on permanent bootstrap credential destruction endpoints under `secret/destroy/parent-group-governance/*`.
 10. Grant `[5]` authorizes leaf certificate issuance under `${bastion_pki_inter_mount_path}/issue/*`, against the bootstrap issuing intermediate authority prior to Production Vault availability.
 11. Grant `[6]` authorizes read access to intermediate PKI mount configurations under `sys/mounts/${bastion_pki_inter_mount_path}`, required for provider state refresh.
 12. Grant `[7]` authorizes intermediate certificate signing requests under `${bastion_pki_inter_mount_path}/root/sign-intermediate`, submitted to the bootstrap issuing intermediate.

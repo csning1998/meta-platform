@@ -2,7 +2,8 @@
 # GitLab HTTP backend base URL. Authentication credentials must be supplied via
 # `TF_HTTP_USERNAME` and `TF_HTTP_PASSWORD` environment variables.
 locals {
-  _state_base = "https://gitlab.com/api/v4/projects/84608830/terraform/state"
+  _state_base_meta_platform           = "https://gitlab.com/api/v4/projects/84608830/terraform/state"
+  _state_base_parent_group_governance = "https://gitlab.com/api/v4/projects/86417732/terraform/state"
 }
 
 locals {
@@ -43,8 +44,8 @@ locals {
     spire_vault_upstream_addr               = data.terraform_remote_state.vault_bastion.outputs.bastion_vault_endpoint
     spire_vault_upstream_pki_mount_path     = data.terraform_remote_state.vault_bastion.outputs.bastion_pki_inter_mount_path
     spire_vault_upstream_approle_mount_path = data.terraform_remote_state.vault_bastion.outputs.approle_path
-    spire_vault_upstream_role_id            = data.terraform_remote_state.vault_bastion.outputs.spire_upstream_authority.role_id
-    spire_vault_upstream_secret_id          = data.terraform_remote_state.vault_bastion.outputs.spire_upstream_authority.secret_id
+    spire_vault_upstream_role_id            = data.terraform_remote_state.vault_guest_identity.outputs.spire_upstream_authority.role_id
+    spire_vault_upstream_secret_id          = data.terraform_remote_state.vault_guest_identity.outputs.spire_upstream_authority.secret_id
     spire_vault_upstream_ca_cert_b64        = filebase64(data.terraform_remote_state.vault_bastion.outputs.bastion_vault_listener_ca_cert_path)
   }
 }

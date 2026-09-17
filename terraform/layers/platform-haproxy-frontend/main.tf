@@ -14,18 +14,6 @@ module "context" {
   service_config  = local.service_config
 }
 
-module "keepalived_credential" {
-  source = "../../modules/vault-provisioning/vault-credential"
-
-  vault_kv_namespace = local.vault_kv_namespace
-  domain             = "haproxy"
-  component          = "frontend"
-
-  generate = {
-    keepalived_auth_pass = { length = 32 }
-  }
-}
-
 module "interface_alias" {
   source   = "../../modules/kvm-provisioning/interface-alias"
   for_each = local.fronted_segments

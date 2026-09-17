@@ -27,7 +27,7 @@ provider "gitlab" {
 }
 
 provider "vault" {
-  address      = "https://127.0.0.1:8200"
-  ca_cert_file = "${path.module}/../../../vault/tls/ca.pem"
-  token        = local.vault_token
+  address      = module.contexts_local_credential.bastion_vault_config.endpoint
+  ca_cert_file = module.contexts_local_credential.bastion_vault_config.ca_cert_path
+  token        = module.contexts_local_credential.bastion_vault_config.token_path
 }

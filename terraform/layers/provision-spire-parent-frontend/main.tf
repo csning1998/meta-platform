@@ -27,8 +27,8 @@ module "spire_terraform_operator" {
       }
 
       # secret/*
-      "secret/data/meta-platform/guest_vm"                  = { capabilities = ["read"] }
-      "secret/data/meta-platform-credentials/state-backend" = { capabilities = ["read"] }
+      "secret/data/meta-platform/guest_vm"                = { capabilities = ["read"] }
+      "secret/data/parent-group-governance/state-backend" = { capabilities = ["read"] }
 
       # sys/*
       "sys/internal/ui/mounts/secret/*"                                      = { capabilities = ["read"] }

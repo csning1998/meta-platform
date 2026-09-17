@@ -57,7 +57,7 @@ func BootstrapEnv(root, packerDir, terraformDir, ansibleDir string, out *ui.Prin
 			{"ALL_TERRAFORM_LAYERS", ""},
 			{"PROD_VAULT_INVENTORY_FILE", ""},
 			{"PROD_VAULT_ADDR", ""},
-			{"DEV_VAULT_ADDR", "https://127.0.0.1:8200"},
+			{"DEV_VAULT_ADDR", "https://172.16.0.1:8200"},
 			{"DEV_VAULT_CACERT", "${PROJECT_ROOT}/vault/tls/ca.pem"},
 			{"VAULT_TOKEN", ""},
 			{"HOST_UID", strconv.Itoa(facts.CurrentUID)},

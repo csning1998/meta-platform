@@ -25,5 +25,5 @@ vault_kv_namespace: "meta-platform"
 
 # Development Vault Path for 'community.hashi_vault.vault_kv2_get'
 dev_vault_api_path: "{{ vault_kv_namespace }}/credentials"
-dev_vault_url: "https://127.0.0.1:8200"
+dev_vault_url: "https://172.16.0.1:8200"
 # dev_root_token_path: "{{ lookup('env', 'HOME') }}/.vault-token"

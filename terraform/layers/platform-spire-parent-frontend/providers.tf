@@ -24,10 +24,15 @@ provider "libvirt" {
   uri = "qemu:///system?socket=/var/run/libvirt/virtqemud-sock"
 }
 
+module "contexts_local_credential" {
+  source  = "gitlab.com/csning1998-lab/contexts-local-credential/gitlab"
+  version = "0.1.1"
+}
+
 # Default for Bootstrap, connect to Local Podman Vault
 provider "vault" {
   address      = data.terraform_remote_state.vault_bastion.outputs.bastion_vault_endpoint
-  ca_cert_file = abspath("${path.root}/../../../vault/tls/ca.pem")
+  ca_cert_file = module.contexts_local_credential.bastion_vault_config.ca_cert_path
 
   auth_login {
     path = "auth/approle/login"

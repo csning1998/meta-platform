@@ -106,7 +106,7 @@ func TestBuildPackerExecutionEnvNetVarCombinations(t *testing.T) {
 
 			assertSingleEnvEntry(t, got, config.KeyPKRVarNetBridge, c.wantBridge)
 			assertSingleEnvEntry(t, got, config.KeyPKRVarNetDevice, c.wantDevice)
-			assertSingleEnvEntry(t, got, "VAULT_ADDR", "VAULT_ADDR=https://127.0.0.1:8200")
+			assertSingleEnvEntry(t, got, "VAULT_ADDR", "VAULT_ADDR=https://172.16.0.1:8200")
 		})
 	}
 }

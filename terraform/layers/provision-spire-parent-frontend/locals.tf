@@ -2,7 +2,8 @@
 # GitLab HTTP backend base URL. Authentication credentials must be supplied via
 # `TF_HTTP_USERNAME` and `TF_HTTP_PASSWORD` environment variables.
 locals {
-  _state_base = "https://gitlab.com/api/v4/projects/84608830/terraform/state"
+  _state_base_meta_platform           = "https://gitlab.com/api/v4/projects/84608830/terraform/state"
+  _state_base_parent_group_governance = "https://gitlab.com/api/v4/projects/86417732/terraform/state"
 }
 
 locals {
@@ -64,8 +65,8 @@ locals {
       jwt_role_name   = local.state.metadata.global_topology_identity[s_name]["frontend"].cluster_name
       kv_service_path = "secret/data/${local.state.metadata.global_credential_paths[s_name]["frontend"]}"
       # Matches the key convention of global_pki_map (service-component), independent of the
-      # cluster_name (project-service-component) used by jwt_role_name. See the bastion_pki_leaf_roles
-      # local in foundation-vault-bastion.
+      # cluster_name (project-service-component) used by jwt_role_name. See the pki_leaf_roles
+      # local in foundation-spire-parent-identity.
       pki_role_name = "${s_name}-frontend"
     }
   }

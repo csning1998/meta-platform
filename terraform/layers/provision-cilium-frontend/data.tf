@@ -1,17 +1,17 @@
 
 data "terraform_remote_state" "cilium_frontend" {
   backend = "http"
-  config  = { address = "${local._state_base}/platform-cilium-frontend" }
+  config  = { address = "${local._state_base_meta_platform}/platform-cilium-frontend" }
 }
 
 data "terraform_remote_state" "vault_bootstrapper" {
   backend = "http"
-  config  = { address = "${local._state_base}/foundation-vault-bastion" }
+  config  = { address = "${local._state_base_parent_group_governance}/foundation-vault-bastion" }
 }
 
 data "terraform_remote_state" "spire_parent" {
   backend = "http"
-  config  = { address = "${local._state_base}/platform-spire-parent-frontend" }
+  config  = { address = "${local._state_base_meta_platform}/platform-spire-parent-frontend" }
 }
 
 # Vault authentication MUST obtain ephemeral JWT-SVID credentials on every execution to prevent state file persistence.

@@ -53,7 +53,7 @@ func TestBootstrapEnvFirstRun(t *testing.T) {
 		KeyEnvironmentStrategy: "native",
 		KeyAllPackerBases:      "",
 		KeyAllTerraformLayers:  "",
-		KeyDevVaultAddr:        "https://127.0.0.1:8200",
+		KeyDevVaultAddr:        "https://172.16.0.1:8200",
 		KeyDevVaultCACert:      "${PROJECT_ROOT}/vault/tls/ca.pem",
 		KeyVaultToken:          "",
 		KeyUhome:               "${HOME}",
