@@ -55,22 +55,13 @@ func TestContextHandlerProdBastionTokenMissing(t *testing.T) {
 	p := Paths{ProjectRoot: root, Home: home}
 	prodAddr := "https://prod.example"
 
-	addr, token, caCert, err := ResolveContext(context.Background(), p, "prod", prodAddr)
-	if err != nil {
-		t.Fatalf("ContextHandler: %v", err)
-	}
-	if addr != prodAddr {
-		t.Errorf("addr = %q, want %q", addr, prodAddr)
-	}
-	if token != "" {
-		t.Errorf("token = %q, want empty", token)
-	}
-	if caCert != p.resolveProdCACertFile() {
-		t.Errorf("caCert = %q, want %q", caCert, p.resolveProdCACertFile())
+	_, _, _, err := ResolveContext(context.Background(), p, "prod", prodAddr)
+	if err == nil {
+		t.Fatal("ResolveContext(prod, missing token): want error, got nil")
 	}
 }
 
-func TestContextHandlerProdKVReadFailsYieldsEmptyTokenNoError(t *testing.T) {
+func TestContextHandlerProdKVReadFailsYieldsError(t *testing.T) {
 	root := t.TempDir()
 	home := t.TempDir()
 	p := Paths{ProjectRoot: root, Home: home}
@@ -79,18 +70,9 @@ func TestContextHandlerProdKVReadFailsYieldsEmptyTokenNoError(t *testing.T) {
 	}
 	prodAddr := "https://prod.example"
 
-	addr, token, caCert, err := ResolveContext(context.Background(), p, "prod", prodAddr)
-	if err != nil {
-		t.Fatalf("ContextHandler: %v", err)
-	}
-	if addr != prodAddr {
-		t.Errorf("addr = %q, want %q", addr, prodAddr)
-	}
-	if token != "" {
-		t.Errorf("token = %q, want empty (KV read against unreachable Bastion Vault fails silently)", token)
-	}
-	if caCert != p.resolveProdCACertFile() {
-		t.Errorf("caCert = %q, want %q", caCert, p.resolveProdCACertFile())
+	_, _, _, err := ResolveContext(context.Background(), p, "prod", prodAddr)
+	if err == nil {
+		t.Fatal("ResolveContext(prod, failed KV read): want error, got nil")
 	}
 }
 
@@ -103,16 +85,7 @@ func TestContextHandlerCACertConsistentAcrossTargets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ResolveContext(dev): %v", err)
 	}
-	_, _, caCertProd, err := ResolveContext(context.Background(), p, "prod", "https://prod.example")
-	if err != nil {
-		t.Fatalf("ResolveContext(prod): %v", err)
-	}
-
-	// The dev branch returns p.resolveCACertFile(). The prod branch returns p.resolveProdCACertFile() by design.
 	if caCertDev != p.resolveCACertFile() {
 		t.Errorf("dev caCert = %q, want %q", caCertDev, p.resolveCACertFile())
-	}
-	if caCertProd != p.resolveProdCACertFile() {
-		t.Errorf("prod caCert = %q, want %q", caCertProd, p.resolveProdCACertFile())
 	}
 }

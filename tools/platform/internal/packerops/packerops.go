@@ -20,42 +20,51 @@ import (
 func Clean(packerDir, target string, allBases []string, cacheDir string, out *ui.Printer) error {
 	out.Print(ui.Step, "Cleaning Packer artifacts...")
 
-	targets := []string{target}
-	if target == "all" {
-		if len(allBases) == 0 {
-			out.Print(ui.Warn, "no discovered Packer bases; cannot clean 'all'.")
-			targets = nil
-		} else {
-			targets = allBases
-		}
-	}
-
-	for _, base := range targets {
+	for _, base := range resolveCleanTargets(target, allBases, out) {
 		out.Print(ui.Task, "Cleaning output for layer: "+base)
 		if err := os.RemoveAll(filepath.Join(packerDir, "output", base)); err != nil {
 			return fmt.Errorf("packerops: remove output for %s: %w", base, err)
 		}
 	}
 
-	if entries, err := os.ReadDir(cacheDir); err == nil {
-		out.Print(ui.Task, "Cleaning Packer cache on host (preserving ISOs)...")
-		for _, entry := range entries {
-			if strings.HasSuffix(entry.Name(), ".iso") {
-				continue
-			}
-			path := filepath.Join(cacheDir, entry.Name())
-			if err := os.RemoveAll(path); err == nil {
-				continue
-			}
-			if err := exec.Command("sudo", "rm", "-rf", path).Run(); err != nil {
-				out.Print(ui.Warn, "could not remove cache entry "+path+": "+err.Error())
-			}
-		}
-	}
-
+	sweepHostCache(cacheDir, out)
 	out.Print(ui.OK, "Packer artifact cleanup completed.")
 	out.PrintDivider("")
 	return nil
+}
+
+func resolveCleanTargets(target string, allBases []string, out *ui.Printer) []string {
+	if target != "all" {
+		return []string{target}
+	}
+	if len(allBases) == 0 {
+		out.Print(ui.Warn, "no discovered Packer bases; cannot clean 'all'.")
+		return nil
+	}
+	return allBases
+}
+
+func sweepHostCache(cacheDir string, out *ui.Printer) {
+	entries, err := os.ReadDir(cacheDir)
+	if err != nil {
+		return
+	}
+	out.Print(ui.Task, "Cleaning Packer cache on host (preserving ISOs)...")
+	for _, entry := range entries {
+		if strings.HasSuffix(entry.Name(), ".iso") {
+			continue
+		}
+		removeCacheEntry(filepath.Join(cacheDir, entry.Name()), out)
+	}
+}
+
+func removeCacheEntry(path string, out *ui.Printer) {
+	if err := os.RemoveAll(path); err == nil {
+		return
+	}
+	if err := exec.Command("sudo", "-n", "rm", "-rf", path).Run(); err != nil {
+		out.Print(ui.Warn, "could not remove cache entry "+path+": "+err.Error())
+	}
 }
 
 func resolveBaseCategoryDir(packerDir, base string) string {

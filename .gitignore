@@ -89,3 +89,5 @@ merge-request.md
 note.md
 *.bak
 stdout.txt
+tools/platform/coverage.out
+coverage.out

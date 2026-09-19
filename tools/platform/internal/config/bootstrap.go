@@ -51,32 +51,32 @@ func BootstrapEnv(root, packerDir, terraformDir, ansibleDir string, out *ui.Prin
 	if _, statErr := os.Stat(envPath); os.IsNotExist(statErr) {
 		out.Print(ui.Info, "Creating new .env file...")
 		for _, kv := range [][2]string{
-			{"PROJECT_ROOT", root},
-			{"ENVIRONMENT_STRATEGY", "native"},
-			{"ALL_PACKER_BASES", ""},
-			{"ALL_TERRAFORM_LAYERS", ""},
-			{"PROD_VAULT_INVENTORY_FILE", ""},
-			{"PROD_VAULT_ADDR", ""},
-			{"DEV_VAULT_ADDR", "https://172.16.0.1:8200"},
-			{"DEV_VAULT_CACERT", "${PROJECT_ROOT}/vault/tls/ca.pem"},
-			{"VAULT_TOKEN", ""},
-			{"HOST_UID", strconv.Itoa(facts.CurrentUID)},
-			{"HOST_GID", strconv.Itoa(facts.CurrentGID)},
-			{"UNAME", facts.CurrentUname},
-			{"UHOME", "${HOME}"},
-			{"PKR_VAR_NET_BRIDGE", ""},
-			{"PKR_VAR_NET_DEVICE", "virtio-net"},
-			{"LIBVIRT_GID", strconv.Itoa(facts.LibvirtGID)},
+			{KeyProjectRoot, root},
+			{KeyEnvironmentStrategy, StrategyNative},
+			{KeyAllPackerBases, ""},
+			{KeyAllTerraformLayers, ""},
+			{KeyProdVaultInventoryFile, ""},
+			{KeyProdVaultAddr, ""},
+			{KeyBastionVaultAddr, DefaultBastionVaultAddr},
+			{KeyBastionVaultCACert, DefaultBastionVaultCACert},
+			{KeyVaultToken, ""},
+			{KeyHostUID, strconv.Itoa(facts.CurrentUID)},
+			{KeyHostGID, strconv.Itoa(facts.CurrentGID)},
+			{KeyUname, facts.CurrentUname},
+			{KeyUhome, "${HOME}"},
+			{KeyPKRVarNetBridge, ""},
+			{KeyPKRVarNetDevice, "virtio-net"},
+			{KeyLibvirtGID, strconv.Itoa(facts.LibvirtGID)},
 		} {
 			e.Set(kv[0], kv[1])
 		}
 	} else {
-		e.Set("HOST_UID", strconv.Itoa(facts.CurrentUID))
-		e.Set("HOST_GID", strconv.Itoa(facts.CurrentGID))
-		e.Set("PROJECT_ROOT", root)
-		e.Set("LIBVIRT_GID", strconv.Itoa(facts.LibvirtGID))
-		if e.Get("ENVIRONMENT_STRATEGY") == "" {
-			e.Set("ENVIRONMENT_STRATEGY", "native")
+		e.Set(KeyHostUID, strconv.Itoa(facts.CurrentUID))
+		e.Set(KeyHostGID, strconv.Itoa(facts.CurrentGID))
+		e.Set(KeyProjectRoot, root)
+		e.Set(KeyLibvirtGID, strconv.Itoa(facts.LibvirtGID))
+		if e.Get(KeyEnvironmentStrategy) == "" {
+			e.Set(KeyEnvironmentStrategy, StrategyNative)
 		}
 	}
 
@@ -84,28 +84,28 @@ func BootstrapEnv(root, packerDir, terraformDir, ansibleDir string, out *ui.Prin
 	if err != nil {
 		return nil, err
 	}
-	e.Set("ALL_PACKER_BASES", strings.Join(packerBases, " "))
+	e.Set(KeyAllPackerBases, strings.Join(packerBases, " "))
 
 	tfLayers, err := DiscoverTerraformLayers(terraformDir)
 	if err != nil {
 		return nil, err
 	}
-	e.Set("ALL_TERRAFORM_LAYERS", strings.Join(tfLayers, " "))
+	e.Set(KeyAllTerraformLayers, strings.Join(tfLayers, " "))
 
 	inv, err := DiscoverProdVaultInventory(ansibleDir)
 	if err != nil {
 		return nil, err
 	}
-	e.Set("PROD_VAULT_INVENTORY_FILE", inv.File)
-	e.Set("PROD_VAULT_ADDR", inv.Addr)
+	e.Set(KeyProdVaultInventoryFile, inv.File)
+	e.Set(KeyProdVaultAddr, inv.Addr)
 
-	strategy := e.Get("ENVIRONMENT_STRATEGY")
+	strategy := e.Get(KeyEnvironmentStrategy)
 	if strategy == "" {
-		strategy = "native"
+		strategy = StrategyNative
 	}
 	net := ComputePackerNetConfig(strategy, out)
-	e.Set("PKR_VAR_NET_BRIDGE", net.Bridge)
-	e.Set("PKR_VAR_NET_DEVICE", net.Device)
+	e.Set(KeyPKRVarNetBridge, net.Bridge)
+	e.Set(KeyPKRVarNetDevice, net.Device)
 
 	if err := e.Save(); err != nil {
 		return nil, err

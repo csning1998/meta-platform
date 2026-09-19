@@ -45,30 +45,13 @@ func (l sshLogger) Print(level sshops.Level, msg string) {
 
 func (l sshLogger) PrintDivider(char string) { l.p.PrintDivider(char) }
 
-func (a *app) generateVaultTLS(ctx context.Context) error {
-	if !a.out.PromptConfirm(a.in, "Type 'Y' or 'y' to confirm execution: ") {
-		a.out.Print(ui.Info, "Cancelled.")
-		return nil
+func (a *app) reportVaultStatus(ctx context.Context) error {
+	a.printVaultStatusBanner(ctx)
+	bastion := vaultops.InspectBastionStatus(ctx, a.newVaultPaths())
+	if !bastion.Reachable {
+		return fmt.Errorf("bastion vault is unreachable at %s", a.resolveBastionVaultAddr())
 	}
-	return vaultops.GenerateTLS(ctx, a.newVaultPaths(), a.out)
-}
-
-func (a *app) initVault(ctx context.Context) error {
-	if err := vaultops.Init(ctx, a.newVaultPaths(), a.out, a.env); err != nil {
-		return err
-	}
-	return a.env.Save()
-}
-
-func (a *app) unsealVault(ctx context.Context) error {
-	if err := vaultops.UnsealBastion(ctx, a.newVaultPaths(), a.out, a.env); err != nil {
-		return err
-	}
-	return a.env.Save()
-}
-
-func (a *app) enableVaultKV(ctx context.Context) error {
-	return vaultops.EnableKVEngine(ctx, a.newVaultPaths(), a.out)
+	return nil
 }
 
 func (a *app) unsealProdVault(ctx context.Context) error {
@@ -182,30 +165,56 @@ func (a *app) buildPackerImage(ctx context.Context, base string) error {
 	return packerops.Build(ctx, a.packerDir, base, env, a.out)
 }
 
+func appendKVs(target map[string]string, kvs []string) {
+	for _, kv := range kvs {
+		if k, v, ok := strings.Cut(kv, "="); ok && k != "" {
+			target[k] = v
+		}
+	}
+}
+
 func buildPackerExecutionEnv(ctx context.Context, a *app) ([]string, error) {
 	addr, token, caCert, err := vaultops.ResolveContext(ctx, a.newVaultPaths(), "dev", "")
 	if err != nil {
 		return nil, err
 	}
 
-	// a.env.Environ() already carries PKR_VAR_NET_BRIDGE/PKR_VAR_NET_DEVICE (BootstrapEnv sets
-	// both unconditionally, including an empty-string bridge for the container/SLIRP strategy).
-	base := append(os.Environ(), a.env.Environ()...)
-	base = append(base, "VAULT_ADDR="+addr, "VAULT_TOKEN="+token, "VAULT_CACERT="+caCert)
-	return base, nil
+	merged := make(map[string]string)
+	appendKVs(merged, os.Environ())
+	appendKVs(merged, a.env.Environ())
+	merged["VAULT_ADDR"] = addr
+	merged["VAULT_TOKEN"] = token
+	merged["VAULT_CACERT"] = caCert
+
+	out := make([]string, 0, len(merged))
+	for k, v := range merged {
+		out = append(out, k+"="+v)
+	}
+	return out, nil
+}
+
+const (
+	confirmExecutionPrompt = "Type 'Y' or 'y' to confirm execution: "
+	operationAbortedMsg    = "Operation aborted by user."
+)
+
+func (a *app) confirmExecution() bool {
+	if a.out.PromptConfirm(a.in, confirmExecutionPrompt) {
+		return true
+	}
+	a.out.Print(ui.Info, operationAbortedMsg)
+	return false
 }
 
 func (a *app) confirmGitalyRevertPrecheck(ctx context.Context) error {
-	if !a.out.PromptConfirm(a.in, "Type 'Y' or 'y' to confirm execution: ") {
-		a.out.Print(ui.Info, "Operation aborted by user.")
+	if !a.confirmExecution() {
 		return nil
 	}
 	return gitalyops.VerifyStandaloneRevert(ctx, a.ansibleDir, a.out)
 }
 
 func (a *app) purgeLibvirtResources() error {
-	if !a.out.PromptConfirm(a.in, "Type 'Y' or 'y' to confirm execution: ") {
-		a.out.Print(ui.Info, "Operation aborted by user.")
+	if !a.confirmExecution() {
 		return nil
 	}
 	if err := libvirtops.EnsureServices(a.out); err != nil {
@@ -215,8 +224,7 @@ func (a *app) purgeLibvirtResources() error {
 }
 
 func (a *app) purgeAllInfrastructure() error {
-	if !a.out.PromptConfirm(a.in, "Type 'Y' or 'y' to confirm execution: ") {
-		a.out.Print(ui.Info, "Operation aborted by user.")
+	if !a.confirmExecution() {
 		return nil
 	}
 	if err := libvirtops.EnsureServices(a.out); err != nil {

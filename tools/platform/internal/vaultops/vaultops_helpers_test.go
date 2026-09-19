@@ -1,9 +1,7 @@
 package vaultops
 
 import (
-	"crypto/x509"
 	"encoding/json"
-	"encoding/pem"
 	"io"
 	"net/http"
 	"os"
@@ -15,36 +13,8 @@ import (
 	"platform/internal/ui"
 )
 
-func loadCert(t *testing.T, path string) *x509.Certificate {
-	t.Helper()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	block, _ := pem.Decode(data)
-	if block == nil {
-		t.Fatalf("no PEM block in %s", path)
-	}
-	cert, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		t.Fatalf("parse certificate %s: %v", path, err)
-	}
-	return cert
-}
-
-func assertMode(t *testing.T, path string, want os.FileMode) {
-	t.Helper()
-	info, err := os.Stat(path)
-	if err != nil {
-		t.Fatalf("stat %s: %v", path, err)
-	}
-	if info.Mode().Perm() != want {
-		t.Errorf("%s mode = %v, want %v", path, info.Mode().Perm(), want)
-	}
-}
-
 // fakeEnv is a minimal test-local implementation of the one-method Set(string,string)
-// interface TokenSync/Init/Unseal accept. Tests assert on what was recorded.
+// interface TokenSync accepts. Tests assert on what was recorded.
 type fakeEnv struct{ kv map[string]string }
 
 func newFakeEnv() *fakeEnv { return &fakeEnv{kv: map[string]string{}} }

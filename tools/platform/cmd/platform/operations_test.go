@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"io"
 	"os"
@@ -11,6 +13,28 @@ import (
 	"platform/internal/config"
 	"platform/internal/ui"
 )
+
+func newOperationsApp(t *testing.T, input string) (*app, *bytes.Buffer) {
+	t.Helper()
+	dir := t.TempDir()
+	env, err := config.Load(filepath.Join(dir, ".env"))
+	if err != nil {
+		t.Fatalf("config.Load: %v", err)
+	}
+	var out bytes.Buffer
+	a := &app{
+		root:        dir,
+		home:        dir,
+		packerDir:   filepath.Join(dir, "packer"),
+		packerCache: filepath.Join(dir, "cache"),
+		terraform:   filepath.Join(dir, "terraform"),
+		ansibleDir:  filepath.Join(dir, "ansible"),
+		env:         env,
+		out:         ui.New(&out, io.Discard),
+		in:          bufio.NewReader(strings.NewReader(input)),
+	}
+	return a, &out
+}
 
 func TestBuildPackerExecutionEnvDoesNotDuplicateNetVars(t *testing.T) {
 	dir := t.TempDir()
@@ -124,5 +148,161 @@ func assertSingleEnvEntry(t *testing.T, environ []string, key, want string) {
 	}
 	if matches[0] != want {
 		t.Errorf("%s = %q, want %q", key, matches[0], want)
+	}
+}
+
+func TestAppendKVsSkipsEntriesWithoutEquals(t *testing.T) {
+	got := map[string]string{"keep": "yes"}
+	appendKVs(got, []string{"A=1", "no-equals", "B=2", ""})
+	if got["A"] != "1" || got["B"] != "2" || got["keep"] != "yes" {
+		t.Errorf("appendKVs = %#v, want A=1 B=2 keep=yes", got)
+	}
+	if _, ok := got["no-equals"]; ok {
+		t.Errorf("appendKVs stored an entry without '=': %#v", got)
+	}
+}
+
+func TestAppendKVsRejectsEmptyKey(t *testing.T) {
+	got := map[string]string{"keep": "yes"}
+	appendKVs(got, []string{"=empty-key-val", "VALID=123"})
+	if _, ok := got[""]; ok {
+		t.Errorf("appendKVs stored an entry with empty key: %#v", got)
+	}
+	if got["VALID"] != "123" || got["keep"] != "yes" {
+		t.Errorf("appendKVs = %#v, want VALID=123 keep=yes", got)
+	}
+}
+
+func TestConfirmExecutionAbortAndAccept(t *testing.T) {
+	a, out := newOperationsApp(t, "n\n")
+	if a.confirmExecution() {
+		t.Fatal("confirmExecution(n) = true, want false")
+	}
+	if !strings.Contains(out.String(), operationAbortedMsg) {
+		t.Errorf("output = %q, want it to contain %q", out.String(), operationAbortedMsg)
+	}
+
+	accepted, _ := newOperationsApp(t, "Y\n")
+	if !accepted.confirmExecution() {
+		t.Fatal("confirmExecution(Y) = false, want true")
+	}
+}
+
+func TestConfirmGitalyRevertPrecheckAbortedByUser(t *testing.T) {
+	a, out := newOperationsApp(t, "n\n")
+	if err := a.confirmGitalyRevertPrecheck(context.Background()); err != nil {
+		t.Fatalf("confirmGitalyRevertPrecheck abort: %v", err)
+	}
+	if !strings.Contains(out.String(), operationAbortedMsg) {
+		t.Errorf("output = %q, want it to contain %q", out.String(), operationAbortedMsg)
+	}
+}
+
+func TestConfirmGitalyRevertPrecheckConfirmedMissingInventory(t *testing.T) {
+	a, _ := newOperationsApp(t, "y\n")
+	err := a.confirmGitalyRevertPrecheck(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "inventory file not found") {
+		t.Fatalf("confirmGitalyRevertPrecheck(y) = %v, want inventory file not found", err)
+	}
+}
+
+func TestPurgeLibvirtResourcesAbortedByUser(t *testing.T) {
+	a, out := newOperationsApp(t, "n\n")
+	if err := a.purgeLibvirtResources(); err != nil {
+		t.Fatalf("purgeLibvirtResources abort: %v", err)
+	}
+	if !strings.Contains(out.String(), operationAbortedMsg) {
+		t.Errorf("output = %q, want it to contain %q", out.String(), operationAbortedMsg)
+	}
+}
+
+func TestPurgeAllInfrastructureAbortedByUser(t *testing.T) {
+	a, out := newOperationsApp(t, "n\n")
+	if err := a.purgeAllInfrastructure(); err != nil {
+		t.Fatalf("purgeAllInfrastructure abort: %v", err)
+	}
+	if !strings.Contains(out.String(), operationAbortedMsg) {
+		t.Errorf("output = %q, want it to contain %q", out.String(), operationAbortedMsg)
+	}
+}
+
+func TestPurgeAllPackerArtifacts(t *testing.T) {
+	a, _ := newOperationsApp(t, "")
+	if err := os.MkdirAll(filepath.Join(a.packerDir, "output", "base-a"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	a.env.Set(config.KeyAllPackerBases, "base-a")
+	if err := a.purgeAllPackerArtifacts(); err != nil {
+		t.Fatalf("purgeAllPackerArtifacts: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(a.packerDir, "output", "base-a")); !os.IsNotExist(err) {
+		t.Errorf("base-a output still present after purgeAllPackerArtifacts: %v", err)
+	}
+}
+
+func TestVerifySSHConnectivityMissingKey(t *testing.T) {
+	a, _ := newOperationsApp(t, "")
+	err := a.verifySSHConnectivity()
+	if err == nil || !strings.Contains(err.Error(), "SSH_PRIVATE_KEY") {
+		t.Fatalf("verifySSHConnectivity = %v, want error containing SSH_PRIVATE_KEY", err)
+	}
+}
+
+func TestSwitchStrategyTogglesNativeAndContainer(t *testing.T) {
+	a, _ := newOperationsApp(t, "")
+	a.env.Set(config.KeyEnvironmentStrategy, config.StrategyNative)
+	if err := a.switchStrategy(); err != nil {
+		t.Fatalf("switchStrategy native->container: %v", err)
+	}
+	if got := a.env.Get(config.KeyEnvironmentStrategy); got != config.StrategyContainer {
+		t.Errorf("strategy = %q, want %q", got, config.StrategyContainer)
+	}
+	if got := a.env.Get(config.KeyPKRVarNetDevice); got != "virtio-net" {
+		t.Errorf("PKR_VAR_NET_DEVICE = %q, want virtio-net", got)
+	}
+
+	if err := a.switchStrategy(); err != nil {
+		t.Fatalf("switchStrategy container->native: %v", err)
+	}
+	if got := a.env.Get(config.KeyEnvironmentStrategy); got != config.StrategyNative {
+		t.Errorf("strategy = %q, want %q", got, config.StrategyNative)
+	}
+}
+
+func TestBuildPackerImageAllCleansThenBuildsUnknownEmptySet(t *testing.T) {
+	a, _ := newOperationsApp(t, "")
+	if err := os.MkdirAll(filepath.Join(a.packerDir, "distro"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	err := a.buildPackerImage(context.Background(), "all")
+	if err != nil {
+		t.Fatalf("buildPackerImage(all) with no configured bases: %v", err)
+	}
+}
+
+func TestBuildPackerImageAllStopsWhenABaseVarFileIsMissing(t *testing.T) {
+	a, _ := newOperationsApp(t, "")
+	if err := os.MkdirAll(filepath.Join(a.packerDir, "distro"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	a.env.Set(config.KeyAllPackerBases, "missing-base")
+	err := a.buildPackerImage(context.Background(), "all")
+	if err == nil || !strings.Contains(err.Error(), "var file not found") {
+		t.Fatalf("buildPackerImage(all, missing-base) = %v, want var file not found", err)
+	}
+}
+
+func TestSwitchStrategySaveError(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("skipping read-only directory test when running as root")
+	}
+	a, _ := newOperationsApp(t, "")
+	a.env.Set(config.KeyEnvironmentStrategy, config.StrategyNative)
+	if err := os.Chmod(a.root, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(a.root, 0o700) })
+	if err := a.switchStrategy(); err == nil {
+		t.Fatal("switchStrategy: want Save error on read-only root, got nil")
 	}
 }

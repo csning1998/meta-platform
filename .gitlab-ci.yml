@@ -36,17 +36,23 @@ include:
 build:go:
   variables:
     CGO_ENABLED: "1"
+    GOPRIVATE: "gitlab.com/csning1998-lab/parent-group-governance*"
   before_script:
-    - apk add --no-cache gcc musl-dev pkgconf libvirt-dev
+    - apk add --no-cache git gcc musl-dev pkgconf libvirt-dev
+    - git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/".insteadOf "https://gitlab.com/"
 
 test:go:
   variables:
     CGO_ENABLED: "1"
+    GOPRIVATE: "gitlab.com/csning1998-lab/parent-group-governance*"
   before_script:
     - apk add --no-cache git gcc musl-dev pkgconf libvirt-dev
+    - git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/".insteadOf "https://gitlab.com/"
 
 lint:go:
   variables:
     CGO_ENABLED: "1"
+    GOPRIVATE: "gitlab.com/csning1998-lab/parent-group-governance*"
   before_script:
-    - apk add --no-cache gcc musl-dev pkgconf libvirt-dev
+    - apk add --no-cache git gcc musl-dev pkgconf libvirt-dev
+    - git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/".insteadOf "https://gitlab.com/"

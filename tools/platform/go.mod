@@ -6,6 +6,7 @@ require (
 	github.com/apenella/go-ansible/v2 v2.4.1
 	github.com/hashicorp/vault/api v1.23.0
 	github.com/spf13/cobra v1.10.2
+	gitlab.com/csning1998-lab/parent-group-governance/tools/governance v0.0.0-20260919140900-1f44c1efca38
 	gitlab.com/csning1998-lab/terraform/terraform-provider-sshclient v0.0.0-20260910050740-2f2427450309
 	libvirt.org/go/libvirt v1.12006.0
 )
@@ -15,7 +16,7 @@ require (
 	github.com/apenella/go-common-utils/error v0.0.0-20220913191136-86daaa87e7df // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/go-jose/go-jose/v4 v4.1.1 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect

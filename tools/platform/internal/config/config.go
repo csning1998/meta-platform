@@ -116,3 +116,29 @@ func (e *Env) Environ() []string {
 	}
 	return out
 }
+
+// Expand replaces ${VAR} references within s against Env values and host environment variables.
+func (e *Env) Expand(s string) string {
+	if e == nil {
+		return s
+	}
+	return envRefRe.ReplaceAllStringFunc(s, func(ref string) string {
+		refKey := envRefRe.FindStringSubmatch(ref)[1]
+		if v, ok := e.values[refKey]; ok {
+			return e.Expand(v)
+		}
+		return os.Getenv(refKey)
+	})
+}
+
+// GetExpanded returns the value associated with key after expanding variable references.
+func (e *Env) GetExpanded(key string) string {
+	if e == nil {
+		return ""
+	}
+	v, ok := e.values[key]
+	if !ok {
+		return ""
+	}
+	return e.Expand(v)
+}

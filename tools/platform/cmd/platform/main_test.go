@@ -15,7 +15,6 @@ import (
 
 	"platform/internal/config"
 	"platform/internal/ui"
-	"platform/internal/vaultops"
 )
 
 func TestSplitFields(t *testing.T) {
@@ -170,8 +169,8 @@ func TestResolveBastionVaultAddrInjectionTakesPriority(t *testing.T) {
 	}
 }
 
-func TestResolveBastionVaultAddrFallsBackToEnvDevVaultAddr(t *testing.T) {
-	env := loadTestEnv(t, `DEV_VAULT_ADDR="https://staging-bastion:8200"`+"\n")
+func TestResolveBastionVaultAddrFallsBackToEnvBastionVaultAddr(t *testing.T) {
+	env := loadTestEnv(t, `BASTION_VAULT_ADDR="https://staging-bastion:8200"`+"\n")
 	a := &app{env: env}
 
 	if got := a.resolveBastionVaultAddr(); got != "https://staging-bastion:8200" {
@@ -198,9 +197,6 @@ func TestPrintVaultStatusBannerNilEnvDoesNotPanic(t *testing.T) {
 
 	root := t.TempDir()
 	a := &app{root: root, home: t.TempDir(), bastionVaultAddr: srv.URL, out: ui.New(io.Discard, io.Discard)}
-	if err := vaultops.GenerateTLS(context.Background(), a.newVaultPaths(), a.out); err != nil {
-		t.Fatalf("GenerateTLS: %v", err)
-	}
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -228,7 +224,7 @@ func TestAppVaultPaths(t *testing.T) {
 	}
 }
 
-// TestRunMenu_Quit drives runMenu with "Quit" selected (option 15, the last entry) via an
+// TestRunMenu_Quit drives runMenu with "Quit" selected (option 11, the last entry) via an
 // in-memory reader, matching the one selection whose dispatch (chosen.run == nil) requires
 // no real infrastructure.
 func TestRunMenu_Quit(t *testing.T) {
@@ -244,7 +240,7 @@ func TestRunMenu_Quit(t *testing.T) {
 		terraform: filepath.Join(dir, "terraform"),
 		env:       env,
 		out:       ui.New(&buf, &buf),
-		in:        bufio.NewReader(strings.NewReader("15\n")),
+		in:        bufio.NewReader(strings.NewReader("11\n")),
 	}
 
 	if err := a.runMenu(context.Background()); err != nil {

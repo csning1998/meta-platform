@@ -66,7 +66,7 @@ func TestEnvironExpandsReferences(t *testing.T) {
 
 	e := &Env{values: map[string]string{}}
 	e.Set("PROJECT_ROOT", "/repo")
-	e.Set("DEV_VAULT_CACERT", "${PROJECT_ROOT}/vault/tls/ca.pem")
+	e.Set("BASTION_VAULT_CACERT", "${PROJECT_ROOT}/vault/tls/ca.pem")
 	e.Set("UHOME", "${HOME}")
 	e.Set("PLAIN", "no-refs-here")
 
@@ -77,10 +77,10 @@ func TestEnvironExpandsReferences(t *testing.T) {
 	}
 
 	want := map[string]string{
-		"PROJECT_ROOT":     "/repo",
-		"DEV_VAULT_CACERT": "/repo/vault/tls/ca.pem",
-		"UHOME":            "/home/tester",
-		"PLAIN":            "no-refs-here",
+		"PROJECT_ROOT":         "/repo",
+		"BASTION_VAULT_CACERT": "/repo/vault/tls/ca.pem",
+		"UHOME":                "/home/tester",
+		"PLAIN":                "no-refs-here",
 	}
 	for key, wantVal := range want {
 		if got[key] != wantVal {
@@ -327,6 +327,32 @@ func TestEnvironMultipleAndUnresolvedRefs(t *testing.T) {
 		if got[key] != wantVal {
 			t.Errorf("Environ()[%q] = %q, want %q", key, got[key], wantVal)
 		}
+	}
+}
+
+func TestGetExpandedAndExpand(t *testing.T) {
+	t.Setenv("EXTERNAL_KEY", "ext-val")
+	e := &Env{values: map[string]string{}}
+	e.Set("ROOT", "/repo")
+	e.Set("CERT", "${ROOT}/tls/ca.pem")
+	e.Set("FROM_EXT", "${EXTERNAL_KEY}")
+
+	if got := e.GetExpanded("CERT"); got != "/repo/tls/ca.pem" {
+		t.Errorf("GetExpanded(CERT) = %q, want %q", got, "/repo/tls/ca.pem")
+	}
+	if got := e.GetExpanded("FROM_EXT"); got != "ext-val" {
+		t.Errorf("GetExpanded(FROM_EXT) = %q, want %q", got, "ext-val")
+	}
+	if got := e.GetExpanded("MISSING"); got != "" {
+		t.Errorf("GetExpanded(MISSING) = %q, want empty", got)
+	}
+
+	var nilEnv *Env
+	if got := nilEnv.GetExpanded("CERT"); got != "" {
+		t.Errorf("nilEnv.GetExpanded = %q, want empty", got)
+	}
+	if got := nilEnv.Expand("hello ${ROOT}"); got != "hello ${ROOT}" {
+		t.Errorf("nilEnv.Expand = %q, want unmodified", got)
 	}
 }
 

@@ -20,10 +20,6 @@ type menuOption struct {
 // runMenu returns after dispatching the first valid selection; an invalid selection re-prompts instead of exiting.
 func (a *app) runMenu(ctx context.Context) error {
 	options := []menuOption{
-		{"[BASTION] Set up TLS for Bastion Vault (Local)", func(ctx context.Context) error { return a.generateVaultTLS(ctx) }},
-		{"[BASTION] Initialize Bastion Vault (Local)", func(ctx context.Context) error { return a.initVault(ctx) }},
-		{"[BASTION] Enable KV-v2 Engine", func(ctx context.Context) error { return a.enableVaultKV(ctx) }},
-		{"[BASTION] Unseal Bastion Vault (Local)", func(ctx context.Context) error { return a.unsealVault(ctx) }},
 		{"[PROD] Unseal Production Vault via Ansible", func(ctx context.Context) error { return a.unsealProdVault(ctx) }},
 		{"Generate SSH Key", func(ctx context.Context) error { return a.sshKeygenMenu() }},
 		{"Verify IaC Environment", func(ctx context.Context) error { return a.verifyEnvironment() }},

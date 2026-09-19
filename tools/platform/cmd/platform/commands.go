@@ -12,29 +12,15 @@ func (a *app) vaultCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "vault", Short: "Bastion and Production Vault operations"}
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "tls-generate",
-		Short: "[BASTION] Generate TLS certificates for Bastion Vault (destroys existing files)",
-		RunE:  func(cmd *cobra.Command, args []string) error { return a.generateVaultTLS(cmd.Context()) },
+		Use:   "status",
+		Short: "Inspect Bastion and Production Vault reachability and seal status",
+		RunE:  func(cmd *cobra.Command, args []string) error { return a.reportVaultStatus(cmd.Context()) },
 	})
 	cmd.AddCommand(&cobra.Command{
-		Use:   "init",
-		Short: "[BASTION] Initialize Bastion Vault",
-		RunE:  func(cmd *cobra.Command, args []string) error { return a.initVault(cmd.Context()) },
-	})
-	cmd.AddCommand(&cobra.Command{
-		Use:   "enable-kv",
-		Short: "[BASTION] Enable KV-v2 engine",
-		RunE:  func(cmd *cobra.Command, args []string) error { return a.enableVaultKV(cmd.Context()) },
-	})
-	cmd.AddCommand(&cobra.Command{
-		Use:   "unseal",
-		Short: "[BASTION] Unseal Bastion Vault",
-		RunE:  func(cmd *cobra.Command, args []string) error { return a.unsealVault(cmd.Context()) },
-	})
-	cmd.AddCommand(&cobra.Command{
-		Use:   "prod-unseal",
-		Short: "[PROD] Unseal Production Vault via Ansible",
-		RunE:  func(cmd *cobra.Command, args []string) error { return a.unsealProdVault(cmd.Context()) },
+		Use:     "unseal-prod",
+		Aliases: []string{"prod-unseal"},
+		Short:   "[PROD] Unseal Production Vault via Ansible",
+		RunE:    func(cmd *cobra.Command, args []string) error { return a.unsealProdVault(cmd.Context()) },
 	})
 
 	return cmd
