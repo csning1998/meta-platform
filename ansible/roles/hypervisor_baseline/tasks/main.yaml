@@ -11,30 +11,21 @@
 - name: "Include: TCPMSS clamp firewalld rules"
   ansible.builtin.include_tasks: mss-clamp.yaml
 
-# 4. Sets host memlock limits for Vault memory locking under rootless Podman.
-#    Note: Requires system reboot to activate across PAM login sessions.
-- name: "Include: memlock limits for rootless Podman / Vault mlock"
-  ansible.builtin.include_tasks: memlock-limits.yaml
-
-# 5. Deploys node_exporter for hypervisor host OS performance metrics collection.
+# 4. Deploys node_exporter for hypervisor host OS performance metrics collection.
 - name: "Include: host OS node_exporter"
   ansible.builtin.include_tasks: node-exporter.yaml
 
-# 6. Deploys prometheus-libvirt-exporter via upstream RPM for guest VM resource monitoring.
+# 5. Deploys prometheus-libvirt-exporter via upstream RPM for guest VM resource monitoring.
 - name: "Include: libvirt domain exporter"
   ansible.builtin.include_tasks: libvirt-exporter.yaml
 
-# 7. Applies SELinux policy granting virtproxyd access to libvirt-exporter proc entries to resolve AVC denials.
+# 6. Applies SELinux policy granting virtproxyd access to libvirt-exporter proc entries to resolve AVC denials.
 - name: "Include: virtproxyd SELinux policy module"
   ansible.builtin.include_tasks: selinux-virtproxyd.yaml
 
-# 8. Enables inter-segment forwarding across routed libvirt networks.
+# 7. Enables inter-segment forwarding across routed libvirt networks.
 - name: "Include: libvirt-routed zone forwarding"
   ansible.builtin.include_tasks: libvirt-routed-forward.yaml
-
-# 9. Defines dedicated 172.16.0.0/24 network segment for guest VM access to Bastion Vault.
-- name: "Include: Bastion Vault publish network"
-  ansible.builtin.include_tasks: bastion-vault-publish-network.yaml
 
 # Compilation of the CGo-based Libvirt client in tools/entry MUST utilize header files
 # which the libvirt-devel package provides.
