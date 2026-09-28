@@ -2,17 +2,19 @@
 # GitLab HTTP backend base URL. Authentication credentials must be supplied via
 # `TF_HTTP_USERNAME` and `TF_HTTP_PASSWORD` environment variables.
 locals {
-  _state_base = "https://gitlab.com/api/v4/projects/84608830/terraform/state"
+  _state_base_meta_platform           = "https://gitlab.com/api/v4/projects/84608830/terraform/state"
+  _state_base_parent_group_governance = "https://gitlab.com/api/v4/projects/86417732/terraform/state"
 }
 
 locals {
-  bastion_pki_chain_pem = "${data.terraform_remote_state.vault_bootstrapper.outputs.bastion_pki_root_cert_pem}\n${data.terraform_remote_state.vault_bootstrapper.outputs.bastion_pki_inter_cert_pem}"
+  owner_code = "meta-platform"
+
+  bastion_pki_chain_pem = "${data.terraform_remote_state.vault_bastion.outputs.bastion_vault_pki.root_cert_pem}\n${data.terraform_remote_state.vault_bastion.outputs.bastion_vault_pki.intermediate_cert_pem}"
 
   ansible_template_config = {
-    global_mss          = module.context.global_mss
-    vault_vip           = module.context.primary_net_config.lb_config.vip
-    vault_cluster_name  = module.context.svc_identity.cluster_name
-    vault_static_routes = one(values(module.context.asymmetric_static_routes))
+    global_mss         = module.context.global_mss
+    vault_vip          = module.context.primary_net_config.lb_config.vip
+    vault_cluster_name = module.context.svc_identity.cluster_name
   }
 
   ansible_extra_config = {

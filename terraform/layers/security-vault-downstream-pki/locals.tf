@@ -2,22 +2,25 @@
 # GitLab HTTP backend base URL. Authentication credentials must be supplied via
 # `TF_HTTP_USERNAME` and `TF_HTTP_PASSWORD` environment variables.
 locals {
-  _state_base = "https://gitlab.com/api/v4/projects/84608830/terraform/state"
+  _state_base_meta_platform           = "https://gitlab.com/api/v4/projects/84608830/terraform/state"
+  _state_base_parent_group_governance = "https://gitlab.com/api/v4/projects/86417732/terraform/state"
 }
 
 locals {
+  owner_code = "meta-platform"
+
   state = {
-    bootstrapper           = data.terraform_remote_state.vault_bootstrapper.outputs
-    production             = data.terraform_remote_state.vault_production.outputs
-    security_vault_approle = data.terraform_remote_state.security_vault_approle.outputs
+    vault_bastion                     = data.terraform_remote_state.vault_bastion.outputs
+    vault_downstream                  = data.terraform_remote_state.vault_downstream.outputs
+    security_vault_downstream_approle = data.terraform_remote_state.security_vault_downstream_approle.outputs
   }
 }
 
 locals {
-  prod_vault_endpoint        = "https://${local.state.production.service_vip}:${local.state.production.prod_vault_api_port}"
+  prod_vault_endpoint        = "https://${local.state.vault_downstream.service_vip}:${local.state.vault_downstream.prod_vault_api_port}"
   prod_pki_issuer_mount_path = local.global_pki_config.mount_path
   pki_lease_ttl_seconds      = 60 * 60 * 24 * 365
-  bastion_pki_chain_pem      = "${local.state.bootstrapper.bastion_pki_root_cert_pem}\n${local.state.bootstrapper.bastion_pki_inter_cert_pem}"
+  bastion_pki_chain_pem      = "${local.state.vault_bastion.bastion_vault_pki.root_cert_pem}\n${local.state.vault_bastion.bastion_vault_pki.intermediate_cert_pem}"
   root_domain                = data.terraform_remote_state.foundation.outputs.global_domain_suffix
   vault_kv_namespace         = data.terraform_remote_state.foundation.outputs.vault_kv_namespace
   global_pki_config          = data.terraform_remote_state.foundation.outputs.global_pki_config

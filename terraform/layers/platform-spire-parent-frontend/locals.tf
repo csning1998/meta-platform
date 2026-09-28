@@ -7,6 +7,8 @@ locals {
 }
 
 locals {
+  owner_code = "meta-platform"
+
   # Extracts the SPIRE trust domain ("<stage>.<domain_suffix>") from module.context.svc_fqdn.
   # Asserts structural alignment with "<service_name>.<stage>.<domain_suffix>".
   # Pattern mismatches MUST trigger plan-time evaluation failure to prevent invalid trust domain propagation.
@@ -16,7 +18,7 @@ locals {
   spire_parent_node_ip = one(module.context.svc_network.node_ips)
 
   # Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 1 Item C.
-  bastion_pki_chain_pem = "${data.terraform_remote_state.vault_bastion.outputs.bastion_pki_root_cert_pem}\n${data.terraform_remote_state.vault_bastion.outputs.bastion_pki_inter_cert_pem}"
+  bastion_pki_chain_pem = "${data.terraform_remote_state.vault_bastion.outputs.bastion_vault_pki.root_cert_pem}\n${data.terraform_remote_state.vault_bastion.outputs.bastion_vault_pki.intermediate_cert_pem}"
 
   oidc_listener_bundle = {
     server_cert_b64 = base64encode(vault_pki_secret_backend_cert.oidc_discovery.certificate)
@@ -41,11 +43,11 @@ locals {
     ansible_user            = module.context.sec_vm_credentials.username
     spire_parent_wipe_state = var.wipe_spire_state
 
-    spire_vault_upstream_addr               = data.terraform_remote_state.vault_bastion.outputs.bastion_vault_endpoint
-    spire_vault_upstream_pki_mount_path     = data.terraform_remote_state.vault_bastion.outputs.bastion_pki_inter_mount_path
-    spire_vault_upstream_approle_mount_path = data.terraform_remote_state.vault_bastion.outputs.approle_path
+    spire_vault_upstream_addr               = data.terraform_remote_state.vault_bastion.outputs.bastion_vault.endpoint
+    spire_vault_upstream_pki_mount_path     = data.terraform_remote_state.vault_bastion.outputs.bastion_vault_pki.intermediate_mount_path
+    spire_vault_upstream_approle_mount_path = data.terraform_remote_state.vault_bastion.outputs.bastion_vault_auth.approle_mount_path
     spire_vault_upstream_role_id            = data.terraform_remote_state.vault_guest_identity.outputs.spire_upstream_authority.role_id
     spire_vault_upstream_secret_id          = data.terraform_remote_state.vault_guest_identity.outputs.spire_upstream_authority.secret_id
-    spire_vault_upstream_ca_cert_b64        = filebase64(data.terraform_remote_state.vault_bastion.outputs.bastion_vault_listener_ca_cert_path)
+    spire_vault_upstream_ca_cert_b64        = filebase64(data.terraform_remote_state.vault_bastion.outputs.bastion_vault.listener_ca_cert_path)
   }
 }

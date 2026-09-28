@@ -4,7 +4,7 @@
 resource "vault_jwt_auth_backend" "spire_oidc" {
   depends_on  = [module.platform_spire_parent]
   description = "SPIRE Parent workload JWT-SVID federation via the OIDC Discovery Provider"
-  path        = "spire-oidc-jwt"
+  path        = "meta-platform-spire-parent-jwt-svid-provider"
   type        = "jwt"
 
   oidc_discovery_url    = "https://${local.spire_parent_node_ip}:${local.spire_oidc_port}"

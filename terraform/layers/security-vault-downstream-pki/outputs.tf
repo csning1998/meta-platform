@@ -18,7 +18,7 @@ output "bastion_pki_chain_b64" {
 }
 
 output "prod_pki_configuration" {
-  description = "Export production PKI mount point and service role mappings. The leaf role itself, not a client-requested value, governs its own issued certificate TTL."
+  description = "Export Downstream PKI mount point and service role mappings. The leaf role itself, not a client-requested value, governs its own issued certificate TTL."
   value = {
     path       = module.vault_pki_setup.prod_pki_issuer_mount_path
     leaf_roles = module.vault_pki_setup.prod_pki_leaf_roles

@@ -30,18 +30,21 @@ module "platform_cilium_frontend" {
   cilium_inline_manifest   = data.helm_template.cilium.manifest
 }
 
-module "cilium_frontend_credentials" {
-  source             = "../../modules/vault-provisioning/vault-credential"
-  vault_kv_namespace = local.vault_kv_namespace
-  providers          = { vault = vault }
+# The kubeconfig belongs to the cluster lifecycle, so this layer writes it to the Bastion Vault itself.
+module "credentials_cilium_frontend" {
+  source    = "gitlab.com/csning1998-lab/provisioner-vault-credential/gitlab"
+  version   = "0.1.1"
+  providers = { vault = vault }
 
-  domain    = "cilium"
-  component = "frontend"
-
-  static = {
-    talos_ca_certificate_b64     = module.platform_cilium_frontend.client_configuration.ca_certificate
-    talos_client_certificate_b64 = module.platform_cilium_frontend.client_configuration.client_certificate
-    talos_client_key_b64         = module.platform_cilium_frontend.client_configuration.client_key
-    content_b64                  = base64encode(module.platform_cilium_frontend.kubeconfig_raw)
+  vault_credential_context = {
+    kv_namespace = local.vault_kv_namespace
+    domain       = "cilium"
+    component    = "frontend"
+    static = {
+      talos_ca_certificate_b64     = module.platform_cilium_frontend.client_configuration.ca_certificate
+      talos_client_certificate_b64 = module.platform_cilium_frontend.client_configuration.client_certificate
+      talos_client_key_b64         = module.platform_cilium_frontend.client_configuration.client_key
+      content_b64                  = base64encode(module.platform_cilium_frontend.kubeconfig_raw)
+    }
   }
 }
