@@ -1,17 +1,25 @@
 
 locals {
   _state_base_parent_group_governance = "https://gitlab.com/api/v4/projects/86417732/terraform/state"
-  _state_auth                         = module.contexts_local_credential._state_auth_gitlab_saas
+  _state_auth                         = module.contexts_local_credential.state_auth_gitlab_saas
+
+  # Uses read_api CLI credentials for state authentication to prevent higher-privilege token persistence
+  # in local terraform_remote_state config blocks.
+  _gl_creds = jsondecode(file(pathexpand("~/.terraform.d/credentials.tfrc.json")))
+
+  # Reads Vault token directly from host token-helper file to break cyclic authentication dependencies
+  # during initialization.
+  vault_token = trimspace(file(pathexpand("~/.vault-token")))
 }
 
 ephemeral "vault_kv_secret_v2" "state_backend" {
   mount = "secret"
-  name  = "parent-group-governance/state-backend"
+  name  = "parent-group-governance/terraform/state-backend"
 }
 
-data "vault_kv_secret_v2" "claude_keys" {
+ephemeral "vault_kv_secret_v2" "github_publication" {
   mount = "secret"
-  name  = "parent-group-governance/review-bot-api-keys/claude"
+  name  = "parent-group-governance/github/publication"
 }
 
 data "terraform_remote_state" "group_topology" {
