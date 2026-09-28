@@ -1,13 +1,13 @@
 
 # Enable KV v2 engine for uninitialized Raft storage backends lacking default mounts.
 resource "vault_mount" "kv" {
-  provider = vault.production
+  provider = vault.downstream
   path     = "secret"
   type     = "kv-v2"
 }
 
 resource "vault_policy" "production_admin" {
-  provider = vault.production
+  provider = vault.downstream
   name     = "production-terraform-admin-policy"
   policy   = <<EOT
 path "secret/data/meta-platform/*" {
@@ -81,12 +81,12 @@ EOT
 }
 
 resource "vault_auth_backend" "approle" {
-  provider = vault.production
+  provider = vault.downstream
   type     = "approle"
 }
 
 resource "vault_approle_auth_backend_role" "production_admin" {
-  provider       = vault.production
+  provider       = vault.downstream
   backend        = vault_auth_backend.approle.path
   role_name      = "production-terraform-admin-role"
   token_policies = [vault_policy.production_admin.name]
@@ -95,7 +95,7 @@ resource "vault_approle_auth_backend_role" "production_admin" {
 }
 
 resource "vault_approle_auth_backend_role_secret_id" "production_admin" {
-  provider  = vault.production
+  provider  = vault.downstream
   backend   = vault_auth_backend.approle.path
   role_name = vault_approle_auth_backend_role.production_admin.role_name
 }

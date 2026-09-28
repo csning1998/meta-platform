@@ -20,24 +20,29 @@ terraform {
   }
 }
 
+module "contexts_local_credential" {
+  source  = "gitlab.com/csning1998-lab/contexts-local-credential/gitlab"
+  version = "0.1.1"
+}
+
 provider "vault" {
   alias        = "bastion"
-  address      = local.state.bootstrapper.bastion_vault_endpoint
-  ca_cert_file = abspath("${path.root}/../../../vault/tls/ca.pem")
+  address      = local.state.vault_bastion.bastion_vault_endpoint
+  ca_cert_file = module.contexts_local_credential.bastion_vault_config.ca_cert_path
 
   auth_login {
     path = "auth/approle/login"
     parameters = {
-      role_id   = local.state.bootstrapper.role_id
-      secret_id = local.state.bootstrapper.secret_id
+      role_id   = local.state.vault_bastion.tenant_terraform_operator_role_ids[local.owner_code]
+      secret_id = local.state.vault_bastion.tenant_terraform_operator_secret_ids[local.owner_code]
     }
   }
   skip_child_token = true
 }
 
 provider "vault" {
-  alias        = "production"
+  alias        = "downstream"
   address      = local.prod_vault_endpoint
-  ca_cert_file = local.state.production.ca_cert_path
+  ca_cert_file = local.state.vault_downstream.ca_cert_path
   token        = data.vault_kv_secret_v2.bootstrap_credentials.data["prod_vault_root_token"]
 }
