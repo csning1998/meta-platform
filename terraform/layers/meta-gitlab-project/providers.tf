@@ -2,6 +2,18 @@
 terraform {
   required_version = ">= 1.14.0"
   required_providers {
+    anthropic = {
+      source  = "ippontech/anthropic"
+      version = "1.43.5"
+    }
+    azuread = {
+      source  = "hashicorp/azuread"
+      version = "3.10.0"
+    }
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "5.7.0"
+    }
     github = {
       source  = "integrations/github"
       version = "6.13.0"
@@ -9,6 +21,10 @@ terraform {
     gitlab = {
       source  = "gitlabhq/gitlab"
       version = "19.2.0"
+    }
+    google = {
+      source  = "hashicorp/google"
+      version = "8.4.0"
     }
     vault = {
       source  = "hashicorp/vault"
@@ -26,6 +42,20 @@ terraform {
   }
 }
 
+provider "anthropic" {
+  admin_api_key = ephemeral.vault_kv_secret_v2.anthropic_admin_key.data["anthropic_admin_api_key"]
+}
+
+provider "azuread" {
+  tenant_id = data.terraform_remote_state.group_federation_azure.outputs.tenant.id
+}
+
+provider "azurerm" {
+  subscription_id = data.terraform_remote_state.group_federation_azure.outputs.subscription.id
+  tenant_id       = data.terraform_remote_state.group_federation_azure.outputs.tenant.id
+  features {}
+}
+
 provider "github" {
   owner = var.github_owner
   token = ephemeral.vault_kv_secret_v2.github_publication.data["deploy_token"]
@@ -36,6 +66,7 @@ provider "gitlab" {
 }
 
 provider "vault" {
+  alias        = "bastion"
   address      = module.contexts_local_credential.bastion_vault_config.endpoint
   ca_cert_file = module.contexts_local_credential.bastion_vault_config.ca_cert_path
   token        = module.contexts_local_credential.bastion_vault_config.token_path
