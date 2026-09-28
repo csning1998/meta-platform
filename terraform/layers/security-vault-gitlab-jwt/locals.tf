@@ -12,6 +12,6 @@ locals {
 }
 
 locals {
-  jwt_auth_backend_path = "gitlab-saas-jwt"
+  jwt_auth_backend_path = local.state.vault_bastion.gitlab_saas_jwt_mount_path
   kv_mount_path         = "secret"
 }
