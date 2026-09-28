@@ -129,7 +129,7 @@ locals {
     vault_ca_cert_b64        = base64encode("${local.bastion_pki_chain_pem}\n")
     haproxy_stats_port       = module.context.primary_net_config.lb_config.ports["stats"].frontend_port
     haproxy_listen_address   = local.haproxy_listen_address
-    keepalived_auth_pass     = module.keepalived_credential.credentials["keepalived_auth_pass"]
+    keepalived_auth_pass     = data.vault_kv_secret_v2.haproxy_credential.data["keepalived_auth_pass"]
 
     spire_server_port              = tostring(local.state.spire_parent.spire_agent_bootstrap.server_port)
     spire_parent_node_ip           = local.state.spire_parent.spire_agent_bootstrap.node_ip
