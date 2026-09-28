@@ -12,7 +12,7 @@ variable "primary_role" {
 variable "bastion_vault_endpoint" {
   description = "The address of the Vault server."
   type        = string
-  default     = "https://127.0.0.1:8200"
+  default     = "https://172.16.0.1:8200"
 }
 
 variable "service_config" {
