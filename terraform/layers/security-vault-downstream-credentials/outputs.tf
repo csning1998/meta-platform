@@ -4,7 +4,7 @@
 output "credential_paths" {
   description = "Downstream Vault KV mount and path of every generated credential, keyed by service name."
   value = {
-    keycloak_frontend      = { mount = nonsensitive(module.keycloak_frontend.secret.mount), path = nonsensitive(module.keycloak_frontend.secret.path) }
-    harbor_origin_frontend = { mount = nonsensitive(module.harbor_origin_frontend.secret.mount), path = nonsensitive(module.harbor_origin_frontend.secret.path) }
+    keycloak_frontend      = { mount = nonsensitive(module.credential_keycloak_frontend.secret.mount), path = nonsensitive(module.credential_keycloak_frontend.secret.path) }
+    harbor_origin_frontend = { mount = nonsensitive(module.credential_harbor_origin_frontend.secret.mount), path = nonsensitive(module.credential_harbor_origin_frontend.secret.path) }
   }
 }
