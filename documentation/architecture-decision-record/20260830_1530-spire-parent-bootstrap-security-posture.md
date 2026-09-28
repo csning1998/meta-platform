@@ -5,7 +5,7 @@
 1. **Bind Address Topology**: `spire-server` MUST bind `bind_address` to the node's own HostOnly private-tier IP (`module.context.svc_network.node_ips`), not to `0.0.0.0` and not to the service VIP.
 2. **Node Attestor Scope**: The `join_token` NodeAttestor is a bootstrap-only mechanism, valid for the SPIRE Parent's own host during initial trust-bundle establishment. It MUST NOT be treated as the enrollment path for other consumer hosts.
 3. **Root CA Trust State**: SPIRE Server self-signs its own root CA. This is a deliberate interim state, not an oversight. A Vault-backed `upstreamauthority` plugin replaces the self-signed root in a later change, without requiring re-attestation of already-registered workloads.
-4. **Bastion Vault JWT Mount Naming**: The auth backend mount that will front SPIRE's OIDC discovery provider MUST use the fully-qualified, unique name `spire-oidc-jwt`, never the bare name `jwt`. ACL grants scoped to `jwt` would match any future auth mount whose path begins with that string.
+4. **Bastion Vault JWT Mount Naming**: The auth backend mount that will front SPIRE's OIDC discovery provider MUST use the fully-qualified, unique name `meta-platform-spire-parent-jwt-svid-provider`, never the bare name `jwt`. ACL grants scoped to `jwt` would match any future auth mount whose path begins with that string.
 
 ## Section 2. Technical Rationale and Architectural Design
 
@@ -23,4 +23,4 @@ Vault's `upstreamauthority/vault` plugin, once configured, signs SPIRE's Interme
 
 ### Item D. Bastion Vault JWT Mount Naming
 
-Vault ACL glob matching applies only at the final path segment. A rule granting `sudo`/`delete` against `sys/auth/jwt` or a trailing-glob `sys/mounts/auth/jwt*` matches any future auth backend whose path is prefixed with `jwt` (for example `jwt-prod` or `jwt-legacy`), letting `terraform-admin-policy` tune or destroy backends outside SPIRE's ownership. The existing `gitlab-saas-jwt` grants avoid this by using the backend's full, unique name. `spire-oidc-jwt` follows the same convention. No trailing glob is required since `spire-oidc-jwt` is already the complete, unique backend name.
+Vault ACL glob matching applies only at the final path segment. A rule granting `sudo`/`delete` against `sys/auth/jwt` or a trailing-glob `sys/mounts/auth/jwt*` matches any future auth backend whose path is prefixed with `jwt` (for example `jwt-prod` or `jwt-legacy`), letting `terraform-admin-policy` tune or destroy backends outside SPIRE's ownership. The existing `gitlab-saas-ci-job-jwt-provider` grants avoid this by using the backend's full, unique name. `meta-platform-spire-parent-jwt-svid-provider` follows the same convention. No trailing glob is required since `meta-platform-spire-parent-jwt-svid-provider` is already the complete, unique backend name.

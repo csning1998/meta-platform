@@ -46,7 +46,7 @@ This specification states the coordination contract between the SPIRE trust doma
 ### Item E. Per-Issuer JWT Federation Boundary
 
 1. The `upstreamauthority/vault` plugin does not support the `PublishJWTKey` RPC, a limitation that would normally block global JWT-SVID interoperability across a Nested topology.
-2. Global JWT interoperability is not required across the Nested SPIRE topology since JWT-SVID authentication follows a one-issuer-one-mount convention already established for `gitlab-saas-jwt`.
+2. Global JWT interoperability is not required across the Nested SPIRE topology since JWT-SVID authentication follows a one-issuer-one-mount convention already established for `gitlab-saas-ci-job-jwt-provider`.
 3. SPIRE Parent's workload authentication mounts on the `auth/jwt` backend fronted by SPIRE Parent's own `spire-oidc-discovery-provider` instance.
 4. SPIRE Child's workload authentication, once deployed, mounts on an independent `auth/jwt` backend fronted by SPIRE Child's own OIDC Discovery Provider instance, requiring no JWT key relay from SPIRE Parent.
 5. X.509-SVID authentication follows the PKI certificate chain established in Item C and carries no dependency on the `PublishJWTKey` RPC.
@@ -86,7 +86,7 @@ flowchart TD
     CHILD_CA --> CHILD_SVID
     PARENT_CA --> PARENT_OIDC
     CHILD_CA --> CHILD_OIDC
-    PARENT_OIDC -.->|JWT-SVID| BASTION_JWT["Bastion Vault: auth/jwt, spire-oidc-jwt"]
+    PARENT_OIDC -.->|JWT-SVID| BASTION_JWT["Bastion Vault: auth/jwt, meta-platform-spire-parent-jwt-svid-provider"]
     CHILD_OIDC -.->|JWT-SVID, Pending Deployment| CHILD_JWT["Independent auth/jwt Mount"]
     INTER -.->|Bootstrap Direct Leaf, Item D| BOOTSTRAP_LEAF["Vault Frontend, SPIRE OIDC, and Harbor Listener Certs"]
 ```
@@ -168,10 +168,10 @@ flowchart TD
 
 ### Item D. Vault ACL Scope for the JWT Mount
 
-1. Local `jwt_auth_backend_policy` generates an identical five-grant ACL template for every entry in local `jwt_auth_backends` since `gitlab-saas-jwt` and `spire-oidc-jwt` require the same backend management, mount configuration, mount tuning, OIDC configuration, and role provisioning capabilities.
-2. The generated backend management grant scopes `sudo` and lifecycle capabilities to the exact path `sys/auth/spire-oidc-jwt`, excluding any mount whose path merely shares the `spire-oidc-jwt` prefix.
-3. The generated mount configuration grant scopes read, create, and update capabilities to the trailing-glob path `sys/mounts/auth/spire-oidc-jwt*`, covering configuration operations nested under the mount path.
-4. The generated mount tuning grant scopes create, read, and update capabilities to the exact path `sys/auth/spire-oidc-jwt/tune` since Vault separates auth-method tuning under `sys/auth/` from the mount configuration paths under `sys/mounts/`.
+1. Local `jwt_auth_backend_policy` generates an identical five-grant ACL template for every entry in local `jwt_auth_backends` since `gitlab-saas-ci-job-jwt-provider` and `meta-platform-spire-parent-jwt-svid-provider` require the same backend management, mount configuration, mount tuning, OIDC configuration, and role provisioning capabilities.
+2. The generated backend management grant scopes `sudo` and lifecycle capabilities to the exact path `sys/auth/meta-platform-spire-parent-jwt-svid-provider`, excluding any mount whose path merely shares the `meta-platform-spire-parent-jwt-svid-provider` prefix.
+3. The generated mount configuration grant scopes read, create, and update capabilities to the trailing-glob path `sys/mounts/auth/meta-platform-spire-parent-jwt-svid-provider*`, covering configuration operations nested under the mount path.
+4. The generated mount tuning grant scopes create, read, and update capabilities to the exact path `sys/auth/meta-platform-spire-parent-jwt-svid-provider/tune` since Vault separates auth-method tuning under `sys/auth/` from the mount configuration paths under `sys/mounts/`.
 
 ### Item E. Bastion Vault `terraform-admin` Policy Grant Reference
 
