@@ -2,7 +2,7 @@
 # Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 1 Item D.
 resource "vault_pki_secret_backend_cert" "vault_listener" {
   provider    = vault.bastion
-  backend     = data.terraform_remote_state.vault_bastion.outputs.bastion_pki_inter_mount_path
+  backend     = data.terraform_remote_state.vault_bastion.outputs.bastion_vault_pki.intermediate_mount_path
   name        = "meta-platform-vault-downstream-frontend"
   common_name = module.context.svc_fqdn
 

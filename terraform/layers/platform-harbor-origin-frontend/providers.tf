@@ -33,8 +33,8 @@ provider "libvirt" {
 }
 
 provider "vault" {
-  address      = local.state.vault_bastion.bastion_vault_endpoint
-  ca_cert_file = local.state.vault_bastion.bastion_vault_listener_ca_cert_path
+  address      = local.state.vault_bastion.bastion_vault.endpoint
+  ca_cert_file = local.state.vault_bastion.bastion_vault.listener_ca_cert_path
 
   auth_login {
     path = "auth/${local.state.spire_parent.spire_oidc_auth_backend_path}/login"

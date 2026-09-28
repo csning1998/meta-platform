@@ -31,14 +31,14 @@ module "contexts_local_credential" {
 
 # Default for Bootstrap, connect to Local Podman Vault
 provider "vault" {
-  address      = data.terraform_remote_state.vault_bastion.outputs.bastion_vault_endpoint
+  address      = data.terraform_remote_state.vault_bastion.outputs.bastion_vault.endpoint
   ca_cert_file = module.contexts_local_credential.bastion_vault_config.ca_cert_path
 
   auth_login {
     path = "auth/approle/login"
     parameters = {
-      role_id   = data.terraform_remote_state.vault_bastion.outputs.role_id
-      secret_id = data.terraform_remote_state.vault_bastion.outputs.secret_id
+      role_id   = data.terraform_remote_state.vault_bastion.outputs.bastion_vault_tenant.terraform_operator.role_ids[local.owner_code]
+      secret_id = data.terraform_remote_state.vault_bastion.outputs.bastion_vault_tenant_credential.terraform_operator.secret_ids[local.owner_code]
     }
   }
   skip_child_token = true

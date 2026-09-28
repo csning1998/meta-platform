@@ -29,8 +29,8 @@ terraform {
 }
 
 provider "vault" {
-  address      = data.terraform_remote_state.vault_bootstrapper.outputs.bastion_vault_endpoint
-  ca_cert_file = data.terraform_remote_state.vault_bootstrapper.outputs.bastion_vault_listener_ca_cert_path
+  address      = data.terraform_remote_state.vault_bootstrapper.outputs.bastion_vault.endpoint
+  ca_cert_file = data.terraform_remote_state.vault_bootstrapper.outputs.bastion_vault.listener_ca_cert_path
 
   auth_login {
     path = "auth/${local.state.spire_parent.spire_oidc_auth_backend_path}/login"

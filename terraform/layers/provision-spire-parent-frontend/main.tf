@@ -9,7 +9,7 @@ module "spire_terraform_operator" {
   auth_role_name    = each.value.jwt_role_name
   pki_role_name     = each.value.pki_role_name
   auth_backend_path = local.state.spire_parent.spire_oidc_auth_backend_path
-  pki_mount_path    = local.state.vault_bastion.bastion_pki_inter_mount_path
+  pki_mount_path    = local.state.vault_bastion.bastion_vault_pki.intermediate_mount_path
   spiffe_id         = "spiffe://${local.state.spire_parent.spire_agent_bootstrap.trust_domain}/host-terraform-${each.key}"
   token_ttl         = var.spire_terraform_operator_token.ttl
   token_max_ttl     = var.spire_terraform_operator_token.max_ttl
@@ -31,8 +31,8 @@ module "spire_terraform_operator" {
       "secret/data/parent-group-governance/terraform/state-backend" = { capabilities = ["read"] }
 
       # sys/*
-      "sys/internal/ui/mounts/secret/*"                                      = { capabilities = ["read"] }
-      "sys/mounts/${local.state.vault_bastion.bastion_pki_inter_mount_path}" = { capabilities = ["read"] }
+      "sys/internal/ui/mounts/secret/*"                                                   = { capabilities = ["read"] }
+      "sys/mounts/${local.state.vault_bastion.bastion_vault_pki.intermediate_mount_path}" = { capabilities = ["read"] }
       "sys/policies/acl/jwt-policy-${each.value.jwt_role_name}" = {
         capabilities = ["create", "read", "update", "delete"]
       }
@@ -40,8 +40,8 @@ module "spire_terraform_operator" {
         capabilities = ["create", "read", "update", "delete"]
       }
 
-      # ${bastion_pki_inter_mount_path}/*
-      "${local.state.vault_bastion.bastion_pki_inter_mount_path}/issue/${each.value.pki_role_name}" = {
+      # ${bastion_vault_pki.intermediate_mount_path}/*
+      "${local.state.vault_bastion.bastion_vault_pki.intermediate_mount_path}/issue/${each.value.pki_role_name}" = {
         capabilities = ["create", "update"]
       }
     },

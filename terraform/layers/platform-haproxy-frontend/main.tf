@@ -28,7 +28,7 @@ module "spire_workload_identity" {
   auth_backend_path = local.state.spire_parent.spire_oidc_auth_backend_path
   spiffe_id         = local.spire_workload_spiffe_id
   pki_role_name     = local.haproxy_pki_role_name
-  pki_mount_path    = local.state.vault_bastion.bastion_pki_inter_mount_path
+  pki_mount_path    = local.state.vault_bastion.bastion_vault_pki.intermediate_mount_path
 }
 
 module "platform_haproxy_frontend" {

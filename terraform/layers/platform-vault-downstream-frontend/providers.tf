@@ -36,14 +36,14 @@ module "contexts_local_credential" {
 # Bastion Vault, authenticated as the tenant Terraform operator of meta-platform.
 provider "vault" {
   alias        = "bastion"
-  address      = data.terraform_remote_state.vault_bastion.outputs.bastion_vault_endpoint
+  address      = data.terraform_remote_state.vault_bastion.outputs.bastion_vault.endpoint
   ca_cert_file = module.contexts_local_credential.bastion_vault_config.ca_cert_path
 
   auth_login {
     path = "auth/approle/login"
     parameters = {
-      role_id   = data.terraform_remote_state.vault_bastion.outputs.tenant_terraform_operator_role_ids[local.owner_code]
-      secret_id = data.terraform_remote_state.vault_bastion.outputs.tenant_terraform_operator_secret_ids[local.owner_code]
+      role_id   = data.terraform_remote_state.vault_bastion.outputs.bastion_vault_tenant.terraform_operator.role_ids[local.owner_code]
+      secret_id = data.terraform_remote_state.vault_bastion.outputs.bastion_vault_tenant_credential.terraform_operator.secret_ids[local.owner_code]
     }
   }
   skip_child_token = true

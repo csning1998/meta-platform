@@ -108,7 +108,7 @@ check "haproxy_extra_network_offsets_safe" {
 }
 
 locals {
-  bastion_pki_chain_pem = "${local.state.vault_bastion.bastion_pki_root_cert_pem}\n${local.state.vault_bastion.bastion_pki_inter_cert_pem}"
+  bastion_pki_chain_pem = "${local.state.vault_bastion.bastion_vault_pki.root_cert_pem}\n${local.state.vault_bastion.bastion_vault_pki.intermediate_cert_pem}"
 
   # ansible_host resolves through the operator SSH config alias, meaningless inside the
   # guest. The stats listener needs the real address on this segment.
@@ -140,10 +140,10 @@ locals {
     spire_oidc_auth_path           = local.state.spire_parent.spire_oidc_auth_backend_path
     spire_workload_vault_role_name = module.spire_workload_identity.role_name
 
-    vault_endpoint             = local.state.vault_bastion.bastion_vault_endpoint
+    vault_endpoint             = local.state.vault_bastion.bastion_vault.endpoint
     vault_role_name            = local.haproxy_pki_role_name
-    vault_pki_mount_path       = local.state.vault_bastion.bastion_pki_inter_mount_path
-    vault_listener_ca_cert_b64 = filebase64(local.state.vault_bastion.bastion_vault_listener_ca_cert_path)
+    vault_pki_mount_path       = local.state.vault_bastion.bastion_vault_pki.intermediate_mount_path
+    vault_listener_ca_cert_b64 = filebase64(local.state.vault_bastion.bastion_vault.listener_ca_cert_path)
     vault_agent_common_name    = module.context.svc_fqdn
     vault_intermediate_ca_b64  = base64encode(local.bastion_pki_chain_pem)
   }

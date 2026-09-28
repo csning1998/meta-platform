@@ -9,7 +9,7 @@ locals {
 locals {
   owner_code = "meta-platform"
 
-  bastion_pki_chain_pem = "${data.terraform_remote_state.vault_bastion.outputs.bastion_pki_root_cert_pem}\n${data.terraform_remote_state.vault_bastion.outputs.bastion_pki_inter_cert_pem}"
+  bastion_pki_chain_pem = "${data.terraform_remote_state.vault_bastion.outputs.bastion_vault_pki.root_cert_pem}\n${data.terraform_remote_state.vault_bastion.outputs.bastion_vault_pki.intermediate_cert_pem}"
 
   ansible_template_config = {
     global_mss         = module.context.global_mss

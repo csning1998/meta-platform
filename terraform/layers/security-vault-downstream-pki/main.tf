@@ -20,7 +20,7 @@ module "vault_pki_setup" {
     default_lease_ttl_seconds = local.pki_lease_ttl_seconds
     max_lease_ttl_seconds     = local.pki_lease_ttl_seconds
   }
-  bastion_pki_inter_mount_path = local.state.vault_bastion.bastion_pki_inter_mount_path
+  bastion_pki_inter_mount_path = local.state.vault_bastion.bastion_vault_pki.intermediate_mount_path
 }
 
 # Provision individual workload AppRoles scoped to corresponding PKI roles defined in `global_pki_map`.
