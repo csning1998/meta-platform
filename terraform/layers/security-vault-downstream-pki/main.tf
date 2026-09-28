@@ -1,13 +1,13 @@
 
 # Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 1 Item C.
-# Configure production Issuing Intermediate, per-service PKI roles, and AppRole authentication.
-# Generates and retains the private key locally within production Vault; transmits only the CSR
+# Configure Downstream Issuing Intermediate, per-service PKI roles, and AppRole authentication.
+# Generates and retains the private key locally within Downstream Vault; transmits only the CSR
 # to Bootstrap Vault for signing.
 module "vault_pki_setup" {
   source = "../../modules/vault-provisioning/vault-pki-setup"
   providers = {
-    vault.production = vault.production
-    vault.bootstrap  = vault.bootstrap
+    vault.production = vault.downstream
+    vault.bootstrap  = vault.bastion
   }
 
   prod_vault_endpoint = local.prod_vault_endpoint
@@ -20,14 +20,14 @@ module "vault_pki_setup" {
     default_lease_ttl_seconds = local.pki_lease_ttl_seconds
     max_lease_ttl_seconds     = local.pki_lease_ttl_seconds
   }
-  bastion_pki_inter_mount_path = local.state.bootstrapper.bastion_pki_inter_mount_path
+  bastion_pki_inter_mount_path = local.state.vault_bastion.bastion_pki_inter_mount_path
 }
 
 # Provision individual workload AppRoles scoped to corresponding PKI roles defined in `global_pki_map`.
 module "vault_workload_identity_approle" {
   source = "../../modules/vault-provisioning/vault-workload-identity"
   providers = {
-    vault = vault.production
+    vault = vault.downstream
   }
   depends_on = [module.vault_pki_setup]
 
@@ -41,7 +41,7 @@ module "vault_workload_identity_approle" {
 
 # Listener CA (`MetaProvisionVaultCA`) for Bastion Vault TLS endpoints. Distinct from PKI secrets engine roots.
 data "local_file" "bastion_listener_ca" {
-  filename = abspath("${path.root}/../../../vault/tls/ca.pem")
+  filename = module.contexts_local_credential.bastion_vault_config.ca_cert_path
 }
 
 # Combined certificate chain (Bastion Listener CA, Bootstrap Root/Intermediate, Production Intermediate)
