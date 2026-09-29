@@ -22,7 +22,7 @@ terraform {
 
 module "contexts_local_credential" {
   source  = "gitlab.com/csning1998-lab/contexts-local-credential/gitlab"
-  version = "0.1.1"
+  version = "0.3.0"
 }
 
 provider "vault" {
