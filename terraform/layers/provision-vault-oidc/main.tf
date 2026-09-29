@@ -1,7 +1,7 @@
 
 # 1. Enable OIDC Auth Backend
 resource "vault_jwt_auth_backend" "keycloak" {
-  provider              = vault.production
+  provider              = vault.downstream
   description           = "OIDC Auth Backend for Keycloak"
   path                  = "oidc"
   type                  = "oidc"
@@ -21,7 +21,7 @@ resource "vault_jwt_auth_backend" "keycloak" {
 # This role allows everyone from Keycloak to authenticate; actual permissions
 # are managed via Identity Group mappings based on the 'groups' claim.
 resource "vault_jwt_auth_backend_role" "keycloak_user" {
-  provider             = vault.production
+  provider             = vault.downstream
   backend              = vault_jwt_auth_backend.keycloak.path
   role_name            = "keycloak-user"
   token_policies       = ["default"]
@@ -35,7 +35,7 @@ resource "vault_jwt_auth_backend_role" "keycloak_user" {
 
 # 3. Identity Groups (External), Dynamic Mapping for all Management Roles
 resource "vault_identity_group" "management_groups" {
-  provider = vault.production
+  provider = vault.downstream
   for_each = local.state.security_pki.management_policies
 
   name     = "keycloak-${replace(each.key, "oidc-", "")}s" # e.g. keycloak-admins, keycloak-auditors
@@ -49,7 +49,7 @@ resource "vault_identity_group" "management_groups" {
 
 # 4. Group Aliases, Linking Keycloak groups to Vault groups
 resource "vault_identity_group_alias" "management_group_aliases" {
-  provider = vault.production
+  provider = vault.downstream
   for_each = local.state.security_pki.management_policies
 
   # Keycloak group name (Assuming groups in Keycloak are named 'admin', 'auditor', 'developer')

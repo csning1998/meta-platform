@@ -21,7 +21,7 @@ data "terraform_remote_state" "keycloak_provisioning" {
 
 # Read OIDC Client credentials from Vault (Created in provision-*)
 data "vault_kv_secret_v2" "keycloak_vault_client" {
-  provider = vault.production
+  provider = vault.downstream
   mount    = "secret"
   name     = "${data.terraform_remote_state.security_vault_approle.outputs.foundation_vault_path.kv_namespace}/keycloak/oidc/clients/vault_frontend"
 }

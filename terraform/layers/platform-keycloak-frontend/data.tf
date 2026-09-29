@@ -21,13 +21,13 @@ data "terraform_remote_state" "security_pki" {
 }
 
 data "vault_kv_secret_v2" "guest_vm" {
-  provider = vault.production
+  provider = vault.downstream
   mount    = "secret"
   name     = "meta-platform/guest_vm"
 }
 
 data "vault_kv_secret_v2" "creds" {
-  provider = vault.production
+  provider = vault.downstream
   mount    = "secret"
   name     = local.credential_paths["keycloak"]["frontend"]
 }

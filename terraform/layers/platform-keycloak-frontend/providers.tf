@@ -24,9 +24,9 @@ provider "libvirt" {
   uri = "qemu:///system?socket=/var/run/libvirt/virtqemud-sock"
 }
 
-# Production Provider (security-vault-approle)
+# Downstream Provider (security-vault-downstream-approle)
 provider "vault" {
-  alias        = "production"
+  alias        = "downstream"
   address      = local.sys_vault_endpoint
   ca_cert_file = local.vault_pki_cert_path
 

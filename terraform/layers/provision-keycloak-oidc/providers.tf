@@ -25,7 +25,7 @@ terraform {
 }
 
 provider "vault" {
-  alias        = "production"
+  alias        = "downstream"
   address      = local.vault_frontend_url
   ca_cert_file = local.state.security_pki.bastion_pki_chain_b64.path
 
