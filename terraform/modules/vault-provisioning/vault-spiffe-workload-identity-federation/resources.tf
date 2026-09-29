@@ -10,7 +10,7 @@ terraform {
 
 resource "vault_policy" "this" {
   # Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 5 Item B.
-  name = "jwt-policy-${var.auth_role_name}"
+  name = var.auth_role_name
   policy = jsonencode({
     path = merge(
       {
