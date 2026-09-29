@@ -2,11 +2,11 @@
 module "context" {
   source = "../../modules/kvm-provisioning/layer-context"
 
-  global_topology_identity = data.terraform_remote_state.metadata.outputs.global_topology_identity
-  global_topology_network  = data.terraform_remote_state.metadata.outputs.global_topology_network
-  global_pki_map           = data.terraform_remote_state.metadata.outputs.global_pki_map
-  global_network_baseline  = data.terraform_remote_state.metadata.outputs.global_network_baseline
-  infrastructure_map       = data.terraform_remote_state.metadata.outputs.infrastructure_map
+  global_topology_identity = data.terraform_remote_state.metadata.outputs.foundation_topology.identity
+  global_topology_network  = data.terraform_remote_state.metadata.outputs.foundation_topology.network
+  global_pki_map           = data.terraform_remote_state.metadata.outputs.foundation_pki.map
+  global_network_baseline  = data.terraform_remote_state.metadata.outputs.foundation_global.network_baseline
+  infrastructure_map       = data.terraform_remote_state.metadata.outputs.foundation_topology.infrastructure
   guest_vm_data            = data.vault_generic_secret.guest_vm.data
 
   target_clusters = var.target_clusters
@@ -23,15 +23,15 @@ module "platform_spire_parent" {
   node_identities            = module.context.node_identities
   topology_cluster           = module.context.topology_cluster
   network_infrastructure_map = module.context.network_infrastructure_map
-  storage_infrastructure_map = data.terraform_remote_state.metadata.outputs.storage_infrastructure_map
+  storage_infrastructure_map = data.terraform_remote_state.metadata.outputs.foundation_storage.infrastructure
   security_pki_bundle_b64    = local.oidc_listener_bundle
-  ssh_config_path            = data.terraform_remote_state.metadata.outputs.ssh_config_paths[module.context.svc_identity.cluster_name]
+  ssh_config_path            = data.terraform_remote_state.metadata.outputs.foundation_ssh.config_paths[module.context.svc_identity.cluster_name]
 
   # Guest authentication MUST combine cluster-specific SSH keypairs from foundation resources
   # with shared baseline credentials from Vault storage.
   credentials_system = merge(module.context.sec_vm_credentials, {
-    ssh_private_key_path = data.terraform_remote_state.metadata.outputs.ssh_identity_key_paths[module.context.svc_identity.cluster_name]
-    ssh_public_key_path  = data.terraform_remote_state.metadata.outputs.ssh_public_key_paths[module.context.svc_identity.cluster_name]
+    ssh_private_key_path = data.terraform_remote_state.metadata.outputs.foundation_ssh.identity_key_paths[module.context.svc_identity.cluster_name]
+    ssh_public_key_path  = data.terraform_remote_state.metadata.outputs.foundation_ssh.public_key_paths[module.context.svc_identity.cluster_name]
   })
 
   ansible_generic_config = {

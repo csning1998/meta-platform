@@ -70,7 +70,7 @@ resource "harbor_robot_account" "helm_pusher" {
 resource "vault_kv_secret_v2" "robot_helm_creds" {
   provider = vault.production
   mount    = "secret"
-  name     = "${local.state.security_vault_approle.vault_kv_namespace}/harbor-origin/robot"
+  name     = "${local.state.security_vault_approle.foundation_vault_path.kv_namespace}/harbor-origin/robot"
   data_json = jsonencode({
     username_puller = harbor_robot_account.helm_puller.full_name
     password_puller = harbor_robot_account.helm_puller.secret

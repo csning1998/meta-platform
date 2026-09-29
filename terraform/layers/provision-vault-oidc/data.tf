@@ -23,5 +23,5 @@ data "terraform_remote_state" "keycloak_provisioning" {
 data "vault_kv_secret_v2" "keycloak_vault_client" {
   provider = vault.production
   mount    = "secret"
-  name     = "${data.terraform_remote_state.security_vault_approle.outputs.vault_kv_namespace}/keycloak/oidc/clients/vault_frontend"
+  name     = "${data.terraform_remote_state.security_vault_approle.outputs.foundation_vault_path.kv_namespace}/keycloak/oidc/clients/vault_frontend"
 }
