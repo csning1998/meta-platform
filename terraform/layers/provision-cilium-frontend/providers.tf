@@ -35,7 +35,7 @@ provider "vault" {
   auth_login {
     path = "auth/${local.state.spire_parent.spire_oidc_auth_backend_path}/login"
     parameters = {
-      role = local.cilium_cluster_name
+      role = local.terraform_operator.role_name
       jwt  = data.external.spire_jwt.result.jwt
     }
   }

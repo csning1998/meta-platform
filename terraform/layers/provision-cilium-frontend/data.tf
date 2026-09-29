@@ -14,9 +14,14 @@ data "terraform_remote_state" "spire_parent" {
   config  = { address = "${local._state_base_meta_platform}/platform-spire-parent-frontend" }
 }
 
+data "terraform_remote_state" "provision_spire_parent" {
+  backend = "http"
+  config  = { address = "${local._state_base_meta_platform}/provision-spire-parent-frontend" }
+}
+
 # Vault authentication MUST obtain ephemeral JWT-SVID credentials on every execution to prevent state file persistence.
 data "external" "spire_jwt" {
-  program = ["/usr/local/bin/spire-fetch-${local.cilium_cluster_name}"]
+  program = ["/usr/local/bin/${local.terraform_operator.wrapper_name}"]
 }
 
 ephemeral "vault_kv_secret_v2" "cilium_frontend" {

@@ -1,28 +1,25 @@
 
 # Generic mint point for every entry in local.spire_terraform_operator_specs. Trust source is a
-# SPIRE-issued SVID, fetched as a JWT-SVID by ansible/roles/utils_terraform_operator_identity's
-# wrapper script and attested through this host's own SPIRE Agent unix WorkloadAttestor.
+# SPIRE-issued SVID, fetched as a JWT-SVID by the wrapper script of the utils_terraform_operator_identity
+# role and attested through the unix WorkloadAttestor of the SPIRE Agent on this host.
 module "spire_terraform_operator" {
   source   = "../../modules/vault-provisioning/vault-spiffe-workload-identity-federation"
   for_each = local.spire_terraform_operator_specs
 
-  auth_role_name    = each.value.jwt_role_name
-  pki_role_name     = each.value.pki_role_name
+  auth_role_name    = each.key
+  pki_role_name     = each.value.cluster_name
   auth_backend_path = local.state.spire_parent.spire_oidc_auth_backend_path
   pki_mount_path    = local.state.vault_bastion.bastion_vault_pki.intermediate_mount_path
-  spiffe_id         = "spiffe://${local.state.spire_parent.spire_agent_bootstrap.trust_domain}/host-terraform-${each.key}"
+  spiffe_id         = "spiffe://${local.state.spire_parent.spire_agent_bootstrap.trust_domain}${each.value.spiffe_path}"
   token_ttl         = var.spire_terraform_operator_token.ttl
   token_max_ttl     = var.spire_terraform_operator_token.max_ttl
 
   extra_policy_paths = merge(
     {
       # auth/*
-      "auth/${local.state.spire_parent.spire_oidc_auth_backend_path}/role/${each.value.jwt_role_name}" = {
-        capabilities = ["create", "read", "update", "delete"]
-      }
-      # Provisions the consumer own workload identity (a distinct Vault role/policy name from
-      # the operator identity above) plus the PKI leaf cert which workload identity issues at bootstrap.
-      "auth/${local.state.spire_parent.spire_oidc_auth_backend_path}/role/${each.value.jwt_role_name}-workload" = {
+      # Provisions the consumer own workload identity, whose role and policy names equal its cluster_name,
+      # plus the PKI leaf cert which the workload identity issues at bootstrap.
+      "auth/${local.state.spire_parent.spire_oidc_auth_backend_path}/role/${each.value.cluster_name}" = {
         capabilities = ["create", "read", "update", "delete"]
       }
 
@@ -33,15 +30,12 @@ module "spire_terraform_operator" {
       # sys/*
       "sys/internal/ui/mounts/secret/*"                                                   = { capabilities = ["read"] }
       "sys/mounts/${local.state.vault_bastion.bastion_vault_pki.intermediate_mount_path}" = { capabilities = ["read"] }
-      "sys/policies/acl/jwt-policy-${each.value.jwt_role_name}" = {
-        capabilities = ["create", "read", "update", "delete"]
-      }
-      "sys/policies/acl/jwt-policy-${each.value.jwt_role_name}-workload" = {
+      "sys/policies/acl/${each.value.cluster_name}" = {
         capabilities = ["create", "read", "update", "delete"]
       }
 
       # ${bastion_vault_pki.intermediate_mount_path}/*
-      "${local.state.vault_bastion.bastion_vault_pki.intermediate_mount_path}/issue/${each.value.pki_role_name}" = {
+      "${local.state.vault_bastion.bastion_vault_pki.intermediate_mount_path}/issue/${each.value.cluster_name}" = {
         capabilities = ["create", "update"]
       }
     },

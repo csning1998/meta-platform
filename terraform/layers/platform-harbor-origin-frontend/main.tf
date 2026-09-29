@@ -2,11 +2,11 @@
 module "context" {
   source = "../../modules/kvm-provisioning/layer-context"
 
-  global_topology_identity = local.state.network.global_topology_identity
-  global_topology_network  = local.state.network.global_topology_network
-  global_pki_map           = local.state.network.global_pki_map
-  global_network_baseline  = local.state.network.global_network_baseline
-  infrastructure_map       = local.state.network.infrastructure_map
+  global_topology_identity = local.state.network.foundation_topology.identity
+  global_topology_network  = local.state.network.foundation_topology.network
+  global_pki_map           = local.state.network.foundation_pki.map
+  global_network_baseline  = local.state.network.foundation_global.network_baseline
+  infrastructure_map       = local.state.network.foundation_topology.infrastructure
   guest_vm_data            = data.vault_generic_secret.guest_vm.data
 
   target_clusters = var.target_clusters
@@ -18,7 +18,7 @@ module "context" {
 module "spire_workload_identity" {
   source = "../../modules/vault-provisioning/vault-spiffe-workload-identity-federation"
 
-  auth_role_name    = "${module.context.svc_identity.cluster_name}-workload"
+  auth_role_name    = module.context.svc_identity.cluster_name
   auth_backend_path = local.state.spire_parent.spire_oidc_auth_backend_path
   spiffe_id         = local.spire_workload_spiffe_id
   pki_role_name     = local.harbor_pki_role_name
@@ -34,15 +34,15 @@ module "platform_harbor_origin" {
   node_identities            = module.context.node_identities
   topology_cluster           = module.context.topology_cluster
   network_infrastructure_map = module.context.network_infrastructure_map
-  storage_infrastructure_map = local.state.network.storage_infrastructure_map
+  storage_infrastructure_map = local.state.network.foundation_storage.infrastructure
   security_pki_bundle_b64    = local.bastion_pki_listener_bundle
-  ssh_config_path            = local.state.network.ssh_config_paths[module.context.svc_identity.cluster_name]
+  ssh_config_path            = local.state.network.foundation_ssh.config_paths[module.context.svc_identity.cluster_name]
 
   # Guest authentication MUST combine cluster-specific SSH keypairs from foundation resources
   # with shared baseline credentials from Vault storage.
   credentials_system = merge(module.context.sec_vm_credentials, {
-    ssh_private_key_path = local.state.network.ssh_identity_key_paths[module.context.svc_identity.cluster_name]
-    ssh_public_key_path  = local.state.network.ssh_public_key_paths[module.context.svc_identity.cluster_name]
+    ssh_private_key_path = local.state.network.foundation_ssh.identity_key_paths[module.context.svc_identity.cluster_name]
+    ssh_public_key_path  = local.state.network.foundation_ssh.public_key_paths[module.context.svc_identity.cluster_name]
   })
 
   ansible_generic_config = {

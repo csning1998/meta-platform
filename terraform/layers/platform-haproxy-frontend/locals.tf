@@ -12,8 +12,8 @@ locals {
     vault_bastion = data.terraform_remote_state.vault_bastion.outputs
     spire_parent  = data.terraform_remote_state.spire_parent.outputs
   }
-  vault_kv_namespace = local.state.network.vault_kv_namespace
-  cluster_name       = local.state.network.global_topology_identity["haproxy"]["frontend"].cluster_name
+  vault_kv_namespace = local.state.network.foundation_vault_path.kv_namespace
+  cluster_name       = local.state.network.foundation_topology.identity["haproxy"]["frontend"].cluster_name
 }
 
 # Kubernetes-native runtimes stay on the Cilium Service/L2Announcement path. Any other
@@ -23,7 +23,7 @@ locals {
   kubernetes_native_runtimes = ["talos", "kubeadm", "microk8s", "minikube"]
 
   fronted_segments = {
-    for key, seg in local.state.network.infrastructure_map : key => seg
+    for key, seg in local.state.network.foundation_topology.infrastructure : key => seg
     if key != local.cluster_name
     && !contains(local.kubernetes_native_runtimes, seg.runtime)
     && seg.lb_config.vip != null
@@ -148,6 +148,6 @@ locals {
     vault_intermediate_ca_b64  = base64encode(local.bastion_pki_chain_pem)
   }
 
-  spire_workload_spiffe_id = "spiffe://${local.state.spire_parent.spire_agent_bootstrap.trust_domain}/${module.context.svc_identity.cluster_name}"
-  haproxy_pki_role_name    = module.context.primary_context.pki_key
+  spire_workload_spiffe_id = "spiffe://${local.state.spire_parent.spire_agent_bootstrap.trust_domain}/${local.state.network.foundation_vault_path.kv_namespace}/${module.context.primary_context.s_name}/${module.context.primary_context.c_name}"
+  haproxy_pki_role_name    = module.context.svc_identity.cluster_name
 }
