@@ -1,5 +1,5 @@
 
-target_clusters = { "keycloak" = "platform-keycloak-frontend" }
+target_clusters = { "keycloak" = "meta-platform-keycloak-frontend" }
 primary_role    = "keycloak"
 
 service_config = {

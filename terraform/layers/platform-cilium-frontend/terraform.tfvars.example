@@ -1,5 +1,5 @@
 
-target_cluster_name = "platform-cilium-frontend"
+target_cluster_name = "meta-platform-cilium-frontend"
 storage_pool_name   = "default"
 
 node_config = {
