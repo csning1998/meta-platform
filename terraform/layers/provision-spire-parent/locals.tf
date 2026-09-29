@@ -42,6 +42,9 @@ locals {
   }
 
   ansible_extra_vars = {
+    bastion_vault_ca_cert_path                     = local.state.vault_bastion.bastion_vault.listener_ca_cert_path
+    bastion_vault_endpoint                         = local.state.vault_bastion.bastion_vault.endpoint
+    spire_oidc_auth_path                           = local.state.spire_parent.spire_oidc_auth_backend_path
     utils_terraform_operator_identity_names        = jsonencode(keys(local.spire_terraform_operator_specs))
     utils_terraform_operator_identity_spiffe_paths = jsonencode({ for name, spec in local.spire_terraform_operator_specs : name => spec.spiffe_path })
   }
