@@ -8,11 +8,14 @@ locals {
 
 locals {
   state = {
-    cilium_frontend = data.terraform_remote_state.cilium_frontend.outputs
-    spire_parent    = data.terraform_remote_state.spire_parent.outputs
+    cilium_frontend        = data.terraform_remote_state.cilium_frontend.outputs
+    spire_parent           = data.terraform_remote_state.spire_parent.outputs
+    provision_spire_parent = data.terraform_remote_state.provision_spire_parent.outputs
   }
 
-  infrastructure_map = local.state.cilium_frontend.infrastructure_map
+  terraform_operator = local.state.provision_spire_parent.terraform_operator["cilium"]
+
+  infrastructure_map = local.state.cilium_frontend.foundation_topology.infrastructure
   vault_kv_namespace = "meta-platform"
 }
 
@@ -31,7 +34,7 @@ locals {
 
 # Exclude the Cilium cluster segment from Service generation to prevent circular routing dependencies and self-referential load balancing.
 locals {
-  cilium_cluster_name = local.state.cilium_frontend.global_topology_identity["cilium"]["frontend"].cluster_name
+  cilium_cluster_name = local.state.cilium_frontend.foundation_topology.identity["cilium"]["frontend"].cluster_name
 
   # Kubernetes-native runtimes only. Any other runtime is an external service owned end to
   # end by platform-haproxy-frontend, per the decisions.md entry retiring Cilium Service

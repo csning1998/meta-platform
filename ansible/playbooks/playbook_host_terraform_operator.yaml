@@ -35,10 +35,18 @@
     _utils_terraform_operator_identity_names: >-
       {{ (_utils_terraform_operator_identity_names_raw is string)
         | ternary(_utils_terraform_operator_identity_names_raw | from_json, _utils_terraform_operator_identity_names_raw) }}
+    # Maps each identity name to its absolute SPIFFE ID path, supplied in the same JSON-string or native form.
+    _utils_terraform_operator_identity_spiffe_paths_raw: >-
+      {{ utils_terraform_operator_identity_spiffe_paths | default({}) }}
+    _utils_terraform_operator_identity_spiffe_paths: >-
+      {{ (_utils_terraform_operator_identity_spiffe_paths_raw is string)
+        | ternary(_utils_terraform_operator_identity_spiffe_paths_raw | from_json,
+        _utils_terraform_operator_identity_spiffe_paths_raw) }}
   tasks:
     - name: "Register workload identity"
       ansible.builtin.include_role:
         name: utils_terraform_operator_identity
       vars:
         utils_terraform_operator_identity_name: "{{ item }}"
+        utils_terraform_operator_identity_spiffe_path: "{{ _utils_terraform_operator_identity_spiffe_paths[item] }}"
       loop: "{{ _utils_terraform_operator_identity_names }}"

@@ -9,5 +9,5 @@ locals {
 locals {
   downstream_vault_endpoint = "https://${data.terraform_remote_state.security_vault_downstream_approle.outputs.prod_vault_svc_vip}:443"
   vault_pki_cert_path       = data.terraform_remote_state.security_vault_downstream_pki.outputs.bastion_pki_chain_b64.path
-  vault_kv_namespace        = data.terraform_remote_state.security_vault_downstream_approle.outputs.vault_kv_namespace
+  vault_kv_namespace        = data.terraform_remote_state.security_vault_downstream_approle.outputs.foundation_vault_path.kv_namespace
 }

@@ -21,9 +21,9 @@ locals {
   prod_pki_issuer_mount_path = local.global_pki_config.mount_path
   pki_lease_ttl_seconds      = 60 * 60 * 24 * 365
   bastion_pki_chain_pem      = "${local.state.vault_bastion.bastion_vault_pki.root_cert_pem}\n${local.state.vault_bastion.bastion_vault_pki.intermediate_cert_pem}"
-  root_domain                = data.terraform_remote_state.foundation.outputs.global_domain_suffix
-  vault_kv_namespace         = data.terraform_remote_state.foundation.outputs.vault_kv_namespace
-  global_pki_config          = data.terraform_remote_state.foundation.outputs.global_pki_config
+  root_domain                = data.terraform_remote_state.foundation.outputs.foundation_global.domain_suffix
+  vault_kv_namespace         = data.terraform_remote_state.foundation.outputs.foundation_vault_path.kv_namespace
+  global_pki_config          = data.terraform_remote_state.foundation.outputs.foundation_pki.config
 }
 
 locals {
@@ -31,7 +31,7 @@ locals {
   # consumed by provision-vault-oidc and on-prem gitlab for OIDC group-to-policy mapping.
   pki_roles = merge(
     {
-      for key, item in data.terraform_remote_state.foundation.outputs.global_pki_map : key => {
+      for key, item in data.terraform_remote_state.foundation.outputs.foundation_pki.map : key => {
         name            = item.role_name
         auth_method     = item.auth_config.method
         auth_path       = item.auth_config.path

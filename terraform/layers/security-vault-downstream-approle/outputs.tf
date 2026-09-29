@@ -30,17 +30,12 @@ output "prod_vault_svc_vip" {
   value       = data.terraform_remote_state.vault_downstream.outputs.service_vip
 }
 
-output "global_pki_map" {
-  description = "Export PKI role mapping schema (DNS SANs, role names, authentication settings) for downstream layer TLS configuration."
-  value       = data.terraform_remote_state.foundation.outputs.global_pki_map
+output "foundation_pki" {
+  description = "Pass-through of the foundation-libvirt-resources PKI object for downstream layer TLS configuration."
+  value       = data.terraform_remote_state.foundation.outputs.foundation_pki
 }
 
-output "global_credential_paths" {
-  description = "Export credential path mappings for downstream Vault KV path construction."
-  value       = data.terraform_remote_state.foundation.outputs.global_credential_paths
-}
-
-output "vault_kv_namespace" {
-  description = "Export Vault KV namespace prefix for downstream path resolution."
-  value       = data.terraform_remote_state.foundation.outputs.vault_kv_namespace
+output "foundation_vault_path" {
+  description = "Pass-through of the foundation-libvirt-resources Vault KV coordinates object for downstream path construction."
+  value       = data.terraform_remote_state.foundation.outputs.foundation_vault_path
 }

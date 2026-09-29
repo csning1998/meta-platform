@@ -13,7 +13,7 @@ locals {
 
 # Credential path map alias passed through from security-vault-approle
 locals {
-  credential_paths = data.terraform_remote_state.security_vault_approle.outputs.global_credential_paths
+  credential_paths = data.terraform_remote_state.security_vault_approle.outputs.foundation_vault_path.credential_paths
 }
 
 # Service-specific credentials and Vault Agent identity

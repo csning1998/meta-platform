@@ -46,8 +46,8 @@ locals {
     spire_vault_upstream_addr               = data.terraform_remote_state.vault_bastion.outputs.bastion_vault.endpoint
     spire_vault_upstream_pki_mount_path     = data.terraform_remote_state.vault_bastion.outputs.bastion_vault_pki.intermediate_mount_path
     spire_vault_upstream_approle_mount_path = data.terraform_remote_state.vault_bastion.outputs.bastion_vault_auth.approle_mount_path
-    spire_vault_upstream_role_id            = data.terraform_remote_state.vault_guest_identity.outputs.spire_upstream_authority.role_id
-    spire_vault_upstream_secret_id          = data.terraform_remote_state.vault_guest_identity.outputs.spire_upstream_authority.secret_id
+    spire_vault_upstream_role_id            = vault_approle_auth_backend_role.spire_upstream_authority.role_id
+    spire_vault_upstream_secret_id          = vault_approle_auth_backend_role_secret_id.spire_upstream_authority.secret_id
     spire_vault_upstream_ca_cert_b64        = filebase64(data.terraform_remote_state.vault_bastion.outputs.bastion_vault.listener_ca_cert_path)
   }
 }

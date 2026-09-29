@@ -15,8 +15,8 @@ locals {
 
 locals {
   fdqn = {
-    keycloak_frontend = local.state.security_vault_approle.global_pki_map["keycloak-frontend"].dns_san[0]
-    vault_frontend    = local.state.security_vault_approle.global_pki_map["vault-frontend"].dns_san[0]
+    keycloak_frontend = local.state.security_vault_approle.foundation_pki.map["keycloak-frontend"].dns_san[0]
+    vault_frontend    = local.state.security_vault_approle.foundation_pki.map["vault-downstream-frontend"].dns_san[0]
   }
 }
 
@@ -28,7 +28,7 @@ locals {
   # Downstream OIDC clients derived from global_pki_map: declaring oidc_client on a
   # component in service_catalog is sufficient to onboard a new consumer here.
   downstream_oidc_clients_resolved = {
-    for k, v in local.state.security_vault_approle.global_pki_map : k => {
+    for k, v in local.state.security_vault_approle.foundation_pki.map : k => {
       client_id           = v.oidc_client.client_id
       name                = v.oidc_client.name
       valid_redirect_uris = ["https://${v.dns_san[0]}${v.oidc_client.redirect_path}"]
@@ -61,5 +61,5 @@ locals {
 
 # Credential path map alias passed through from security-vault-approle
 locals {
-  credential_paths = data.terraform_remote_state.security_vault_approle.outputs.global_credential_paths
+  credential_paths = data.terraform_remote_state.security_vault_approle.outputs.foundation_vault_path.credential_paths
 }

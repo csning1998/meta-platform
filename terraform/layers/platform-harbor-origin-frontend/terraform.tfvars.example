@@ -1,5 +1,5 @@
 
-target_clusters = { "harbor_origin" = "platform-harbor-origin-frontend" }
+target_clusters = { "harbor_origin" = "meta-platform-harbor-origin-frontend" }
 primary_role    = "harbor_origin"
 
 service_config = {

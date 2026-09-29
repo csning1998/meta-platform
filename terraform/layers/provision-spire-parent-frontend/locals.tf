@@ -7,6 +7,8 @@ locals {
 }
 
 locals {
+  owner_code = "meta-platform"
+
   state = {
     metadata      = data.terraform_remote_state.metadata.outputs
     vault_bastion = data.terraform_remote_state.vault_bastion.outputs
@@ -40,7 +42,8 @@ locals {
   }
 
   ansible_extra_vars = {
-    utils_terraform_operator_identity_names = jsonencode(keys(local.spire_terraform_operator_specs))
+    utils_terraform_operator_identity_names        = jsonencode(keys(local.spire_terraform_operator_specs))
+    utils_terraform_operator_identity_spiffe_paths = jsonencode({ for name, spec in local.spire_terraform_operator_specs : name => spec.spiffe_path })
   }
 }
 
@@ -48,26 +51,28 @@ locals {
   # Services whose Terraform operator layers run from the local machine and require a SPIRE-backed
   # JWT auth role on the Bastion Vault. Add a service name only when a corresponding
   # provision-*-frontend or platform-*-frontend consumer layer exists.
-  _spire_operator_services = toset(["cilium", "harbor-origin", "vault", "haproxy"])
+  _spire_operator_services = toset(["cilium", "harbor-origin", "vault-downstream", "haproxy"])
 
   # A service name absent from foundation-libvirt-resources, or missing a "frontend" component,
   # renders as null here instead of an opaque "Invalid index" crash in spire_terraform_operator_specs.
   _spire_operator_services_missing = [
     for s_name in local._spire_operator_services :
-    s_name if try(local.state.metadata.global_topology_identity[s_name]["frontend"], null) == null
+    s_name if try(local.state.metadata.foundation_topology.identity[s_name][local._spire_operator_component], null) == null
   ]
 
-  # Keyed by cluster_name (project-service-component), derived from foundation-libvirt-resources
-  # SSoT outputs. Adding a new consumer requires only adding its service name to the set above.
+  _spire_operator_component = "frontend"
+
+  # Keyed by the identity string of the operator, <owner>-terraform-operator-<service>-<component>.
+  # Every name below derives from the owner code and the foundation-libvirt-resources SSoT outputs.
+  # Adding a new consumer requires only adding its service name to the set above.
   spire_terraform_operator_specs = {
     for s_name in setsubtract(local._spire_operator_services, local._spire_operator_services_missing) :
-    local.state.metadata.global_topology_identity[s_name]["frontend"].cluster_name => {
-      jwt_role_name   = local.state.metadata.global_topology_identity[s_name]["frontend"].cluster_name
-      kv_service_path = "secret/data/${local.state.metadata.global_credential_paths[s_name]["frontend"]}"
-      # Matches the key convention of global_pki_map (service-component), independent of the
-      # cluster_name (project-service-component) used by jwt_role_name. See the pki_leaf_roles
-      # local in foundation-spire-parent-identity.
-      pki_role_name = "${s_name}-frontend"
+    "${local.owner_code}-terraform-operator-${s_name}-${local._spire_operator_component}" => {
+      service_name = s_name
+      spiffe_path  = "/${local.owner_code}/terraform-operator/${s_name}/${local._spire_operator_component}"
+      # The consumer names its own workload role, policy, and Bastion PKI role by its cluster_name.
+      cluster_name    = local.state.metadata.foundation_topology.identity[s_name][local._spire_operator_component].cluster_name
+      kv_service_path = "secret/data/${local.state.metadata.foundation_vault_path.credential_paths[s_name][local._spire_operator_component]}"
     }
   }
 }

@@ -1,5 +1,8 @@
 ---
 utils_terraform_operator_identity_name: "harbor-origin-provisioner"
+
+# The absolute SPIFFE ID path of this identity has no default and MUST be supplied as
+# utils_terraform_operator_identity_spiffe_path, derived from the identity naming standard.
 utils_terraform_operator_identity_wrapper_dir: "/usr/local/bin"
 utils_terraform_operator_identity_wrapper_name: "spire-fetch-{{ utils_terraform_operator_identity_name }}"
 utils_terraform_operator_identity_jwt_audience: "vault"

@@ -14,7 +14,7 @@ locals {
   }
 
   vault_endpoint = "https://${local.state.prod_vault_frontend.service_vip}:443"
-  vault_fqdn     = "https://${local.state.security_vault_approle.global_pki_map["vault-frontend"].dns_san[0]}"
+  vault_fqdn     = "https://${local.state.security_vault_approle.foundation_pki.map["vault-downstream-frontend"].dns_san[0]}"
 
   # OIDC Configuration
   oidc_discovery_url = local.state.keycloak_oidc.issuer_url

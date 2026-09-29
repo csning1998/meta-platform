@@ -1,5 +1,5 @@
 
-target_clusters = { "spire-parent" = "platform-spire-parent-frontend" }
+target_clusters = { "spire-parent" = "meta-platform-spire-parent" }
 primary_role    = "spire-parent"
 
 service_config = {

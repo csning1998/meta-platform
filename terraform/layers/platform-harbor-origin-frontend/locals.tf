@@ -12,8 +12,8 @@ locals {
     vault_bastion = data.terraform_remote_state.vault_bastion.outputs
     spire_parent  = data.terraform_remote_state.spire_parent.outputs
   }
-  vault_kv_namespace = local.state.network.vault_kv_namespace
-  cluster_name       = local.state.network.global_topology_identity["harbor-origin"]["frontend"].cluster_name
+  vault_kv_namespace = local.state.network.foundation_vault_path.kv_namespace
+  cluster_name       = local.state.network.foundation_topology.identity["harbor-origin"]["frontend"].cluster_name
 }
 
 # Requires inclusion of the catalog service VIP within the certificate IP SAN to support the HAProxy-fronted VIP.
@@ -35,8 +35,8 @@ locals {
     ca_cert_b64     = base64encode(local.bastion_pki_chain_pem)
   }
 
-  spire_workload_spiffe_id = "spiffe://${local.state.spire_parent.spire_agent_bootstrap.trust_domain}/${module.context.svc_identity.cluster_name}"
-  harbor_pki_role_name     = module.context.primary_context.pki_key
+  spire_workload_spiffe_id = "spiffe://${local.state.spire_parent.spire_agent_bootstrap.trust_domain}/${local.state.network.foundation_vault_path.kv_namespace}/${module.context.primary_context.s_name}/${module.context.primary_context.c_name}"
+  harbor_pki_role_name     = module.context.svc_identity.cluster_name
 }
 
 locals {

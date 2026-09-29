@@ -12,18 +12,18 @@ locals {
     vault_bootstrap = data.terraform_remote_state.vault_bootstrapper.outputs
     spire_parent    = data.terraform_remote_state.spire_parent.outputs
   }
-  vault_kv_namespace = local.state.network.vault_kv_namespace
+  vault_kv_namespace = local.state.network.foundation_vault_path.kv_namespace
 }
 
 # segments_map is reused from platform-haproxy-frontend.
 # The service catalog owns segments_map, not HAProxy or Cilium.
 locals {
   segments_map = merge([
-    for s_name, components in local.state.network.global_topology_identity : {
+    for s_name, components in local.state.network.foundation_topology.identity : {
       for c_name, identity in components : identity.cluster_name => {
         identity = identity
-        network  = local.state.network.global_topology_network[s_name][c_name]
-        vip      = lookup(local.state.network.infrastructure_map, identity.cluster_name, { lb_config = { vip = null } }).lb_config.vip
+        network  = local.state.network.foundation_topology.network[s_name][c_name]
+        vip      = lookup(local.state.network.foundation_topology.infrastructure, identity.cluster_name, { lb_config = { vip = null } }).lb_config.vip
         s_name   = s_name
         c_name   = c_name
       }
@@ -40,18 +40,18 @@ locals {
   # Target cluster context
   svc_cluster_name = var.target_cluster_name
   svc_context      = local.segments_map[local.svc_cluster_name]
-  svc_fqdn         = local.state.network.global_domain_suffix
+  svc_fqdn         = local.state.network.foundation_global.domain_suffix
   svc_identity     = local.svc_context.identity
   svc_network      = local.svc_context.network
   svc_node_prefix  = local.svc_identity.node_name_prefix
 
   # Cluster-wide network configuration
-  net_lb_config = local.state.network.infrastructure_map[local.svc_cluster_name].network
+  net_lb_config = local.state.network.foundation_topology.infrastructure[local.svc_cluster_name].network
 
   # net_service_segments excludes the CLB cluster, which has no SSoT reservation.
   # The same defect exists on platform-haproxy-frontend and remains open.
   net_service_segments = [
-    for name, seg in local.state.network.service_segments : merge(seg, {
+    for name, seg in local.state.network.foundation_topology.segments : merge(seg, {
       node_ips = {
         for node_name, node_spec in var.node_config : local.net_node_naming_map[node_name] =>
         cidrhost(seg.cidr, node_spec.ip_suffix)

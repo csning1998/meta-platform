@@ -11,11 +11,11 @@ data "terraform_remote_state" "foundation" {
 
 # Generated SSH keypairs persist into the Bastion Vault KV to give every platform service credential one access control.
 data "local_sensitive_file" "ssh_private_key" {
-  for_each = local.state.foundation.ssh_identity_key_paths
+  for_each = local.state.foundation.foundation_ssh.identity_key_paths
   filename = each.value
 }
 
 data "local_file" "ssh_public_key" {
-  for_each = local.state.foundation.ssh_public_key_paths
+  for_each = local.state.foundation.foundation_ssh.public_key_paths
   filename = each.value
 }

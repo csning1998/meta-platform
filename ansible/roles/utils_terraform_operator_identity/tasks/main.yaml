@@ -18,11 +18,15 @@
       - utils_terraform_operator_identity_operator_user | length > 0
       - utils_terraform_operator_identity_operator_user is match('^[a-zA-Z0-9_-]+$')
       - utils_terraform_operator_identity_name is match('^[a-zA-Z0-9_-]+$')
+      - utils_terraform_operator_identity_spiffe_path is defined
+      - utils_terraform_operator_identity_spiffe_path is match('^(/[a-zA-Z0-9_-]+)+$')
     fail_msg: >-
       utils_terraform_operator_identity_operator_user (from the $USER environment variable) and
       utils_terraform_operator_identity_name must both be non-empty and contain only alphanumerics,
       underscores, or hyphens. Both values are rendered verbatim into a sudoers policy file;
       any other character risks injecting an unintended sudoers directive.
+      utils_terraform_operator_identity_spiffe_path MUST be supplied by the caller as an absolute
+      SPIFFE ID path such as /<owner>/terraform-operator/<service>/<component>.
 
 - name: "Block C: Create Dedicated Service User"
   become: true
@@ -89,8 +93,8 @@
       ansible.builtin.include_role:
         name: utils_spire_workload_entry
       vars:
-        utils_spire_workload_entry_spiffe_id: >-
-          spiffe://{{ spire_trust_domain }}/host-terraform-{{ utils_terraform_operator_identity_name }}
+        utils_spire_workload_entry_spiffe_id: "{{ 'spiffe://' ~ spire_trust_domain
+          ~ utils_terraform_operator_identity_spiffe_path }}"
         utils_spire_workload_entry_selector: >-
           unix:uid:{{ _utils_terraform_operator_identity_service_user.uid }}
         # data.external.spire_jwt fetches once per plan/apply and is reused for the whole run.

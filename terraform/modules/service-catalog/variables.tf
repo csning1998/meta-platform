@@ -4,16 +4,6 @@ variable "domain_suffix" {
   type        = string
 }
 
-variable "vault_kv_namespace" {
-  description = "Vault KV mount-relative namespace prefix for all service component credential paths."
-  type        = string
-
-  validation {
-    condition     = length(var.vault_kv_namespace) > 0 && !startswith(var.vault_kv_namespace, "/") && !endswith(var.vault_kv_namespace, "/")
-    error_message = "vault_kv_namespace must be non-empty and must not start or end with '/'."
-  }
-}
-
 variable "network_baseline" {
   description = "Base network configuration including CIDR, VIP offsets, and MAC prefixes."
   type = object({
@@ -228,9 +218,9 @@ variable "service_catalog" {
   # Validate Project Code Format
   validation {
     condition = alltrue([
-      for k, v in var.service_catalog : can(regex("^[a-z0-9]+$", v.project_code))
+      for k, v in var.service_catalog : can(regex("^[a-z0-9]+(-[a-z0-9]+)*$", v.project_code))
     ])
-    error_message = "Project code must only contain lowercase letters and numbers."
+    error_message = "Project code must only contain lowercase letters, numbers, and single hyphens between words."
   }
 
   # Validate Ingress Subdomains Non-Empty

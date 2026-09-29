@@ -16,7 +16,7 @@ locals {
 }
 
 locals {
-  credential_paths = local.state.security_vault_approle.global_credential_paths
+  credential_paths = local.state.security_vault_approle.foundation_vault_path.credential_paths
 }
 
 locals {
