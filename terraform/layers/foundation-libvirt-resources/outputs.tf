@@ -1,95 +1,55 @@
 
-output "infrastructure_map" {
-  description = "Physical realization bridging topology identity and service VIPs, mapped perfectly to O(1) SSoT Identity keys. Consumed by all platform-*-frontend and provision-* layers."
-  value       = module.foundation_libvirt_resources.infrastructure_map
+output "foundation_topology" {
+  description = "Topology of every service segment: identity, network, service segments, and the physical realization that bridges identity and service VIPs, all keyed by the SSoT identity."
+  value = {
+    identity       = module.foundation_libvirt_resources.global_topology_identity
+    network        = module.foundation_libvirt_resources.global_topology_network
+    segments       = module.foundation_libvirt_resources.service_segments
+    infrastructure = module.foundation_libvirt_resources.infrastructure_map
+  }
 }
 
-output "service_segments" {
-  description = "Stable map of service segments, consumed by platform-cilium-frontend for network identity outputs."
-  value       = module.foundation_libvirt_resources.service_segments
+output "foundation_global" {
+  description = "Global facts shared by every consumer: network baseline, root domain suffix, and the hostname to VIP records."
+  value = {
+    network_baseline = module.foundation_libvirt_resources.global_network_baseline
+    domain_suffix    = module.foundation_libvirt_resources.global_domain_suffix
+    dns_records      = module.foundation_libvirt_resources.global_dns_records
+    dns_mapping      = module.foundation_libvirt_resources.dns_mapping
+  }
 }
 
-output "dns_mapping" {
-  description = "SSoT DNS mapping for verification of Grouping and Sorting logic."
-  value       = module.foundation_libvirt_resources.dns_mapping
+output "foundation_pki" {
+  description = "PKI facts derived from the service catalog: the global PKI identity settings, and the DNS SANs and organizational context per certificate."
+  value = {
+    config = module.foundation_libvirt_resources.global_pki_config
+    map    = module.foundation_libvirt_resources.global_pki_map
+  }
 }
 
-output "storage_infrastructure_map" {
-  description = "Physical realization of the global volume map. Ready to be plugged into KVM instances."
-  value       = module.foundation_libvirt_resources.storage_infrastructure_map
+output "foundation_storage" {
+  description = "Physical realization of the storage layout: the pools and data disks, and the calculated volume attributes."
+  value = {
+    infrastructure = module.foundation_libvirt_resources.storage_infrastructure_map
+    volume_map     = module.foundation_libvirt_resources.global_volume_map
+  }
 }
 
-output "global_topology_identity" {
-  description = "Topology identity map; consumed by platform-cilium-frontend to build segments_map."
-  value       = module.foundation_libvirt_resources.global_topology_identity
+output "foundation_vault_path" {
+  description = "Vault KV coordinates of the service catalog: the first path segment shared by every service, the credential path of each component, and the path of each generated SSH identity."
+  value = {
+    kv_namespace         = one(distinct([for s in var.service_catalog : s.project_code]))
+    credential_paths     = module.foundation_libvirt_resources.global_credential_paths
+    ssh_credential_paths = module.foundation_libvirt_resources.ssh_credential_paths
+  }
 }
 
-output "global_topology_network" {
-  description = "Topology network map; consumed by platform-cilium-frontend to build segments_map."
-  value       = module.foundation_libvirt_resources.global_topology_network
-}
-
-output "global_network_baseline" {
-  description = "Global network baseline (global_mtu, global_mss); consumed by platform-cilium-frontend for Ansible extra vars."
-  value       = module.foundation_libvirt_resources.global_network_baseline
-}
-
-output "global_domain_suffix" {
-  description = "Root domain suffix; consumed by platform-cilium-frontend for Ansible template service_domain."
-  value       = module.foundation_libvirt_resources.global_domain_suffix
-}
-
-output "global_pki_config" {
-  description = "Global PKI identity settings for downstream layers (e.g. Vault PKI)."
-  value       = module.foundation_libvirt_resources.global_pki_config
-}
-
-output "global_volume_map" {
-  description = "Pure MECE mapping of calculated storage volume attributes (Pools and physical Data Disks)."
-  value       = module.foundation_libvirt_resources.global_volume_map
-}
-
-output "global_pki_map" {
-  description = "Pure mapping of DNS SANs and organizational context for certificate generation."
-  value       = module.foundation_libvirt_resources.global_pki_map
-}
-
-output "global_dns_records" {
-  description = "SSoT mapping of all infrastructure hostnames to their respective VIPs."
-  value       = module.foundation_libvirt_resources.global_dns_records
-}
-
-output "vault_kv_namespace" {
-  description = "The project_code shared by every service in the catalog, which is the first segment of every Vault KV credential path."
-  value       = one(distinct([for s in var.service_catalog : s.project_code]))
-}
-
-output "global_credential_paths" {
-  description = "Mount-relative Vault KV paths for all service component credentials, derived from the service catalog."
-  value       = module.foundation_libvirt_resources.global_credential_paths
-}
-
-output "ssh_identity_key_paths" {
-  description = "Written private key path per cluster_name; consumed by each ha-service-kvm-general instance as its credentials_system.ssh_private_key_path."
-  value       = module.ssh_identity_bootstrap.identity_key_private_paths
-}
-
-output "ssh_public_key_paths" {
-  description = "Written public key path per cluster_name; consumed by each ha-service-kvm-general instance as its credentials_system.ssh_public_key_path, and by foundation-vault-bastion for the Vault upload."
-  value       = module.ssh_identity_bootstrap.identity_key_public_paths
-}
-
-output "ssh_config_paths" {
-  description = "Written ssh_config Host block path per cluster_name."
-  value       = module.ssh_identity_bootstrap.host_config_paths
-}
-
-output "ssh_known_hosts_paths" {
-  description = "known_hosts path this layer assumed for known_hosts_file, keyed by cluster_name. ha-service-kvm-general's own sshclient_known_host call MUST use the same cluster_name so the two layers resolve the same path."
-  value       = module.ssh_identity_bootstrap.known_hosts_paths
-}
-
-output "ssh_credential_paths" {
-  description = "Vault KV path per cluster_name for the generated SSH identity key material; consumed by foundation-vault-bastion."
-  value       = module.foundation_libvirt_resources.ssh_credential_paths
+output "foundation_ssh" {
+  description = "Local file paths of the SSH client material written by this layer, keyed by cluster_name. The known_hosts path is shared with the ha-service-kvm-general instance of the same cluster_name."
+  value = {
+    identity_key_paths = module.ssh_identity_bootstrap.identity_key_private_paths
+    public_key_paths   = module.ssh_identity_bootstrap.identity_key_public_paths
+    config_paths       = module.ssh_identity_bootstrap.host_config_paths
+    known_hosts_paths  = module.ssh_identity_bootstrap.known_hosts_paths
+  }
 }
