@@ -1,6 +1,6 @@
 # SPIRE and Vault Workload Identity Federation
 
-This specification states the coordination contract between the SPIRE trust domain rooted at `platform-spire-parent-frontend` and the Bastion Vault instance managed by `foundation-vault-bastion`. Section 1 through Section 3 state the overall Parent and Child SPIRE topology, the Bastion and Production Vault trust chain, the design rationale behind that architecture, and the tradeoffs accepted in reaching it. Section 4 through Section 9 state the implementation-level contract already realized in Terraform and Ansible. Scope covers the OIDC Discovery Provider deployment, the `vault-spiffe-workload-identity-federation` module, and the `utils_vault_agent` and `utils_spire_workload_entry` Ansible roles consumed by `platform-harbor-origin-frontend`. Service-specific identity and PKI role decisions belong to the consuming layer's own configuration, rather than to the present specification. Architectural rationale for the broader SPIFFE/SPIRE and Vault convergence resides in `planning/architecture_meta-platform.md` Section 9.
+This specification states the coordination contract between the SPIRE trust domain rooted at `platform-spire-parent` and the Bastion Vault instance managed by `foundation-vault-bastion`. Section 1 through Section 3 state the overall Parent and Child SPIRE topology, the Bastion and Downstream Vault trust chain, the design rationale behind that architecture, and the tradeoffs accepted in reaching that architecture. Section 4 through Section 10 state the implementation-level contract already realized in Terraform and Ansible. Scope covers the OIDC Discovery Provider deployment, the `vault-spiffe-workload-identity-federation` module, and the `utils_vault_agent` and `utils_spire_workload_entry` Ansible roles consumed by `platform-harbor-origin-frontend`. Service-specific identity and PKI role decisions belong to the consuming layer's own configuration, rather than to the present specification. Architectural rationale for the broader SPIFFE/SPIRE and Vault convergence resides in `planning/architecture_meta-platform.md` Section 9.
 
 ## Section 1. Overall Architecture and Trust Chain Topology
 
@@ -23,25 +23,23 @@ This specification states the coordination contract between the SPIRE trust doma
 
 ### Item C. The Four-Tier PKI Hierarchy: Root, Intermediate, Issuer, and Leaf
 
-1. Bastion Vault's `pki_root` mount holds a self-signed Root CA, Tier 1 of the hierarchy, and signs exclusively the `pki_inter` mount.
-2. Bastion Vault's `pki_inter` mount holds the Bootstrap Issuing Intermediate CA, Tier 2 of the hierarchy, signed by `pki_root`.
-3. A dedicated Issuer CA, Tier 3 of the hierarchy, signed by `pki_inter`, precedes a consumer's own leaf certificates, Tier 4, for every consumer requiring an independent signing authority.
-4. Module `vault-pki-setup`, invoked by layer `security-pki`, realizes the Tier 3 role for Production Vault as mount `pki_issuer`, producing the chain `pki_root`, `pki_inter`, `pki_issuer`, and leaf.
-5. SPIRE Parent's own Intermediate CA realizes the same Tier 3 role for the SPIFFE workload identity hierarchy, signed directly by `pki_inter` through SPIRE's built-in `upstreamauthority/vault` plugin.
-6. Production Vault's `pki_issuer` mount and SPIRE Parent's own Intermediate CA stand as sibling Tier 3 branches under the shared `pki_inter` mount since Production Vault plays no role in signing SPIRE Parent's Intermediate CA.
-7. Resource `pki_root` carries `prevent_destroy = true`, and every downstream Tier 3 and Tier 4 certificate inherits that protection through the shared `pki_inter` dependency.
+1. Bastion Vault's `pki-root` mount holds a self-signed Root CA, Tier 1 of the hierarchy, and signs exclusively the `pki-intermediate` mount.
+2. Bastion Vault's `pki-intermediate` mount holds the Bootstrap Issuing Intermediate CA, Tier 2 of the hierarchy, signed by `pki-root`.
+3. A dedicated Issuer CA, Tier 3 of the hierarchy, signed by `pki-intermediate`, precedes a consumer's own leaf certificates, Tier 4, for every consumer requiring an independent signing authority.
+4. Module `vault-pki-setup`, invoked by layer `security-vault-downstream-pki`, realizes the Tier 3 role for Downstream Vault. Downstream Vault generates the CSR and keeps the private key, Bastion Vault's `pki-intermediate` mount signs the CSR through `root/sign-intermediate`, and the signed certificate returns to Downstream Vault. The chain is `pki-root`, `pki-intermediate`, the Downstream Issuing Intermediate, and leaf.
+5. SPIRE Parent's own Intermediate CA realizes the same Tier 3 role for the SPIFFE workload identity hierarchy, signed directly by `pki-intermediate` through SPIRE's built-in `upstreamauthority/vault` plugin.
+6. Downstream Vault's Issuing Intermediate and SPIRE Parent's own Intermediate CA stand as sibling Tier 3 branches under the shared `pki-intermediate` mount since Downstream Vault plays no role in signing SPIRE Parent's Intermediate CA.
+7. Resource `pki_root` carries `prevent_destroy = true`, and every downstream Tier 3 and Tier 4 certificate inherits that protection through the shared `pki-intermediate` dependency.
 8. SPIRE Parent's own Intermediate CA additionally signs SPIRE Child's Intermediate CA on the SPIRE branch, and SPIRE Child signs a workload's leaf SVID, extending that branch to five tiers for a Child-attested workload.
 
 ### Item D. Bootstrap Leaf Issuance Bypasses the Issuer Tier
 
-1. Layer `security-pki` requires an authenticated connection to Production Vault, and Production Vault becomes reachable only after the Harbor bootstrapper and Cilium complete in the platform deployment order.
-2. Layer `security-pki` remains unapplied while Production Vault remains unprovisioned, and the Tier 3 `pki_issuer` mount carries no issued certificate until that layer applies.
-3. Every currently applied leaf certificate across the platform bypasses the Tier 3 Issuer and issues directly from Bastion Vault's Tier 2 `pki_inter` mount, matching the bootstrap exception that `pki_inter`'s own mount description declares.
-4. Resource `vault_pki_secret_backend_cert.listener` in layer `platform-vault-frontend` issues Production Vault's own bootstrap HTTPS listener certificate directly from `pki_inter`.
-5. Resource `vault_pki_secret_backend_cert.oidc_discovery` in layer `platform-spire-parent-frontend` issues the OIDC Discovery Provider's listener certificate directly from `pki_inter`.
-6. Resource `vault_pki_secret_backend_cert.listener` in layer `platform-harbor-origin-frontend` issues Harbor's bootstrap HTTPS listener certificate directly from `pki_inter`.
-7. Module `vault-spiffe-workload-identity-federation`, invoked by layer `platform-harbor-origin-frontend` for the SPIFFE-authenticated workload certificate, receives argument `pki_mount_path` set to `pki_inter` rather than to `pki_issuer`.
-8. Each bypass in Item D.4 through Item D.7 is expected to migrate argument `pki_mount_path` from `pki_inter` to `pki_issuer` once layer `security-pki` applies since the Tier 3 Issuer becomes the standard target for a leaf certificate at that point.
+1. Layer `security-vault-downstream-pki` requires an authenticated connection to Downstream Vault, and Downstream Vault becomes reachable only after Cilium, HAProxy, and SPIRE Child complete in the platform deployment order.
+2. The Tier 3 Issuing Intermediate carries no issued certificate until that layer applies.
+3. The listener certificates of Downstream Vault, SPIRE Parent, Harbor Origin, and HAProxy issue directly from Bastion Vault's Tier 2 `pki-intermediate` mount. The arrangement is permanent since these services do not follow the rebuild lifecycle of Downstream Vault.
+4. Each platform layer creates the Bastion PKI role of its own service, named after the `cluster_name`, and issues the bootstrap listener certificate through that role: `vault_pki_secret_backend_role.vault_listener` in `platform-vault-downstream-frontend`, `vault_pki_secret_backend_role.leaf` in `platform-spire-parent`, `vault_pki_secret_backend_role.listener` in `platform-harbor-origin-frontend`, and `vault_pki_secret_backend_role.stats` in `platform-haproxy-frontend`.
+5. Module `vault-spiffe-workload-identity-federation`, invoked by layer `platform-harbor-origin-frontend` for the SPIFFE-authenticated workload certificate, receives argument `pki_mount_path` set to the `pki-intermediate` mount.
+6. Keycloak and Cilium start after Downstream Vault and take their listener certificates from the Downstream Issuing Intermediate.
 
 ### Item E. Per-Issuer JWT Federation Boundary
 
@@ -56,8 +54,8 @@ This specification states the coordination contract between the SPIRE trust doma
 ```mermaid
 flowchart TD
     subgraph BASTION ["Bastion Vault: Tier 1 Root, Tier 2 Intermediate"]
-        ROOT["pki_root: Root CA\n(prevent_destroy)"]
-        INTER["pki_inter: Bootstrap Issuing Intermediate"]
+        ROOT["pki-root: Root CA\n(prevent_destroy)"]
+        INTER["pki-intermediate: Bootstrap Issuing Intermediate"]
     end
 
     subgraph PARENT ["SPIRE Parent: Tier 3 Issuer, Bare Metal"]
@@ -72,9 +70,9 @@ flowchart TD
         CHILD_SVID["Cluster Workload Leaf SVID: Tier 5"]
     end
 
-    subgraph PRODVAULT ["Production Vault: Tier 3 Issuer, security-pki Layer, Pending Apply"]
-        PROD_ISSUER["pki_issuer"]
-        PROD_LEAF["Production Vault Leaf: Tier 4"]
+    subgraph PRODVAULT ["Downstream Vault: Tier 3 Issuer, security-vault-downstream-pki Layer, Pending Apply"]
+        PROD_ISSUER["Downstream Issuing Intermediate"]
+        PROD_LEAF["Keycloak and Cilium Leaf: Tier 4"]
     end
 
     ROOT --> INTER
@@ -88,16 +86,16 @@ flowchart TD
     CHILD_CA --> CHILD_OIDC
     PARENT_OIDC -.->|JWT-SVID| BASTION_JWT["Bastion Vault: auth/jwt, meta-platform-spire-parent-jwt-svid-provider"]
     CHILD_OIDC -.->|JWT-SVID, Pending Deployment| CHILD_JWT["Independent auth/jwt Mount"]
-    INTER -.->|Bootstrap Direct Leaf, Item D| BOOTSTRAP_LEAF["Vault Frontend, SPIRE OIDC, and Harbor Listener Certs"]
+    INTER -.->|Bootstrap Direct Leaf, Item D| BOOTSTRAP_LEAF["Downstream Vault, SPIRE OIDC, HAProxy, and Harbor Listener Certs"]
 ```
 
 ## Section 2. Design Rationale
 
-### Item A. Bastion `pki_inter` Precedes Production Vault in Sequencing
+### Item A. Bastion `pki-intermediate` Precedes Downstream Vault in Sequencing
 
-1. SPIFFE/SPIRE deployment is prioritized ahead of the Production Vault provisioning chain.
-2. Signing SPIRE Parent's Intermediate CA against Production Vault would require Production Vault's own PKI to already be available, and Production Vault's availability depends on the Harbor bootstrapper and Cilium completing first in the platform deployment order.
-3. Signing against Bastion Vault's `pki_inter` mount removes that ordering dependency since Bastion Vault MUST already be available before any Terraform apply operation across the repository.
+1. SPIFFE/SPIRE deployment is prioritized ahead of the Downstream Vault provisioning chain.
+2. Signing SPIRE Parent's Intermediate CA against Downstream Vault would require Downstream Vault's own PKI to already be available, and Downstream Vault's availability depends on the Harbor bootstrapper and Cilium completing first in the platform deployment order.
+3. Signing against Bastion Vault's `pki-intermediate` mount removes that ordering dependency since Bastion Vault MUST already be available before any Terraform apply operation across the repository.
 
 ### Item B. `join_token` Node Attestor Selection
 
@@ -109,9 +107,9 @@ flowchart TD
 
 1. SPIRE Server holds no SVID during a first Intermediate CA signing request, excluding SVID-based authentication for that request.
 2. The `upstreamauthority/vault` plugin supports AppRole, Token, and TLS client certificate authentication for that bootstrap request.
-3. TLS client certificate authentication is excluded since issuance of that certificate would itself require prior authentication against `pki_inter`, the mount SPIRE seeks to reach through the bootstrap request under evaluation.
+3. TLS client certificate authentication is excluded since issuance of that certificate would itself require prior authentication against `pki-intermediate`, the mount SPIRE seeks to reach through the bootstrap request under evaluation.
 4. Token authentication carries a coarser permission scope than AppRole.
-5. AppRole authentication is selected, reusing the existing `security-vault-approle` layer and AppRole module without introducing a new credential type.
+5. AppRole authentication is selected, and layer `platform-spire-parent` creates the AppRole and its policy under the name `<cluster_name>-upstream-authority` without introducing a new credential type.
 
 ### Item D. `docker` Workload Attestor and Rootless Podman Alignment
 
@@ -141,9 +139,9 @@ flowchart TD
 
 ### Item D. Single Bastion Root Creates a Shared Failure Domain
 
-1. A full rebuild of Bastion Vault that discards Raft storage forces re-signing of SPIRE's Intermediate CA since the shared `pki_root` trust anchor would no longer exist.
-2. That failure mode already exists in the pre-SPIRE PKI design, affecting Production Vault's own intermediate certificate under the same condition.
-3. SPIRE's adoption of `pki_inter` introduces no new instance of that risk.
+1. A full rebuild of Bastion Vault that discards Raft storage forces re-signing of SPIRE's Intermediate CA since the shared `pki-root` trust anchor would no longer exist.
+2. That failure mode already exists in the pre-SPIRE PKI design, affecting Downstream Vault's own intermediate certificate under the same condition.
+3. SPIRE's adoption of `pki-intermediate` introduces no new instance of that risk.
 
 ## Section 4. Trust Chain Establishment at the Bastion Vault Boundary
 
@@ -166,30 +164,23 @@ flowchart TD
 4. An explicit `depends_on = [module.platform_spire_parent]` argument enforces execution after module `platform_spire_parent` completion since the discovery fetch in Item C.2 requires an already-running OIDC Discovery Provider listener.
 5. Argument `oidc_discovery_ca_pem` requires exactly one PEM string since the underlying provider schema declares a scalar `string` type rather than a list type.
 
-### Item D. Vault ACL Scope for the JWT Mount
+### Item D. Tenant ACL Scope
 
-1. Local `jwt_auth_backend_policy` generates an identical five-grant ACL template for every entry in local `jwt_auth_backends` since `gitlab-saas-ci-job-jwt-provider` and `meta-platform-spire-parent-jwt-svid-provider` require the same backend management, mount configuration, mount tuning, OIDC configuration, and role provisioning capabilities.
-2. The generated backend management grant scopes `sudo` and lifecycle capabilities to the exact path `sys/auth/meta-platform-spire-parent-jwt-svid-provider`, excluding any mount whose path merely shares the `meta-platform-spire-parent-jwt-svid-provider` prefix.
-3. The generated mount configuration grant scopes read, create, and update capabilities to the trailing-glob path `sys/mounts/auth/meta-platform-spire-parent-jwt-svid-provider*`, covering configuration operations nested under the mount path.
-4. The generated mount tuning grant scopes create, read, and update capabilities to the exact path `sys/auth/meta-platform-spire-parent-jwt-svid-provider/tune` since Vault separates auth-method tuning under `sys/auth/` from the mount configuration paths under `sys/mounts/`.
+1. Bastion Vault grants tenant `meta-platform` one ACL policy, `meta-platform-terraform-operator`, which the tenant registry of `parent-group-governance` generates. The rules fall into the categories KV, auth mount, auth role, policy, PKI, and cross-tenant grants.
+2. The KV category scopes secret data, metadata, delete, and destroy paths to the `meta-platform` namespace of the `secret` mount.
+3. The auth mount category scopes mount management to `sys/auth/meta-platform-*`, `sys/mounts/auth/meta-platform-*`, and `auth/meta-platform-*`, so mount `meta-platform-spire-parent-jwt-svid-provider` and its roles fall within the scope.
+4. The auth role category scopes AppRole and JWT role management to the `meta-platform-` prefix.
+5. The policy category scopes ACL policy management to `sys/policies/acl/meta-platform-*`.
+6. The PKI category grants read on the `pki-intermediate` mount, role management under `roles/meta-platform-*`, and issuance under `issue/meta-platform-*`.
+7. A new mount, role, or policy that carries the `meta-platform-` prefix requires no ACL change.
 
-### Item E. Bastion Vault `terraform-admin` Policy Grant Reference
+### Item E. Cross-Tenant Grants
 
-1. Grant `[1]` authorizes read, create, update, and soft-delete capabilities for secret payloads under `secret/data/meta-platform/*`.
-2. Grant `[2]` authorizes read, list, and delete capabilities for secret metadata under `secret/metadata/meta-platform/*`, required during plan execution and resource destruction.
-3. Grant `[3]` authorizes update capabilities on secret version deletion endpoints under `secret/delete/meta-platform/*`.
-4. Grant `[4]` authorizes update capabilities on permanent secret destruction endpoints under `secret/destroy/meta-platform/*`.
-5. Grant `[4a]` authorizes the Vault CLI's KV v1 and v2 mount-type detection request under `sys/internal/ui/mounts/secret/*`, issued before every KV read or write against the `secret/` mount.
-6. Grant `[4b]` authorizes read, create, update, and soft-delete capabilities for bootstrap credential payloads under `secret/data/parent-group-governance/*`.
-7. Grant `[4c]` authorizes read, list, and delete capabilities for bootstrap credential metadata under `secret/metadata/parent-group-governance/*`.
-8. Grant `[4d]` authorizes update capabilities on bootstrap credential version deletion endpoints under `secret/delete/parent-group-governance/*`.
-9. Grant `[4e]` authorizes update capabilities on permanent bootstrap credential destruction endpoints under `secret/destroy/parent-group-governance/*`.
-10. Grant `[5]` authorizes leaf certificate issuance under `${bastion_pki_inter_mount_path}/issue/*`, against the bootstrap issuing intermediate authority prior to Production Vault availability.
-11. Grant `[6]` authorizes read access to intermediate PKI mount configurations under `sys/mounts/${bastion_pki_inter_mount_path}`, required for provider state refresh.
-12. Grant `[7]` authorizes intermediate certificate signing requests under `${bastion_pki_inter_mount_path}/root/sign-intermediate`, submitted to the bootstrap issuing intermediate.
-13. Grant `[8]` authorizes read-only access to `sys/auth`, required for auth backend path resolution.
-14. The generated JWT auth backend grants stated in Item D repeat once for every entry in local `jwt_auth_backends`.
-15. Grant `[9]` authorizes ACL policy CRUD operations under `sys/policies/acl/jwt-policy-*`, scoped to the `jwt-policy-*` naming convention.
+1. The tenant policy grants read on `secret/data/parent-group-governance/terraform/state-backend`, which holds the credential of the Terraform state backend.
+2. The tenant policy grants read on `secret/data/parent-group-governance/github/publication`, which the project governance layer requires.
+3. The tenant policy grants create and update on `pki-intermediate/root/sign-intermediate`, which Downstream Vault needs to have its Issuing Intermediate signed.
+4. The SPIRE upstream authority AppRole holds a separate policy which grants create and update on that same signing path only.
+5. The registry of `parent-group-governance` records each cross-tenant grant together with its reason.
 
 ## Section 5. Per-Consumer Role Provisioning
 
@@ -199,10 +190,11 @@ flowchart TD
 2. Argument `bound_audiences` is a required argument for `role_type = "jwt"` and defaults to `["vault"]`, matching the `jwt_audience` value that `spiffe-helper` requests from the SPIRE Workload API.
 3. Argument `user_claim = "sub"` directs Vault to read the authenticating identity from the JWT-SVID subject claim, the field carrying the SPIFFE ID string.
 
-### Item B. Policy Naming Constraint
+### Item B. Policy Naming
 
-1. Resource `vault_policy.this` MUST generate a policy name matching the `jwt-policy-*` prefix since `terraform-admin-policy` restricts `sys/policies/acl/*` management to that glob for JWT-backed policies.
-2. A policy name outside the `jwt-policy-*` glob causes Vault to reject the policy write with an HTTP 403 response under the calling module's own AppRole credentials.
+1. Resource `vault_policy.this` names the policy after the role, so the policy name equals the identity string of the workload.
+2. The tenant ACL allows policy management only under `sys/policies/acl/meta-platform-*`, and a policy name outside that prefix causes Vault to reject the write with an HTTP 403 response.
+3. The former `jwt-policy-` prefix is retired.
 
 ## Section 6. Workload Attestation and Containerization Constraint
 
@@ -228,7 +220,7 @@ flowchart TD
 
 1. The certificate template deployed to `utils_vault_agent_cert_files` appends the intermediate CA decoded from `vault_intermediate_ca_b64`.
 2. Vault Agent's own HTTPS listener certificate MUST source a trusted CA from `utils_vault_agent_vault_listener_ca_cert_b64`, a variable distinct from `vault_intermediate_ca_b64`.
-3. The issuing CA record for the `pki_int` chain remains self-signed pending a rotation fix, and reusing the `pki_int` issuing CA record as the listener CA would couple an unrelated rotation state to Vault Agent's own connectivity.
+3. The issuing CA record for the `pki-intermediate` chain remains self-signed pending a rotation fix, and reusing the `pki-intermediate` issuing CA record as the listener CA would couple an unrelated rotation state to Vault Agent's own connectivity.
 
 ### Item C. Script-Based Certificate Deployment
 
@@ -254,3 +246,19 @@ flowchart TD
 
 1. Role 83 (`utils_spire_agent`) and Role 84 (`utils_spire_workload_entry`) execute before Role 82 (`utils_vault_agent`) since certificate issuance in Role 82 depends on an SPIFFE ID already registered as a SPIRE workload entry.
 2. Role 82 executes only when `spire_oidc_auth_path` and `spire_workload_vault_role_name` are defined. `platform-harbor-origin-frontend` requires `provision-cilium-frontend` to be applied first via a hard `postcondition` on `data.terraform_remote_state.cilium_provision`; no runtime stage variable exists.
+
+## Section 10. Local Terraform Operator Identity
+
+### Item A. Derived Names
+
+1. Layer `provision-spire-parent` derives the operator identity string `<owner>-terraform-operator-<service>-<component>` for each consumer service, and that string names the JWT role and its policy.
+2. The SPIFFE ID path of the operator is `/<owner>/terraform-operator/<service>/<component>`.
+3. The workload of the consumer uses a role and policy named after its `cluster_name`, and the SPIFFE ID path `/<project_code>/<service>/<component>`.
+4. The layer exports the derived role name and wrapper name through output `terraform_operator`, which layers `provision-cilium-frontend`, `platform-harbor-origin-frontend`, and `platform-haproxy-frontend` read.
+
+### Item B. Host Provisioning and Verification
+
+1. Playbook `playbook_host_terraform_operator.yaml` provisions the SPIRE Agent of the operator host, the service user and JWT-SVID fetch wrapper of each identity, and then verifies each identity.
+2. The verification play logs in to Bastion Vault as the operator user without privilege escalation, and asserts that each login grants the policy named after its identity.
+3. The operator supplies the sudo password through environment variable `ANSIBLE_BECOME_PASS`, which the playbook and the Terraform action, a child process, both inherit.
+4. Role `utils_spire_agent` removes stale agent identity data when the agent fails its health check, and the caller supplies the Bastion Vault CA file through `bastion_vault_ca_cert_path`.

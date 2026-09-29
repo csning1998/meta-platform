@@ -15,7 +15,7 @@ data "terraform_remote_state" "keycloak" {
 }
 
 ephemeral "vault_kv_secret_v2" "keycloak_admin" {
-  provider = vault.production
+  provider = vault.downstream
   mount    = "secret"
   name     = local.credential_paths["keycloak"]["frontend"]
 }

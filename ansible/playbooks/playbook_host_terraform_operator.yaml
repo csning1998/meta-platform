@@ -1,6 +1,5 @@
 ---
-# Triggered by provision-spire-parent-frontend via ansible-runner with tags spire_agent and
-# terraform_operator_identity. May also be run manually against a specific tag.
+# Executed via ansible-runner or manual tag selection, using ANSIBLE_BECOME_PASS for privilege escalation.
 - name: "Play [Setup]: Dynamic Grouping based on node_role"
   hosts: all
   gather_facts: false
@@ -11,7 +10,7 @@
       tags:
         - always
 
-# Phase 2: This host's own SPIRE Agent. Native systemd binary, per utils_spire_agent, not a container.
+# Phase 2: The SPIRE Agent of this host, a native systemd binary per utils_spire_agent.
 - name: "Play [SPIRE Agent]: Provision this host's own SPIRE Agent"
   hosts: "{{ 'host_terraform_operator' if 'host_terraform_operator' in groups else [] }}"
   become: true
@@ -50,3 +49,61 @@
         utils_terraform_operator_identity_name: "{{ item }}"
         utils_terraform_operator_identity_spiffe_path: "{{ _utils_terraform_operator_identity_spiffe_paths[item] }}"
       loop: "{{ _utils_terraform_operator_identity_names }}"
+
+# Phase 4: Proves each operator identity end to end, as the operator user without privilege escalation,
+# because the sudoers drop-in of the identity is part of the path under test.
+- name: "Play [Terraform Operator Verify]: Log in to the Bastion Vault as each operator identity"
+  hosts: "{{ 'host_terraform_operator' if 'host_terraform_operator' in groups else [] }}"
+  become: false
+  gather_facts: false
+  tags:
+    - terraform_operator_verify
+  vars:
+    _terraform_operator_verify_names_raw: "{{ utils_terraform_operator_identity_names | default([]) }}"
+    _terraform_operator_verify_names: >-
+      {{ (_terraform_operator_verify_names_raw is string)
+        | ternary(_terraform_operator_verify_names_raw | from_json, _terraform_operator_verify_names_raw) }}
+  tasks:
+    # A new registration entry reaches the agent on its next sync, and a fetch right after the creation may fail.
+    - name: "Step V1. Fetch a JWT-SVID through the wrapper of each identity"
+      ansible.builtin.command:
+        cmd: "/usr/local/bin/spire-fetch-{{ item }}"
+      register: _terraform_operator_verify_jwt
+      changed_when: false
+      until: _terraform_operator_verify_jwt.rc == 0
+      retries: 12
+      delay: 5
+      no_log: true
+      loop: "{{ _terraform_operator_verify_names }}"
+
+    - name: "Step V2. Log in to the Bastion Vault with each JWT-SVID"
+      ansible.builtin.uri:
+        url: "{{ bastion_vault_endpoint }}/v1/auth/{{ spire_oidc_auth_path }}/login"
+        method: POST
+        body_format: json
+        body:
+          role: "{{ item.item }}"
+          jwt: "{{ (item.stdout | from_json).jwt }}"
+        ca_path: "{{ bastion_vault_ca_cert_path }}"
+        validate_certs: true
+        return_content: true
+      register: _terraform_operator_verify_login
+      changed_when: false
+      no_log: true
+      loop: "{{ _terraform_operator_verify_jwt.results }}"
+
+    - name: "Step V3. Reduce the logins to the policies which they granted"
+      ansible.builtin.set_fact:
+        _terraform_operator_verify_policies: >-
+          {{ _terraform_operator_verify_policies | default({})
+            | combine({item.item.item: item.json.auth.policies}) }}
+      no_log: true
+      loop: "{{ _terraform_operator_verify_login.results }}"
+
+    - name: "Step V4. Assert that each login granted the policy named after its identity"
+      ansible.builtin.assert:
+        that:
+          - item in _terraform_operator_verify_policies[item]
+        success_msg: "{{ item }} logged in and holds its own policy"
+        fail_msg: "{{ item }} did not receive the policy of the same name"
+      loop: "{{ _terraform_operator_verify_names }}"

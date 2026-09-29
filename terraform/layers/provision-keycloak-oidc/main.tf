@@ -34,7 +34,7 @@ module "oidc_clients" {
   source = "../../modules/identity-provisioning/keycloak-oidc-client"
   providers = {
     keycloak = keycloak
-    vault    = vault.production
+    vault    = vault.downstream
   }
 
   realm_id           = keycloak_realm.infra_realm.id

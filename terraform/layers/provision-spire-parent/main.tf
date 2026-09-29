@@ -57,7 +57,7 @@ module "ansible_operator_identity" {
   ansible_config = local.ansible_config
   inventory_data = local.inventory_data
   extra_vars     = local.ansible_extra_vars
-  ansible_tags   = ["spire_agent", "terraform_operator_identity"]
+  ansible_tags   = ["spire_agent", "terraform_operator_identity", "terraform_operator_verify"]
   playbook_paths = [
     "${local.ansible_config.root_path}/playbooks/playbook_host_terraform_operator.yaml"
   ]
