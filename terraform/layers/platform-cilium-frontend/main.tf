@@ -23,6 +23,7 @@ module "platform_cilium_frontend" {
     (local.svc_cluster_name) = local.net_lb_config
   }
   network_service_segments = local.net_service_segments
+  interface_mtu            = local.net_mtu
 
   talos_iso_path           = local.talos_iso_path
   talos_version            = var.talos_version

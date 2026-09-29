@@ -47,6 +47,7 @@ locals {
 
   # Cluster-wide network configuration
   net_lb_config = local.state.network.foundation_topology.infrastructure[local.svc_cluster_name].network
+  net_mtu       = local.state.network.foundation_global.network_baseline.global_mtu
 
   # net_service_segments excludes the CLB cluster, which has no SSoT reservation.
   # The same defect exists on platform-haproxy-frontend and remains open.

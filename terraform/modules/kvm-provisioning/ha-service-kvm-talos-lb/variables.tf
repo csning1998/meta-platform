@@ -127,6 +127,16 @@ variable "os_disk_format" {
   }
 }
 
+variable "interface_mtu" {
+  description = "MTU applied to every static Talos interface. MUST equal the MTU of the libvirt bridges the interfaces attach to."
+  type        = number
+
+  validation {
+    condition     = var.interface_mtu >= 1280 && var.interface_mtu <= 9000
+    error_message = "interface_mtu must be between 1280 and 9000."
+  }
+}
+
 variable "talos_kubernetes_version" {
   description = "Kubernetes version deployed by this Talos cluster, e.g. v1.32.0."
   type        = string

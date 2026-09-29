@@ -49,6 +49,14 @@ The disk format decision recorded in commit `591b1ae` propagates into scheduling
 4. Etcd Timeout Widening. The `cluster.etcd.extraArgs` block MUST raise `election-timeout` to 2500 milliseconds and `heartbeat-interval` to 250 milliseconds above the Talos baseline. Pinning reduces the jitter source, and the widened timeouts raise tolerance for the residual jitter that a shared hypervisor cannot eliminate.
 5. Reboot Apply Mode. Resource `talos_machine_configuration_apply` MUST declare `apply_mode = "reboot"`. An in-place reconfiguration cannot reconcile an etcd learner that already holds inconsistent in-memory state, and a full node restart discards that state.
 
+### Item E. Interface MTU
+
+The platform MTU ceiling is `network_baseline.global_mtu` (1450), which `foundation-libvirt-resources` declares for every libvirt bridge.
+
+1. Static Interface MTU. Every static Talos interface MUST declare `mtu` through module variable `interface_mtu`, which resolves to `global_mtu`. The index 0 NAT interface receives the bridge MTU through DHCP. A static interface without an `mtu` attribute falls back to the Talos default of 1500. The libvirt bridge drops frames above the bridge MTU without an ICMP Fragmentation Needed reply. The absence of the ICMP reply disables Path MTU Discovery for etcd peer traffic and API server traffic.
+2. Cilium Device MTU. Helm value `MTU` MUST resolve to `global_mtu`. Cilium subtracts a VXLAN tunnel overhead of 50 bytes (`TunnelOverhead` in `pkg/mtu/mtu.go`) from the device MTU. The resulting pod route MTU is 1400. The pod TCP MSS is 1360, which equals the pod route MTU minus 40 bytes of IPv4 and TCP headers. The pod TCP MSS matches `global_mss` and the MSS clamp of role `hypervisor_baseline`.
+3. Cost. Pod traffic between nodes carries 50 fewer payload bytes per frame than host traffic. A change to the platform MTU MUST update `global_mtu` and `global_mss` together. The resulting machine configuration change reboots every node under Item D.5.
+
 ## Section 2. Provision Cilium Layer
 
 ### Item A. Control Plane Access
@@ -83,7 +91,41 @@ Local `fronted_segments` maps `infrastructure_map` entries to selector-less `Loa
 2. Selector-less Service Pair: `kubernetes_service_v1.catalog` sets `type = LoadBalancer` without pod selectors, linking to a matching `kubernetes_endpoints_v1.catalog` object. Endpoint target addresses iterate over `backend_servers`; Service ports bind `frontend_port` and forward to `backend_port`.
 3. VIP Allocation: Annotation `io.cilium/lb-ipam-ips` requests `lb_config.vip` per Service, with pool `spec.blocks` assigning corresponding `/32` CIDR prefixes. Field `spec.loadBalancerIP` remains unset per Kubernetes v1.24 deprecation. `CiliumL2AnnouncementPolicy` sets `loadBalancerIPs = true` to enable Layer 2 VIP advertisement.
 
-## Section 3. References
+## Section 3. Health Gate Diagnosis
+
+A timeout of `data.talos_cluster_health.this` does not identify a root cause. The diagnosis procedure isolates the fault by elimination across the hypervisor layer, the guest layer, and the network layer. Each step MUST pair a hypothesis with a metric which can falsify the hypothesis. Every command in this section MUST remain read only.
+
+### Item A. Hypervisor Layer
+
+1. Disk Throughput. The delta of `/proc/diskstats` over a fixed interval measures NVMe write volume and utilization. A utilization near zero falsifies disk saturation as the cause of etcd latency.
+2. Pressure Attribution. The global value of `/proc/pressure/io` MUST NOT serve as sole evidence. The `io.pressure` file of each `machine.slice` scope attributes stall time to one guest domain. Stall time confined to `user.slice` is unrelated to the cluster.
+3. CPU Contention. The `vcpupin` elements of `virsh dumpxml` expose the physical core range of each node. Deltas of `/proc/stat` on the pinned cores measure host CPU contention.
+
+### Item B. Guest Observation Without Credentials
+
+The steps in Item B require neither a Talos client credential nor a kubeconfig.
+
+1. Console Capture. Command `virsh screenshot` captures the Talos dashboard of each node. The dashboard log exposes etcd health check results, controller errors, and VIP reachability.
+2. Port Probes. TCP probes against ports 50000, 6443, and 2379 on each HostOnly address and on the VIP locate the stalled bootstrap stage. An anonymous API server request returns HTTP 401 under Talos defaults. The HTTP 401 response does not carry health information.
+
+### Item C. Credential Recovery
+
+1. Vault Path Absence. The Vault KV path `cilium/frontend` remains empty during a health gate failure. Module `credentials_cilium_frontend` depends on `kubeconfig_raw`, which depends on `data.talos_cluster_health.this`.
+2. State Extraction. Command `terraform state pull` reads `talos_machine_secrets.client_configuration` from the GitLab HTTP backend. Variables `TF_HTTP_USERNAME` and `TF_HTTP_PASSWORD` MUST come from the Vault KV path `secret/parent-group-governance/terraform/state-backend`. The derived talosconfig and the state copy MUST reside outside the repository working tree. The derived talosconfig and the state copy MUST be deleted after the diagnosis.
+
+### Item D. Guest Layer
+
+1. Etcd Latency Signature. The count of `apply request took too long` in `talosctl logs etcd` measures etcd request latency. The count of `slow fdatasync` in the same log measures storage latency. A high count of slow requests together with a zero count of `slow fdatasync` falsifies the storage hypothesis.
+2. Guest Pressure. Command `talosctl read` against `/proc/pressure/cpu`, `/proc/pressure/memory`, and `/proc/pressure/io` measures resource stall inside the guest. Values near zero falsify resource starvation as the cause of etcd latency.
+3. Request Profile. Slow requests concentrated on large range responses (e.g., CRD listings) indicate a frame size defect when small requests succeed. The error `connection reset by peer` on apid proxy traffic between nodes corroborates a transport defect.
+
+### Item E. MTU Verification
+
+1. Guest Link MTU. Command `talosctl get links` reports the MTU of each guest interface.
+2. Host Bridge MTU. The file `/sys/class/net/<tap>/mtu` reports the MTU of each tap device. The `mtu` element of `virsh net-dumpxml` reports the MTU of each libvirt bridge.
+3. Acceptance Criteria. Every guest interface MUST report the bridge MTU. The count of `apply request took too long` MUST remain at zero after bootstrap completes. The Cilium agent route table MUST report `mtu 1400` for pod CIDR routes. Command `talosctl health` MUST pass every check.
+
+## Section 4. References
 
 1. Architecture decision record for this migration, stored at `documentation/architecture-decision-record/20260813_1630-clb-migration-to-talos-cilium.md`.
 2. Sidero Labs. (2026). _Deploy Cilium CNI_. Retrieved from [https://docs.siderolabs.com/kubernetes-guides/cni/deploying-cilium](https://docs.siderolabs.com/kubernetes-guides/cni/deploying-cilium)

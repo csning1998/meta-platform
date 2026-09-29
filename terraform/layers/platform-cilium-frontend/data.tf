@@ -34,9 +34,10 @@ data "helm_template" "cilium" {
     ipam                 = { mode = "kubernetes" }
     kubeProxyReplacement = true
     l2announcements      = { enabled = true }
-    hubble               = { enabled = false } # Disable Hubble to prevent persistent state drift.
+    # The VXLAN overhead of 50 bytes yields a pod route MTU of global_mtu - 50, which matches the platform global_mss plus 40.
+    MTU = local.net_mtu
 
-    # eBPF masquerade MUST be enabled because IPTables masquerade selects an invalid source device for baremetal backend routing.
+    # Retained as the configuration validated for in-cluster traffic. The setting does not resolve SNAT toward external backends, which HAProxy serves instead.
     bpf = { masquerade = true }
 
     # Route API server connections to node-local KubePrism endpoints. Disabling kube-proxy

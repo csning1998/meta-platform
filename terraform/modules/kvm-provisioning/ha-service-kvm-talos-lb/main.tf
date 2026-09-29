@@ -54,6 +54,8 @@ data "talos_machine_configuration" "this" {
                 deviceSelector = { hardwareAddr = iface.mac }
                 dhcp           = false
                 addresses      = iface.addresses
+                # The libvirt bridge drops frames above the bridge MTU without an ICMP fragmentation-needed reply.
+                mtu = var.interface_mtu
               },
               idx == 0 ? { vip = { ip = local.svc_net.vip } } : {}
             )
