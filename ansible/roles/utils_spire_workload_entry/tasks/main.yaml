@@ -2,6 +2,15 @@
 - name: "Block A: Resolve inventory_hostname's Current Agent SPIFFE ID"
   become: false
   block:
+    - name: "Step A0. Assert that the caller supplies the Bastion Vault CA path"
+      ansible.builtin.assert:
+        that:
+          - bastion_vault_ca_cert_path is defined
+          - bastion_vault_ca_cert_path | length > 0
+        fail_msg: >-
+          bastion_vault_ca_cert_path MUST name the CA file which verifies the Bastion Vault listener.
+          Terraform supplies it from the foundation-vault-bastion state, and a manual run passes it with -e.
+
     # Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 8 Item A.
     - name: "Step A1. Read inventory_hostname's join_token from Bastion Vault"
       community.hashi_vault.vault_kv2_get:
@@ -9,7 +18,7 @@
         engine_mount_point: "secret"
         path: "{{ utils_spire_workload_entry_join_token_vault_path }}"
         validate_certs: true
-        ca_cert: "{{ playbook_dir }}/../../vault/tls/ca.pem"
+        ca_cert: "{{ bastion_vault_ca_cert_path }}"
       register: _utils_spire_workload_entry_join_token_secret
       delegate_to: localhost
       no_log: true

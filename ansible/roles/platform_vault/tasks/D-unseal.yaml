@@ -18,7 +18,7 @@
         engine_mount_point: "secret"
         path: "{{ dev_vault_api_path }}"
         validate_certs: true
-        ca_cert: "{{ playbook_dir }}/../../vault/tls/ca.pem"
+        ca_cert: "{{ bastion_vault_ca_cert_path }}"
       register: platform_vault_bootstrapper_credentials
       delegate_to: localhost
       become: false
@@ -44,7 +44,7 @@
         role_id: "{{ platform_vault_vault_approle_role_id }}"
         secret_id: "{{ platform_vault_vault_approle_secret_id }}"
         validate_certs: true
-        ca_cert: "{{ playbook_dir }}/../../vault/tls/ca.pem"
+        ca_cert: "{{ bastion_vault_ca_cert_path }}"
       register: platform_vault_unseal_secrets
       delegate_to: localhost
       become: false
@@ -101,7 +101,7 @@
         engine_mount_point: "secret"
         path: "{{ dev_vault_api_path }}"
         validate_certs: true
-        ca_cert: "{{ playbook_dir }}/../../vault/tls/ca.pem"
+        ca_cert: "{{ bastion_vault_ca_cert_path }}"
       register: platform_vault_bootstrapper_credentials
       delegate_to: localhost
       become: false
@@ -127,7 +127,7 @@
         role_id: "{{ platform_vault_vault_approle_role_id }}"
         secret_id: "{{ platform_vault_vault_approle_secret_id }}"
         validate_certs: true
-        ca_cert: "{{ playbook_dir }}/../../vault/tls/ca.pem"
+        ca_cert: "{{ bastion_vault_ca_cert_path }}"
       register: platform_vault_unseal_secrets
       delegate_to: localhost
       become: false

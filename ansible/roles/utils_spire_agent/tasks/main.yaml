@@ -129,7 +129,7 @@
         path: /sys/fs/selinux
       register: utils_spire_agent_selinux_fs
 
-    # No restorecon step: systemd's RuntimeDirectory= (Block G) recreates this tmpfs
+    # No restorecon step: the RuntimeDirectory= setting in Block G recreates this tmpfs
     # directory fresh on every start, leaving no pre-existing mislabeled file to fix.
     - name: "Step C1. Register persistent fcontext rule for the Workload API socket directory"
       community.general.sefcontext:
@@ -201,6 +201,13 @@
           ansible.builtin.set_fact:
             utils_spire_agent_already_attested: false
 
+    # Clearing stale identity data prevents node attestation failure during join-token re-bootstrap.
+    - name: "Step D3. Remove stale agent identity data when no attested agent runs"
+      ansible.builtin.file:
+        path: "{{ spire_agent_dir_data }}/agent-data.json"
+        state: absent
+      when: not utils_spire_agent_already_attested
+
   rescue:
     - name: "Block D: Determine Bootstrap State failed"
       ansible.builtin.fail:
@@ -209,6 +216,15 @@
 - name: "Block E: Provision join_token"
   when: not utils_spire_agent_already_attested
   block:
+    - name: "Step E0. Assert that the caller supplies the Bastion Vault CA path"
+      ansible.builtin.assert:
+        that:
+          - bastion_vault_ca_cert_path is defined
+          - bastion_vault_ca_cert_path | length > 0
+        fail_msg: >-
+          bastion_vault_ca_cert_path MUST name the CA file which verifies the Bastion Vault listener.
+          Terraform supplies it from the foundation-vault-bastion state, and a manual run passes it with -e.
+
     - name: "Step E1. Generate join_token on SPIRE Parent"
       ansible.builtin.command:
         cmd: >-
@@ -234,7 +250,7 @@
         data:
           join_token: "{{ utils_spire_agent_join_token }}"
         validate_certs: true
-        ca_cert: "{{ playbook_dir }}/../../vault/tls/ca.pem"
+        ca_cert: "{{ bastion_vault_ca_cert_path }}"
       delegate_to: localhost
       become: false
       no_log: true
