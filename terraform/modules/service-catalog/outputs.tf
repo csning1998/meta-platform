@@ -37,7 +37,7 @@ output "credential_paths" {
   value = {
     for s_name, s in var.service_catalog : s_name => {
       for c_name, c in s.components : c_name =>
-      "${var.vault_kv_namespace}/${s_name}/${c_name}"
+      "${s.project_code}/${s_name}/${c_name}"
     }
   }
 }

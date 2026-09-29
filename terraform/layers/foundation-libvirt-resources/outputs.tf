@@ -60,8 +60,8 @@ output "global_dns_records" {
 }
 
 output "vault_kv_namespace" {
-  description = "Pass-through of the Vault KV mount-relative namespace prefix; consumed by security-vault-approle for credential path construction without reading this layer directly."
-  value       = var.vault_kv_namespace
+  description = "The project_code shared by every service in the catalog, which is the first segment of every Vault KV credential path."
+  value       = one(distinct([for s in var.service_catalog : s.project_code]))
 }
 
 output "global_credential_paths" {

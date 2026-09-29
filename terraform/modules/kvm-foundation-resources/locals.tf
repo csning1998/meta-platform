@@ -1,6 +1,6 @@
 
-# SSoT Output Alignment: Mirror foundation-metadata's former global_* output shape
-# so the network/volume computation below reads a single consistent structure.
+# SSoT Output Alignment: mirrors the former global_* output shape of foundation-metadata.
+# The network and volume computation below reads one consistent structure.
 locals {
   metadata = {
     global_domain_suffix     = var.domain_suffix
@@ -26,7 +26,7 @@ locals {
         identity        = identity
         network         = local.metadata.global_topology_network[s_name][c_name]
         ssh             = var.service_catalog[s_name].components[c_name].ssh
-        credential_path = "${var.vault_kv_namespace}/${s_name}/${c_name}"
+        credential_path = "${var.service_catalog[s_name].project_code}/${s_name}/${c_name}"
       }
     }
   ]...)
