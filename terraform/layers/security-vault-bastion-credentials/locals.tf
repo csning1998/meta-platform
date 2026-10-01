@@ -7,20 +7,25 @@ locals {
 }
 
 locals {
-  owner_code = "meta-platform"
-
   state = {
-    vault_bastion = data.terraform_remote_state.vault_bastion.outputs
-    foundation    = data.terraform_remote_state.foundation.outputs
+    foundation_vault_bastion     = data.terraform_remote_state.foundation_vault_bastion.outputs
+    foundation_libvirt_resources = data.terraform_remote_state.foundation_libvirt_resources.outputs
+  }
+  project_code = local.state.foundation_libvirt_resources.foundation_vault_path.project_code
+}
+
+# The SSH identity leaf of every SSH-enabled cluster, keyed by cluster_name like the key files.
+locals {
+  ssh_paths = {
+    for key, path in local.state.foundation_libvirt_resources.foundation_vault_path.ssh_credential_paths : key => path
+    if contains(keys(local.state.foundation_libvirt_resources.foundation_ssh.identity_key_paths), key)
   }
 }
 
-# Per-service extra generated secrets, layered on top of the SSH identity every
-# service_identity entry already carries.
+# The addon prefix of foundation-libvirt-resources completes as addon-<name>, the form which platform-cilium-frontend grants to ESO.
 locals {
-  service_generates = {
-    "platform-haproxy-frontend" = {
-      keepalived_auth_pass = { length = 32 }
-    }
+  kv_path = {
+    haproxy_app      = local.state.foundation_libvirt_resources.foundation_vault_path.kv_paths["haproxy"]["frontend"].app
+    cilium_hubble_ui = "${local.state.foundation_libvirt_resources.foundation_vault_path.kv_paths["cilium"]["frontend"].addon}-hubble-ui"
   }
 }
