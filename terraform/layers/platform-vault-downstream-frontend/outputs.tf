@@ -9,9 +9,14 @@ output "ca_cert_path" {
   value       = abspath(local_file.bootstrap_ca.filename)
 }
 
-output "prod_vault_api_port" {
+output "api_port" {
   description = "Vault API frontend port for provision-* tier consumption."
   value       = module.context.primary_net_config.lb_config.ports["api"].frontend_port
+}
+
+output "endpoint" {
+  description = "Downstream Vault API endpoint URL which every consumer layer reads instead of rebuilding the address."
+  value       = "https://${module.context.primary_net_config.lb_config.vip}:${module.context.primary_net_config.lb_config.ports["api"].frontend_port}"
 }
 
 output "node_exporter_targets" {
