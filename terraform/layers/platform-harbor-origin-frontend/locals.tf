@@ -8,12 +8,27 @@ locals {
 
 locals {
   state = {
-    network       = data.terraform_remote_state.network.outputs
-    vault_bastion = data.terraform_remote_state.vault_bastion.outputs
-    spire_parent  = data.terraform_remote_state.spire_parent.outputs
+    foundation_libvirt_resources      = data.terraform_remote_state.foundation_libvirt_resources.outputs
+    foundation_vault_bastion          = data.terraform_remote_state.foundation_vault_bastion.outputs
+    platform_spire_parent             = data.terraform_remote_state.platform_spire_parent.outputs
+    provision_spire_parent            = data.terraform_remote_state.provision_spire_parent.outputs
+    security_vault_downstream_pki     = data.terraform_remote_state.security_vault_downstream_pki.outputs
+    security_vault_downstream_tenants = data.terraform_remote_state.security_vault_downstream_tenants.outputs
+    provision_spire_child             = data.terraform_remote_state.provision_spire_child.outputs
   }
-  vault_kv_namespace = local.state.network.foundation_vault_path.kv_namespace
-  cluster_name       = local.state.network.foundation_topology.identity["harbor-origin"]["frontend"].cluster_name
+}
+
+locals {
+  project_code       = local.state.foundation_libvirt_resources.foundation_vault_path.project_code
+  cluster_name       = local.state.foundation_libvirt_resources.foundation_topology.identity["harbor-origin"]["frontend"].cluster_name
+  terraform_operator = local.state.provision_spire_parent.terraform_operator["harbor-origin"]
+
+  tenant_login = local.state.security_vault_downstream_tenants.downstream_tenants.tenant_login[module.context.svc_identity.cluster_name]
+
+  sec_vault_agent_identity = merge(module.context.vault_agent_identity_base, {
+    auth_path      = local.tenant_login.auth_mount
+    auth_role_name = local.tenant_login.role_name
+  })
 }
 
 # Requires inclusion of the catalog service VIP within the certificate IP SAN to support the HAProxy-fronted VIP.
@@ -28,15 +43,13 @@ locals {
     ]
   ])
 
-  bastion_pki_chain_pem = "${local.state.vault_bastion.bastion_vault_pki.root_cert_pem}\n${local.state.vault_bastion.bastion_vault_pki.intermediate_cert_pem}"
-  bastion_pki_listener_bundle = {
+  downstream_pki_listener_bundle = {
     server_cert_b64 = base64encode(vault_pki_secret_backend_cert.listener.certificate)
     server_key_b64  = base64encode(vault_pki_secret_backend_cert.listener.private_key)
-    ca_cert_b64     = base64encode(local.bastion_pki_chain_pem)
+    ca_cert_b64     = module.context.vault_agent_identity_base.ca_cert_b64
   }
 
-  spire_workload_spiffe_id = "spiffe://${local.state.spire_parent.spire_agent_bootstrap.trust_domain}/${local.state.network.foundation_vault_path.kv_namespace}/${module.context.primary_context.s_name}/${module.context.primary_context.c_name}"
-  harbor_pki_role_name     = module.context.svc_identity.cluster_name
+  spire_workload_spiffe_id = "spiffe://${local.state.platform_spire_parent.spire_agent_bootstrap.trust_domain}/${local.state.foundation_libvirt_resources.foundation_vault_path.project_code}/${module.context.primary_context.s_name}/${module.context.primary_context.c_name}"
 }
 
 locals {
@@ -55,26 +68,28 @@ locals {
     harbor_origin_cluster_ips      = local.harbor_node_ips
   }
 
-  harbor_origin_secrets = data.vault_generic_secret.harbor_origin.data
+  harbor_origin_secrets = data.vault_kv_secret_v2.harbor_origin.data
 
   ansible_extra_vars = {
     harbor_origin_admin_password = sensitive(local.harbor_origin_secrets["harbor_origin_admin_password"])
     harbor_origin_pg_db_password = sensitive(local.harbor_origin_secrets["harbor_origin_pg_db_password"])
 
-    spire_server_port              = tostring(local.state.spire_parent.spire_agent_bootstrap.server_port)
-    spire_parent_node_ip           = local.state.spire_parent.spire_agent_bootstrap.node_ip
-    spire_parent_ssh_host          = local.state.spire_parent.spire_agent_bootstrap.ssh_host
-    spire_trust_domain             = local.state.spire_parent.spire_agent_bootstrap.trust_domain
-    spire_workload_spiffe_id       = local.spire_workload_spiffe_id
-    spire_oidc_auth_path           = local.state.spire_parent.spire_oidc_auth_backend_path
-    spire_cluster_name             = module.context.svc_identity.cluster_name
-    spire_workload_vault_role_name = module.spire_workload_identity.role_name
+    spire_server_port               = tostring(local.state.platform_spire_parent.spire_agent_bootstrap.server_port)
+    spire_parent_node_ip            = local.state.platform_spire_parent.spire_agent_bootstrap.node_ip
+    spire_parent_ssh_host           = local.state.platform_spire_parent.spire_agent_bootstrap.ssh_host
+    spire_trust_domain              = local.state.platform_spire_parent.spire_agent_bootstrap.trust_domain
+    spire_workload_spiffe_id        = local.spire_workload_spiffe_id
+    spire_cluster_name              = module.context.svc_identity.cluster_name
+    spire_parent_join_token_kv_path = local.state.foundation_libvirt_resources.foundation_vault_path.kv_paths["spire"]["parent"].join_token
+    spire_child_join_token_kv_path  = local.state.foundation_libvirt_resources.foundation_vault_path.kv_paths["spire"]["child"].join_token
+    spire_child_agent_address       = local.state.provision_spire_child.spire_child_agent_endpoint.address
+    spire_child_agent_port          = tostring(local.state.provision_spire_child.spire_child_agent_endpoint.port)
+    spire_child_kubeconfig_kv_path  = local.state.provision_spire_child.spire_child_registrar_kv_path
+    vault_agent_jwt_audience        = local.tenant_login.audience
 
-    vault_endpoint             = local.state.vault_bastion.bastion_vault.endpoint
-    vault_role_name            = local.harbor_pki_role_name
-    vault_pki_mount_path       = local.state.vault_bastion.bastion_vault_pki.intermediate_mount_path
-    vault_listener_ca_cert_b64 = filebase64(local.state.vault_bastion.bastion_vault.listener_ca_cert_path)
-    vault_agent_common_name    = module.context.svc_fqdn
-    vault_intermediate_ca_b64  = base64encode(local.bastion_pki_chain_pem)
+    bastion_vault_ca_cert_path  = local.state.foundation_vault_bastion.bastion_vault.listener_ca_cert_path
+    bastion_operator_wrapper    = local.terraform_operator.wrapper_name
+    bastion_operator_role       = local.terraform_operator.role_name
+    bastion_operator_auth_mount = local.state.platform_spire_parent.spire_oidc_auth_backend_path
   }
 }

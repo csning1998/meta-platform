@@ -33,14 +33,30 @@ provider "libvirt" {
 }
 
 provider "vault" {
-  address      = local.state.vault_bastion.bastion_vault.endpoint
-  ca_cert_file = local.state.vault_bastion.bastion_vault.listener_ca_cert_path
+  address      = local.state.foundation_vault_bastion.bastion_vault.endpoint
+  ca_cert_file = local.state.foundation_vault_bastion.bastion_vault.listener_ca_cert_path
 
   auth_login {
-    path = "auth/${local.state.spire_parent.spire_oidc_auth_backend_path}/login"
+    path = "auth/${local.state.platform_spire_parent.spire_oidc_auth_backend_path}/login"
     parameters = {
-      role = local.cluster_name
+      role = local.terraform_operator.role_name
       jwt  = data.external.spire_jwt.result.jwt
+    }
+  }
+  skip_child_token = true
+}
+
+# Downstream Vault, authenticated as the local Terraform operator of this component through the same SPIRE JWT-SVID.
+provider "vault" {
+  alias        = "downstream"
+  address      = local.state.security_vault_downstream_tenants.endpoint
+  ca_cert_file = local.state.security_vault_downstream_tenants.ca_cert_path
+
+  auth_login {
+    path = "auth/${local.state.security_vault_downstream_tenants.tenant_operator.auth_mount}/login"
+    parameters = {
+      role = local.state.security_vault_downstream_tenants.tenant_operator.role_name
+      jwt  = data.external.spire_jwt_downstream.result.jwt
     }
   }
   skip_child_token = true
