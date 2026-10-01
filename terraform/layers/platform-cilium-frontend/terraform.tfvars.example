@@ -3,11 +3,18 @@ target_cluster_name = "meta-platform-cilium-frontend"
 storage_pool_name   = "default"
 
 node_config = {
-  "00" = { ip_suffix = 10, vcpu = 2, ram = 2048 }
-  "01" = { ip_suffix = 11, vcpu = 2, ram = 2048 }
-  "02" = { ip_suffix = 12, vcpu = 2, ram = 2048 }
+  "00" = { ip_suffix = 10, vcpu = 2, ram = 3072 }
+  "01" = { ip_suffix = 11, vcpu = 2, ram = 3072 }
+  "02" = { ip_suffix = 12, vcpu = 2, ram = 3072 }
 }
 
-talos_version            = "v1.13.8"
-talos_kubernetes_version = "v1.32.0"
-cilium_chart_version     = "1.16.5"
+talos_version                  = "v1.13.8"
+talos_kubernetes_version       = "v1.32.0"
+cilium_chart_version           = "1.16.5"
+cert_manager_chart_version     = "v1.21.2"
+external_secrets_chart_version = "2.11.0"
+
+gateway_api = {
+  version = "v1.1.0"
+  sha256  = "10f322744a005d4e73e2b067e95fecd4cfec619dc7564930b488c296bfa3bec1"
+}

@@ -1,62 +1,36 @@
 
-data "terraform_remote_state" "vault_bootstrapper" {
+data "terraform_remote_state" "foundation_vault_bastion" {
   backend = "http"
   config  = { address = "${local._state_base_parent_group_governance}/foundation-vault-bastion" }
 }
 
-data "terraform_remote_state" "network" {
+data "terraform_remote_state" "foundation_libvirt_resources" {
   backend = "http"
   config  = { address = "${local._state_base_meta_platform}/foundation-libvirt-resources" }
 }
 
-data "terraform_remote_state" "spire_parent" {
+data "terraform_remote_state" "platform_spire_parent" {
   backend = "http"
   config  = { address = "${local._state_base_meta_platform}/platform-spire-parent-frontend" }
 }
 
-# Vault authentication MUST obtain ephemeral JWT-SVID credentials on every execution to prevent state file persistence.
-data "external" "spire_jwt" {
-  program = ["/usr/local/bin/spire-fetch-platform-cilium-frontend"]
+data "terraform_remote_state" "provision_spire_parent" {
+  backend = "http"
+  config  = { address = "${local._state_base_meta_platform}/provision-spire-parent-frontend" }
 }
 
-# `helm_template` renders template manifests without active API server connectivity.
-data "helm_template" "cilium" {
-  name         = "cilium"
-  namespace    = "kube-system"
-  repository   = "https://helm.cilium.io/"
-  chart        = "cilium"
-  version      = var.cilium_chart_version
-  kube_version = var.talos_kubernetes_version
+# Vault authentication MUST obtain ephemeral JWT-SVID credentials on every execution to prevent state file persistence.
+data "external" "spire_jwt" {
+  program = ["/usr/local/bin/${local.terraform_operator.wrapper_name}"]
+}
 
-  # Talos denies `SYS_MODULE` capability to workloads, requiring explicit capability listing.
-  # Host OS natively provisions cgroupv2 and bpffs mounts.
-  values = [yamlencode({
-    ipam                 = { mode = "kubernetes" }
-    kubeProxyReplacement = true
-    l2announcements      = { enabled = true }
-    hubble               = { enabled = false } # Disable Hubble to prevent persistent state drift.
+data "http" "gateway_api_crds" {
+  url = "https://github.com/kubernetes-sigs/gateway-api/releases/download/${var.gateway_api.version}/experimental-install.yaml"
 
-    # eBPF masquerade MUST be enabled because IPTables masquerade selects an invalid source device for baremetal backend routing.
-    bpf = { masquerade = true }
-
-    # Route API server connections to node-local KubePrism endpoints. Disabling kube-proxy
-    # prevents ClusterIP routing prior to CNI initialization.
-    k8sServiceHost = "localhost"
-    k8sServicePort = var.kubeprism_port
-
-    cgroup = {
-      autoMount = { enabled = false }
-      hostRoot  = "/sys/fs/cgroup"
+  lifecycle {
+    postcondition {
+      condition     = sha256(self.response_body) == var.gateway_api.sha256
+      error_message = "The Gateway API ${var.gateway_api.version} experimental-install.yaml does not match the pinned digest."
     }
-
-    securityContext = {
-      capabilities = {
-        ciliumAgent = [
-          "CHOWN", "KILL", "NET_ADMIN", "NET_RAW", "IPC_LOCK", "SYS_ADMIN",
-          "SYS_RESOURCE", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID",
-        ]
-        cleanCiliumState = ["NET_ADMIN", "SYS_ADMIN", "SYS_RESOURCE"]
-      }
-    }
-  })]
+  }
 }

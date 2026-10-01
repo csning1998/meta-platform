@@ -28,6 +28,24 @@ variable "cilium_chart_version" {
   type        = string
 }
 
+variable "cert_manager_chart_version" {
+  description = "cert-manager Helm chart version rendered into cluster.inlineManifests."
+  type        = string
+}
+
+variable "external_secrets_chart_version" {
+  description = "External Secrets Operator Helm chart version rendered into cluster.inlineManifests."
+  type        = string
+}
+
+variable "gateway_api" {
+  description = "Gateway API CRD release which Cilium requires before its operator starts. The digest pins the downloaded experimental-install.yaml, and Cilium 1.16 documents v1.1.0."
+  type = object({
+    version = string
+    sha256  = string
+  })
+}
+
 variable "kubeprism_port" {
   description = "Port on which Talos binds KubePrism, its per-node API server load balancer. The default of 7445 applies unless machine.features.kubePrism.port overrides it, and both settings MUST agree for a kube-proxy-free Cilium to reach the API server."
   type        = number

@@ -1,15 +1,20 @@
 
-data "terraform_remote_state" "cilium_frontend" {
+data "terraform_remote_state" "platform_cilium_frontend" {
   backend = "http"
   config  = { address = "${local._state_base_meta_platform}/platform-cilium-frontend" }
 }
 
-data "terraform_remote_state" "vault_bootstrapper" {
+data "terraform_remote_state" "foundation_libvirt_resources" {
+  backend = "http"
+  config  = { address = "${local._state_base_meta_platform}/foundation-libvirt-resources" }
+}
+
+data "terraform_remote_state" "foundation_vault_bastion" {
   backend = "http"
   config  = { address = "${local._state_base_parent_group_governance}/foundation-vault-bastion" }
 }
 
-data "terraform_remote_state" "spire_parent" {
+data "terraform_remote_state" "platform_spire_parent" {
   backend = "http"
   config  = { address = "${local._state_base_meta_platform}/platform-spire-parent-frontend" }
 }
@@ -26,7 +31,7 @@ data "external" "spire_jwt" {
 
 ephemeral "vault_kv_secret_v2" "cilium_frontend" {
   mount = "secret"
-  name  = "${local.vault_kv_namespace}/cilium/frontend"
+  name  = local.state.platform_cilium_frontend.foundation_vault_path.kv_paths["cilium"]["frontend"].cluster_config
 }
 
 # Cluster readiness checks MUST re-validate quorum convergence during apply operations
@@ -37,8 +42,8 @@ ephemeral "talos_cluster_health" "this" {
     client_certificate = ephemeral.vault_kv_secret_v2.cilium_frontend.data["talos_client_certificate_b64"]
     client_key         = ephemeral.vault_kv_secret_v2.cilium_frontend.data["talos_client_key_b64"]
   }
-  control_plane_nodes = values(local.state.cilium_frontend.hostonly_addresses)
-  endpoints           = values(local.state.cilium_frontend.hostonly_addresses)
+  control_plane_nodes = values(local.state.platform_cilium_frontend.hostonly_addresses)
+  endpoints           = values(local.state.platform_cilium_frontend.hostonly_addresses)
 
   timeout = "10m"
 }
