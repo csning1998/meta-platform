@@ -21,7 +21,7 @@ resource "kubernetes_manifest" "hubble_ui_ip_pool" {
   manifest = {
     apiVersion = "cilium.io/v2alpha1"
     kind       = "CiliumLoadBalancerIPPool"
-    metadata   = { name = "meta-platform-hubble-ui" }
+    metadata   = { name = "${local.project_code}-hubble-ui" }
     spec = {
       serviceSelector = { matchLabels = local.hubble_ui.service_labels }
       blocks          = [{ cidr = "${local.hubble_ui.gateway_vip}/32" }]
@@ -35,7 +35,7 @@ resource "kubernetes_manifest" "hubble_ui_l2_announcement" {
   manifest = {
     apiVersion = "cilium.io/v2alpha1"
     kind       = "CiliumL2AnnouncementPolicy"
-    metadata   = { name = "meta-platform-hubble-ui" }
+    metadata   = { name = "${local.project_code}-hubble-ui" }
     spec = {
       serviceSelector = { matchLabels = local.hubble_ui.service_labels }
       loadBalancerIPs = true
