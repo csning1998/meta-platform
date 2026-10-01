@@ -130,8 +130,7 @@ variable "security_vault_agent_identity" {
   description = "Identity configurations for Vault Agent"
   type = object({
     vault_endpoint = string
-    role_id        = string
-    secret_id      = string
+    auth_role_name = string
     role_name      = string
     ca_cert_b64    = string
     issuer_ca_b64  = string
