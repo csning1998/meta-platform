@@ -9,7 +9,7 @@ resource "kubernetes_service_account_v1" "vault_reviewer" {
 
 resource "kubernetes_cluster_role_binding_v1" "vault_reviewer" {
   metadata {
-    name = var.reviewer_service_account.name
+    name = "${var.reviewer_service_account.namespace}-${var.reviewer_service_account.name}"
   }
   role_ref {
     api_group = "rbac.authorization.k8s.io"
