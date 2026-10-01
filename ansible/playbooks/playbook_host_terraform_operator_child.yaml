@@ -1,0 +1,81 @@
+---
+# Runs the operator workstation against the SPIRE Child. The extra vars come from the layer provision-spire-child.
+- name: "Play [Setup]: Dynamic Grouping based on node_role variable"
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: "Create dynamic groups from node_role variable"
+      ansible.builtin.group_by:
+        key: "{{ (node_role | default('ungrouped')) | replace('-', '_') }}"
+      changed_when: false
+      tags:
+        - always
+
+# The second agent of the workstation attests to the Child server, and the first agent stays with the Parent.
+- name: "Play [SPIRE Agent]: Provision the Child agent of this host"
+  hosts: "{{ 'host_terraform_operator' if 'host_terraform_operator' in groups else [] }}"
+  become: true
+  tags:
+    - spire_agent
+  vars:
+    utils_spire_agent_instance: child
+    utils_spire_agent_server_kind: child
+    utils_spire_agent_server_address: "{{ spire_child_agent_address }}"
+    utils_spire_agent_server_port: "{{ spire_child_agent_port }}"
+    utils_spire_agent_child_kubeconfig_kv_path: "{{ spire_child_kubeconfig_kv_path }}"
+  roles:
+    - utils_spire_agent
+
+# Registers each Terraform operator identity with the Child and deploys its JWT-SVID fetch wrapper for the Downstream Vault.
+- name: "Play [Terraform Operator Identity]: Register the Child JWT-SVID fetch wrapper"
+  hosts: "{{ 'host_terraform_operator' if 'host_terraform_operator' in groups else [] }}"
+  become: true
+  tags:
+    - terraform_operator_identity
+  vars:
+    _utils_terraform_operator_identity_names_raw: "{{ utils_terraform_operator_identity_names | default([]) }}"
+    _utils_terraform_operator_identity_names: >-
+      {{ (_utils_terraform_operator_identity_names_raw is string)
+        | ternary(_utils_terraform_operator_identity_names_raw | from_json, _utils_terraform_operator_identity_names_raw) }}
+    _utils_terraform_operator_identity_spiffe_paths_raw: >-
+      {{ utils_terraform_operator_identity_spiffe_paths | default({}) }}
+    _utils_terraform_operator_identity_spiffe_paths: >-
+      {{ (_utils_terraform_operator_identity_spiffe_paths_raw is string)
+        | ternary(_utils_terraform_operator_identity_spiffe_paths_raw | from_json,
+        _utils_terraform_operator_identity_spiffe_paths_raw) }}
+  tasks:
+    - name: "Register workload identity"
+      ansible.builtin.include_role:
+        name: utils_terraform_operator_identity
+      vars:
+        utils_terraform_operator_identity_name: "{{ item }}"
+        utils_terraform_operator_identity_spiffe_path: "{{ _utils_terraform_operator_identity_spiffe_paths[item] }}"
+        utils_terraform_operator_identity_spire_instance: child
+        utils_terraform_operator_identity_spire_server_kind: child
+        utils_terraform_operator_identity_child_kubeconfig_kv_path: "{{ spire_child_kubeconfig_kv_path }}"
+        utils_terraform_operator_identity_jwt_audience: "{{ spire_child_jwt_audience }}"
+      loop: "{{ _utils_terraform_operator_identity_names }}"
+
+# The Vault login of each identity is checked by the first layer which logs in to the Downstream Vault.
+- name: "Play [Terraform Operator Verify]: Fetch a JWT-SVID through each Child wrapper"
+  hosts: "{{ 'host_terraform_operator' if 'host_terraform_operator' in groups else [] }}"
+  become: false
+  gather_facts: false
+  tags:
+    - terraform_operator_verify
+  vars:
+    _terraform_operator_verify_names_raw: "{{ utils_terraform_operator_identity_names | default([]) }}"
+    _terraform_operator_verify_names: >-
+      {{ (_terraform_operator_verify_names_raw is string)
+        | ternary(_terraform_operator_verify_names_raw | from_json, _terraform_operator_verify_names_raw) }}
+  tasks:
+    - name: "Step V1. Fetch a JWT-SVID through the Child wrapper of each identity"
+      ansible.builtin.command:
+        cmd: "/usr/local/bin/spire-fetch-{{ item }}-child"
+      register: _terraform_operator_verify_jwt
+      changed_when: false
+      until: _terraform_operator_verify_jwt.rc == 0
+      retries: 12
+      delay: 5
+      no_log: true
+      loop: "{{ _terraform_operator_verify_names }}"

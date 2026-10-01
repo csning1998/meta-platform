@@ -1,0 +1,6 @@
+
+# spire-nested 0.30.2 ships SPIRE 1.15.3, the release of the Parent.
+spire_crds_chart_version   = "0.6.1"
+spire_nested_chart_version = "0.30.2"
+
+ca_subject_country = "TW"
