@@ -10,12 +10,6 @@ network_baseline = {
   node_exporter_port = 9100
 }
 
-global_pki_identity = {
-  root_ca_common_name         = "Platform Infrastructure Root CA"
-  intermediate_ca_common_name = "Platform Infrastructure Intermediate CA"
-  mount_path                  = "pki_int"
-}
-
 service_catalog = {
   "cilium" = {
     owner        = "devops"
@@ -73,7 +67,7 @@ service_catalog = {
         runtime        = "talos"
         os_disk_format = "raw"
         cidr_index     = 131
-        tags           = []
+        tags           = ["self-managed-lb"]
         ip_range       = { start_ip = 200, end_ip = 202 }
         ssh            = { enabled = false } # Talos Linux does not support SSH
         ports = {

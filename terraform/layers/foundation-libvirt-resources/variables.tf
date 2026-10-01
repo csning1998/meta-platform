@@ -4,20 +4,6 @@ variable "domain_suffix" {
   type        = string
 }
 
-variable "global_pki_identity" {
-  description = "Global PKI identity configuration for infrastructure root and intermediate certificate authorities."
-  type = object({
-    root_ca_common_name         = string
-    intermediate_ca_common_name = string
-    mount_path                  = string
-  })
-
-  validation {
-    condition     = can(regex("^[a-zA-Z0-9_-]+$", var.global_pki_identity.mount_path))
-    error_message = "The mount_path value MUST contain only alphanumeric characters, underscores, and hyphens for Vault policy path interpolation."
-  }
-}
-
 variable "network_baseline" {
   description = "Base network configuration including CIDR, VIP offsets, and MAC prefixes."
   type = object({

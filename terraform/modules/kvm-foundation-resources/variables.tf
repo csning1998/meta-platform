@@ -4,15 +4,6 @@ variable "domain_suffix" {
   type        = string
 }
 
-variable "pki_config" {
-  description = "Global PKI identity settings. Defines the legal identity of the infrastructure."
-  type = object({
-    root_ca_common_name         = string
-    intermediate_ca_common_name = string
-    mount_path                  = string
-  })
-}
-
 variable "network_baseline" {
   description = "Base network configuration including CIDR, VIP offsets, and MAC prefixes."
   type = object({
