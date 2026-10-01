@@ -1,6 +1,10 @@
 
 terraform {
   required_providers {
+    external = {
+      source  = "hashicorp/external"
+      version = "2.4.1"
+    }
     vault = {
       source  = "hashicorp/vault"
       version = "5.5.0"
@@ -22,14 +26,14 @@ terraform {
 
 provider "vault" {
   alias        = "downstream"
-  address      = local.downstream_vault_endpoint
-  ca_cert_file = local.vault_pki_cert_path
+  address      = local.downstream_vault.endpoint
+  ca_cert_file = local.downstream_vault.ca_cert_path
 
   auth_login {
-    path = "auth/approle/login"
+    path = "auth/${local.state.security_vault_downstream_tenants.tenant_operator.auth_mount}/login"
     parameters = {
-      role_id   = data.terraform_remote_state.security_vault_downstream_approle.outputs.role_id
-      secret_id = data.terraform_remote_state.security_vault_downstream_approle.outputs.secret_id
+      role = local.state.security_vault_downstream_tenants.tenant_operator.role_name
+      jwt  = data.external.spire_jwt_downstream.result.jwt
     }
   }
   skip_child_token = true

@@ -4,13 +4,13 @@ module "credential_keycloak_frontend" {
   version = "0.1.1"
 
   providers = {
-    vault.production = vault.downstream
+    vault = vault.downstream
   }
 
   vault_credential_context = {
-    kv_namespace = local.vault_kv_namespace
-    domain       = "keycloak"
-    component    = "frontend"
+    kv_namespace = dirname(dirname(local.kv_paths["keycloak"]["frontend"].app))
+    domain       = basename(dirname(local.kv_paths["keycloak"]["frontend"].app))
+    component    = basename(local.kv_paths["keycloak"]["frontend"].app)
     static = {
       keycloak_admin_user = var.keycloak_admin_user
       keycloak_db_user    = var.keycloak_db_user
@@ -27,13 +27,13 @@ module "credential_harbor_origin_frontend" {
   version = "0.1.1"
 
   providers = {
-    vault.production = vault.downstream
+    vault = vault.downstream
   }
 
   vault_credential_context = {
-    kv_namespace = local.vault_kv_namespace
-    domain       = "harbor-origin"
-    component    = "frontend"
+    kv_namespace = dirname(dirname(local.kv_paths["harbor-origin"]["frontend"].app))
+    domain       = basename(dirname(local.kv_paths["harbor-origin"]["frontend"].app))
+    component    = basename(local.kv_paths["harbor-origin"]["frontend"].app)
     generate = {
       harbor_origin_admin_password = { length = 32 }
       harbor_origin_pg_db_password = { length = 32 }
