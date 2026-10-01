@@ -112,7 +112,7 @@
             }]
           }}
       vars:
-        _entries: "{{ (item.stdout | from_json).entries | default([]) }}"
+        _entries: "{{ (item.stdout | from_json).entries | default([], true) }}"
         _all_ids: "{{ _entries | map(attribute='id') | list }}"
         _current_ids: >-
           {%- set ids = [] -%}
