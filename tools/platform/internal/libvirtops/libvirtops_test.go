@@ -1,36 +1,57 @@
 package libvirtops
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 )
 
-func TestHasProjectPrefix(t *testing.T) {
+// catalogCodePattern mirrors the project_code validation of the service catalog.
+var catalogCodePattern = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
+
+type prefixCase struct {
+	name string
+	want bool
+}
+
+// prefixCases derives every case from ProjectCode and therefore holds for any valid project code.
+func prefixCases() []prefixCase {
 	prefix := ProjectCode + "-"
-	cases := map[string]bool{
-		"platform-harbor-origin-frontend-node-00": true,
-		"platform-spire-parent-frontend-pool":     true,
-		"other-project-vm":                        false,
-		"platform":                                false,
-		"":                                        false,
-		prefix:                                    true,
-		"platform_x":                              false,
-		"Platform-vm":                             false,
-		"xplatform-vm":                            false,
-		"PLATFORM-VM":                             false,
-		"other-platform-vm":                       false,
-		prefix + strings.Repeat("x", 4096):        true,
+	cases := []prefixCase{
+		{prefix + "harbor-origin-frontend-node-00", true},
+		{prefix + "spire-parent-frontend-pool", true},
+		{prefix + "cilium-frontend-nat", true},
+		{prefix, true},
+		{prefix + strings.Repeat("x", 4096), true},
+		{"other-project-vm", false},
+		{ProjectCode, false},
+		{"", false},
+		{ProjectCode + "_x", false},
+		{strings.ToUpper(prefix) + "VM", false},
+		{"x" + prefix + "vm", false},
+		{"other-" + prefix + "vm", false},
+		{"default", false},
+		{"vault-bastion-publish", false},
 	}
-	for name, want := range cases {
-		if got := hasProjectPrefix(name); got != want {
-			t.Errorf("hasProjectPrefix(%q) = %v, want %v", name, got, want)
+
+	// A project code with several segments must not match on its last segment alone.
+	if i := strings.LastIndex(ProjectCode, "-"); i >= 0 {
+		cases = append(cases, prefixCase{ProjectCode[i+1:] + "-vm", false})
+	}
+	return cases
+}
+
+func TestHasProjectPrefix(t *testing.T) {
+	for _, c := range prefixCases() {
+		if got := hasProjectPrefix(c.name); got != c.want {
+			t.Errorf("hasProjectPrefix(%q) = %v, want %v", c.name, got, c.want)
 		}
 	}
 }
 
-func TestProjectCodeValue(t *testing.T) {
-	if ProjectCode != "platform" {
-		t.Errorf("ProjectCode = %q, want %q", ProjectCode, "platform")
+func TestProjectCodeIsValidCatalogCode(t *testing.T) {
+	if !catalogCodePattern.MatchString(ProjectCode) {
+		t.Errorf("ProjectCode = %q, want a value which matches %s", ProjectCode, catalogCodePattern)
 	}
 }
 

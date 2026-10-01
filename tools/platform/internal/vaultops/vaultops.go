@@ -138,9 +138,8 @@ func UnsealProduction(ctx context.Context, p Paths, inventoryFile string, out *u
 		Inventory: inventoryFile,
 		Tags:      "vault-unseal",
 		ExtraVars: map[string]interface{}{
-			"dev_vault_url":       p.resolveBastionAddr(),
-			"dev_root_token_path": p.resolveRootTokenFile(),
-			"vault_ca_cert_b64":   prodCAB64,
+			"bastion_vault_url": p.resolveBastionAddr(),
+			"vault_ca_cert_b64": prodCAB64,
 		},
 	}
 	if err := ansibleops.RunPlaybook(ctx, p.AnsibleDir, "", playbookFile, opts); err != nil {

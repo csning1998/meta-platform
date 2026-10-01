@@ -161,7 +161,7 @@ func TestResolveProjectRootNoGitDirectoryErrors(t *testing.T) {
 }
 
 func TestResolveBastionVaultAddrInjectionTakesPriority(t *testing.T) {
-	env := loadTestEnv(t, `DEV_VAULT_ADDR="https://from-env:8200"`+"\n")
+	env := loadTestEnv(t, `BASTION_VAULT_ADDR="https://from-env:8200"`+"\n")
 	a := &app{bastionVaultAddr: "https://from-injection:8200", env: env}
 
 	if got := a.resolveBastionVaultAddr(); got != "https://from-injection:8200" {
