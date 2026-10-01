@@ -4,7 +4,6 @@
 locals {
   metadata = {
     global_domain_suffix     = var.domain_suffix
-    global_pki_config        = var.pki_config
     global_network_baseline  = var.network_baseline
     global_topology_network  = module.service_catalog.topology_network
     global_topology_identity = module.service_catalog.topology_identity

@@ -7,16 +7,24 @@ locals {
 }
 
 locals {
-  owner_code = "meta-platform"
-
   state = {
-    metadata      = data.terraform_remote_state.metadata.outputs
-    vault_bastion = data.terraform_remote_state.vault_bastion.outputs
-    spire_parent  = data.terraform_remote_state.spire_parent.outputs
+    foundation_libvirt_resources = data.terraform_remote_state.foundation_libvirt_resources.outputs
+    foundation_vault_bastion     = data.terraform_remote_state.foundation_vault_bastion.outputs
+    platform_spire_parent        = data.terraform_remote_state.platform_spire_parent.outputs
   }
 }
 
 locals {
+  project_code = local.state.foundation_libvirt_resources.foundation_vault_path.project_code
+}
+
+locals {
+  # The workstation agents register under this cluster name on both SPIRE servers.
+  workstation_cluster_name = "host-terraform-operator"
+
+  kv_paths    = local.state.foundation_libvirt_resources.foundation_vault_path.kv_paths
+  kv_leaf_ssh = basename(local.kv_paths["spire"]["parent"].ssh)
+
   ansible_config = {
     root_path      = abspath("${path.root}/../../../ansible")
     inventory_file = "inventory-provision-spire-parent-frontend-operator.yaml"
@@ -25,64 +33,72 @@ locals {
   inventory_data = {
     all = {
       hosts = {
-        "host-terraform-operator-node-00" = {
+        "host-terraform-operator-workstation" = {
           ansible_connection = "local"
           node_role          = "host_terraform_operator"
         }
       }
       vars = {
         ansible_python_interpreter = "/usr/bin/python3"
-        spire_cluster_name         = "host-terraform-operator"
-        spire_trust_domain         = local.state.spire_parent.spire_agent_bootstrap.trust_domain
-        spire_parent_node_ip       = local.state.spire_parent.spire_agent_bootstrap.node_ip
-        spire_parent_ssh_host      = local.state.spire_parent.spire_agent_bootstrap.ssh_host
-        spire_server_port          = tostring(local.state.spire_parent.spire_agent_bootstrap.server_port)
+        spire_cluster_name         = local.workstation_cluster_name
+        spire_trust_domain         = local.state.platform_spire_parent.spire_agent_bootstrap.trust_domain
+        spire_parent_node_ip       = local.state.platform_spire_parent.spire_agent_bootstrap.node_ip
+        spire_parent_ssh_host      = local.state.platform_spire_parent.spire_agent_bootstrap.ssh_host
+        spire_server_port          = tostring(local.state.platform_spire_parent.spire_agent_bootstrap.server_port)
       }
     }
   }
 
   ansible_extra_vars = {
-    bastion_vault_ca_cert_path                     = local.state.vault_bastion.bastion_vault.listener_ca_cert_path
-    bastion_vault_endpoint                         = local.state.vault_bastion.bastion_vault.endpoint
-    spire_oidc_auth_path                           = local.state.spire_parent.spire_oidc_auth_backend_path
+    bastion_vault_ca_cert_path                     = local.state.foundation_vault_bastion.bastion_vault.listener_ca_cert_path
+    bastion_vault_endpoint                         = local.state.foundation_vault_bastion.bastion_vault.endpoint
+    bastion_vault_use_ambient_token                = true
+    spire_parent_join_token_kv_path                = local.kv_paths["spire"]["parent"].join_token
+    spire_child_join_token_kv_path                 = local.kv_paths["spire"]["child"].join_token
+    spire_oidc_auth_path                           = local.state.platform_spire_parent.spire_oidc_auth_backend_path
     utils_terraform_operator_identity_names        = jsonencode(keys(local.spire_terraform_operator_specs))
     utils_terraform_operator_identity_spiffe_paths = jsonencode({ for name, spec in local.spire_terraform_operator_specs : name => spec.spiffe_path })
   }
 }
 
 locals {
-  # Services whose Terraform operator layers run from the local machine and require a SPIRE-backed
-  # JWT auth role on the Bastion Vault. Add a service name only when a corresponding
-  # provision-*-frontend or platform-*-frontend consumer layer exists.
-  _spire_operator_services = toset(["cilium", "harbor-origin", "vault-downstream", "haproxy"])
+  # Components whose Terraform operator layers run from the local machine and require a SPIRE-backed
+  # JWT auth role on the Bastion Vault, keyed by the name which consumer layers look up in output terraform_operator.
+  # Add an entry only when a corresponding platform-* or provision-* consumer layer exists.
+  _spire_operator_targets = {
+    "cilium"           = { service = "cilium", component = "frontend" }
+    "harbor-origin"    = { service = "harbor-origin", component = "frontend" }
+    "vault-downstream" = { service = "vault-downstream", component = "frontend" }
+    "haproxy"          = { service = "haproxy", component = "frontend" }
+    "keycloak"         = { service = "keycloak", component = "frontend" }
+    "spire-child"      = { service = "spire", component = "child" }
+  }
 
-  # A service name absent from foundation-libvirt-resources, or missing a "frontend" component,
-  # renders as null here instead of an opaque "Invalid index" crash in spire_terraform_operator_specs.
-  _spire_operator_services_missing = [
-    for s_name in local._spire_operator_services :
-    s_name if try(local.state.metadata.foundation_topology.identity[s_name][local._spire_operator_component], null) == null
+  # A target absent from foundation-libvirt-resources renders as a missing key here
+  # instead of an opaque "Invalid index" crash in spire_terraform_operator_specs.
+  _spire_operator_targets_missing = [
+    for key, t in local._spire_operator_targets :
+    key if try(local.state.foundation_libvirt_resources.foundation_topology.identity[t.service][t.component], null) == null
   ]
-
-  _spire_operator_component = "frontend"
 
   # Keyed by the identity string of the operator, <owner>-terraform-operator-<service>-<component>.
   # Every name below derives from the owner code and the foundation-libvirt-resources SSoT outputs.
-  # Adding a new consumer requires only adding its service name to the set above.
   spire_terraform_operator_specs = {
-    for s_name in setsubtract(local._spire_operator_services, local._spire_operator_services_missing) :
-    "${local.owner_code}-terraform-operator-${s_name}-${local._spire_operator_component}" => {
-      service_name = s_name
-      spiffe_path  = "/${local.owner_code}/terraform-operator/${s_name}/${local._spire_operator_component}"
+    for key, t in local._spire_operator_targets :
+    "${local.project_code}-terraform-operator-${t.service}-${t.component}" => {
+      output_key  = key
+      spiffe_path = "/${local.project_code}/terraform-operator/${t.service}/${t.component}"
       # The consumer names its own workload role, policy, and Bastion PKI role by its cluster_name.
-      cluster_name    = local.state.metadata.foundation_topology.identity[s_name][local._spire_operator_component].cluster_name
-      kv_service_path = "secret/data/${local.state.metadata.foundation_vault_path.credential_paths[s_name][local._spire_operator_component]}"
+      cluster_name    = local.state.foundation_libvirt_resources.foundation_topology.identity[t.service][t.component].cluster_name
+      kv_service_path = "secret/data/${local.state.foundation_libvirt_resources.foundation_vault_path.credential_paths[t.service][t.component]}"
     }
+    if !contains(local._spire_operator_targets_missing, key)
   }
 }
 
-check "spire_operator_services_exist" {
+check "spire_operator_targets_exist" {
   assert {
-    condition     = length(local._spire_operator_services_missing) == 0
-    error_message = "_spire_operator_services names foundation-libvirt-resources has no \"frontend\" component for: ${join(", ", local._spire_operator_services_missing)}."
+    condition     = length(local._spire_operator_targets_missing) == 0
+    error_message = "_spire_operator_targets names a component which foundation-libvirt-resources lacks: ${join(", ", local._spire_operator_targets_missing)}."
   }
 }

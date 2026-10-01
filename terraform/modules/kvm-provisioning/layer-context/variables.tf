@@ -63,9 +63,8 @@ variable "global_pki_map" {
     dns_san     = list(string)
     ou          = list(string)
     auth_config = object({
-      method       = string
-      path         = string
-      approle_path = string
+      method = string
+      path   = string
     })
     oidc_client = optional(object({
       name          = string
@@ -143,11 +142,6 @@ variable "prod_vault_svc_vip" {
 variable "security_pki_outputs" {
   description = "The `security_pki_outputs` variable MUST conform strictly to the output schema of `security-pki`. Any attribute mismatch causes object type conversion failure during Terraform evaluation."
   type = object({
-    workload_identities_approle = map(object({
-      role_id   = string
-      role_name = string
-      auth_path = string
-    }))
     prod_pki_configuration = object({
       path = string
       leaf_roles = map(object({
@@ -155,11 +149,6 @@ variable "security_pki_outputs" {
         name            = string
         allowed_domains = list(string)
       }))
-      lease_durations = object({
-        default = string
-        max     = string
-        agent   = string
-      })
     })
     bastion_pki_chain_b64 = object({
       path        = string

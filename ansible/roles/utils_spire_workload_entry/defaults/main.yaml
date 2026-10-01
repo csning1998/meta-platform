@@ -1,11 +1,14 @@
 ---
-utils_spire_workload_entry_socket_path: "{{ spire_dir_data }}/private/api.sock"
+# The SPIRE server on which the entry is registered. Kind child runs the commands in the pod of the Child server.
+utils_spire_workload_entry_server_kind: "parent"
+utils_spire_workload_entry_child_kubeconfig_kv_path: ""
 
 # Role variables MUST declare this path explicitly because variable scopes do not
 # propagate default values across decoupled include_role invocations.
 utils_spire_workload_entry_join_token_vault_path: >-
-  {{ vault_kv_namespace }}/spire-agent-join-token/{{ spire_cluster_name }}/{{
-    inventory_hostname | regex_replace('^' ~ (spire_cluster_name | regex_escape) ~ '-', '') }}
+  {{ spire_child_join_token_kv_path if utils_spire_workload_entry_server_kind == 'child'
+    else spire_parent_join_token_kv_path }}/{{
+    spire_cluster_name }}/{{ inventory_hostname | regex_replace('^' ~ (spire_cluster_name | regex_escape) ~ '-', '') }}
 
 # Workloads requiring prolonged execution windows MUST override this variable with an explicit TTL
 # which exceeds the default five-minute SPIRE token lifespan.

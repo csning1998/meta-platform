@@ -56,9 +56,8 @@ locals {
       ]
 
       auth_config = {
-        method       = contains(["kubeadm", "microk8s"], item.config.runtime) ? "kubernetes" : "approle"
-        path         = contains(["kubeadm", "microk8s"], item.config.runtime) ? "kubernetes/${item.service_name}/${item.comp_name}" : "workload-approle"
-        approle_path = "workload-approle"
+        method = contains(["kubeadm", "microk8s"], item.config.runtime) ? "kubernetes" : "jwt"
+        path   = contains(["kubeadm", "microk8s"], item.config.runtime) ? "kubernetes/${item.service_name}/${item.comp_name}" : "jwt"
       }
 
       oidc_client = item.config.oidc_client != null ? merge(item.config.oidc_client, {

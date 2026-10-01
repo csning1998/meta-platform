@@ -1,5 +1,4 @@
 
-# 1. SSoT Alignment
 locals {
   segments_map = merge([
     for s_name, components in var.global_topology_identity : {
@@ -25,10 +24,7 @@ locals {
   svc_fqdn     = local.svc_pki_role.dns_san[0]
 }
 
-# 2. Network Context
-# The ... grouping operator handles layers where multiple roles share the same network_tier
-# (e.g. kubeadm master/worker both using "default"). Taking [0] is safe: duplicate tiers
-# always map to the same infrastructure config since they point to the same cluster.
+# Deduplicates tier parameters by taking index [0], which is safe because roles sharing a tier resolve to the same cluster.
 locals {
   network_infrastructure_map_grouped = {
     for role, ctx in local.components_context :
@@ -54,7 +50,6 @@ locals {
   }
 }
 
-# 3. Security & Credentials
 locals {
   prod_vault_endpoint = var.prod_vault_svc_vip != null ? "https://${var.prod_vault_svc_vip}:443" : null
 
@@ -66,7 +61,6 @@ locals {
   }
 }
 
-# 4. Topology
 locals {
   storage_pool_name = local.svc_identity.storage_pool_name
 
@@ -80,14 +74,11 @@ locals {
   }
 }
 
-# 5. Vault Agent Identities. These are partial identity structures where the secret_id is injected by the root module after AppRole generation.
-#    When security_pki_outputs is absent (platform-vault-frontend and earlier), all_vault_agent_identity_bases resolves to {} and vault_agent_identity_base resolves to null.
+# Constructs partial Vault Agent identity maps augmented downstream with tenant JWT credentials.
 locals {
   all_vault_agent_identity_bases = var.security_pki_outputs != null ? {
     for role, ctx in local.components_context : role => {
       vault_endpoint = local.prod_vault_endpoint
-      auth_path      = var.security_pki_outputs.workload_identities_approle[var.global_pki_map[ctx.pki_key].key].auth_path
-      role_id        = var.security_pki_outputs.workload_identities_approle[var.global_pki_map[ctx.pki_key].key].role_id
       role_name      = var.security_pki_outputs.prod_pki_configuration.leaf_roles[var.global_pki_map[ctx.pki_key].key].name
       ca_cert_b64    = var.security_pki_outputs.bastion_pki_chain_b64.content_b64
       issuer_ca_b64  = var.security_pki_outputs.prod_pki_issuer_cert_b64
@@ -98,4 +89,3 @@ locals {
 
   vault_agent_identity_base = lookup(local.all_vault_agent_identity_bases, var.primary_role, null)
 }
-

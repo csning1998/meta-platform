@@ -1,10 +1,24 @@
 ---
 utils_terraform_operator_identity_name: "harbor-origin-provisioner"
 
+# The agent instance of the host serves the identity.
+# The kind names the SPIRE server which receives the attestation of that agent.
+# The empty instance names the agent of the Parent. The instance child names the agent of the Child.
+utils_terraform_operator_identity_spire_instance: ""
+utils_terraform_operator_identity_spire_server_kind: "parent"
+utils_terraform_operator_identity_child_kubeconfig_kv_path: ""
+utils_terraform_operator_identity_spire_agent_socket_dir: >-
+  /run/spire-agent{{
+    ('-' ~ utils_terraform_operator_identity_spire_instance)
+    if utils_terraform_operator_identity_spire_instance | length > 0 else '' }}/public
+
 # The absolute SPIFFE ID path of this identity has no default and MUST be supplied as
 # utils_terraform_operator_identity_spiffe_path, derived from the identity naming standard.
 utils_terraform_operator_identity_wrapper_dir: "/usr/local/bin"
-utils_terraform_operator_identity_wrapper_name: "spire-fetch-{{ utils_terraform_operator_identity_name }}"
+utils_terraform_operator_identity_wrapper_name: >-
+  spire-fetch-{{ utils_terraform_operator_identity_name }}{{
+    ('-' ~ utils_terraform_operator_identity_spire_instance)
+    if utils_terraform_operator_identity_spire_instance | length > 0 else '' }}
 utils_terraform_operator_identity_jwt_audience: "vault"
 utils_terraform_operator_identity_spire_agent_bin: "/usr/local/bin/spire-agent"
 

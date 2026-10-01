@@ -23,6 +23,24 @@ plugins {
   NodeAttestor "join_token" {
     plugin_data {}
   }
+{% set _k8s_psat_clusters = (platform_spire_parent_k8s_psat_clusters is string)
+    | ternary(platform_spire_parent_k8s_psat_clusters | from_json, platform_spire_parent_k8s_psat_clusters) %}
+{% if _k8s_psat_clusters | length > 0 %}
+
+  # Attests the upstream agents of each SPIRE Child through the TokenReview API of that cluster.
+  NodeAttestor "k8s_psat" {
+    plugin_data {
+      clusters = {
+{% for cluster in _k8s_psat_clusters %}
+        "{{ cluster.name }}" = {
+          service_account_allow_list = {{ cluster.service_account_allow_list | to_json }}
+          kube_config_file           = "{{ platform_spire_parent_k8s_psat_dir }}/{{ cluster.name }}.kubeconfig"
+        }
+{% endfor %}
+      }
+    }
+  }
+{% endif %}
 
   KeyManager "disk" {
     plugin_data {

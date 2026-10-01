@@ -4,14 +4,14 @@
 resource "vault_policy" "spire_upstream_authority" {
   name   = "${module.context.svc_identity.cluster_name}-upstream-authority"
   policy = <<EOT
-path "${data.terraform_remote_state.vault_bastion.outputs.bastion_vault_pki.intermediate_mount_path}/root/sign-intermediate" {
+path "${local.state.foundation_vault_bastion.bastion_vault_pki.intermediate_mount_path}/root/sign-intermediate" {
   capabilities = ["create", "update"]
 }
 EOT
 }
 
 resource "vault_approle_auth_backend_role" "spire_upstream_authority" {
-  backend        = data.terraform_remote_state.vault_bastion.outputs.bastion_vault_auth.approle_mount_path
+  backend        = local.state.foundation_vault_bastion.bastion_vault_auth.approle_mount_path
   role_name      = vault_policy.spire_upstream_authority.name
   token_policies = [vault_policy.spire_upstream_authority.name]
   token_ttl      = 60 * 60     # 1 Hour
@@ -26,10 +26,10 @@ resource "vault_approle_auth_backend_role_secret_id" "spire_upstream_authority" 
 # Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 1 Item D.
 # The role name equals the identity string of the service, which the tenant ACL scopes by the owner code prefix.
 resource "vault_pki_secret_backend_role" "leaf" {
-  backend = data.terraform_remote_state.vault_bastion.outputs.bastion_vault_pki.intermediate_mount_path
+  backend = local.state.foundation_vault_bastion.bastion_vault_pki.intermediate_mount_path
   name    = module.context.svc_identity.cluster_name
 
-  allowed_domains    = data.terraform_remote_state.metadata.outputs.foundation_pki.map[module.context.primary_context.pki_key].dns_san
+  allowed_domains    = local.state.foundation_libvirt_resources.foundation_pki.map[module.context.primary_context.pki_key].dns_san
   allow_subdomains   = false
   allow_glob_domains = false
   allow_bare_domains = true
@@ -45,7 +45,7 @@ resource "vault_pki_secret_backend_role" "leaf" {
   max_ttl = 60 * 60 * 24 * 90 # 90 Days
   ttl     = 60 * 60 * 24 * 30 # 30 Days
 
-  ou = data.terraform_remote_state.metadata.outputs.foundation_pki.map[module.context.primary_context.pki_key].ou
+  ou = local.state.foundation_libvirt_resources.foundation_pki.map[module.context.primary_context.pki_key].ou
 }
 
 resource "vault_pki_secret_backend_cert" "oidc_discovery" {
@@ -65,7 +65,7 @@ resource "vault_pki_secret_backend_cert" "oidc_discovery" {
 resource "vault_jwt_auth_backend" "spire_oidc" {
   depends_on  = [module.platform_spire_parent]
   description = "SPIRE Parent workload JWT-SVID federation via the OIDC Discovery Provider"
-  path        = "meta-platform-spire-parent-jwt-svid-provider"
+  path        = "${module.context.svc_identity.cluster_name}-jwt-svid-provider"
   type        = "jwt"
 
   oidc_discovery_url    = "https://${local.spire_parent_node_ip}:${local.spire_oidc_port}"
