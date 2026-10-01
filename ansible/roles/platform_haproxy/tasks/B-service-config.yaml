@@ -57,7 +57,16 @@
         mode: "0644"
       notify: Restart Keepalived
 
-    - name: "B2c. Render HAProxy configuration"
+    # The fixed salt keeps the hash stable across runs, and the password enters openssl through stdin.
+    - name: "B2c. Derive the crypt hash of the stats password"
+      ansible.builtin.command:
+        cmd: "openssl passwd -6 -salt {{ (haproxy_stats_password | hash('sha256'))[:16] }} -stdin"
+        stdin: "{{ haproxy_stats_password }}"
+      register: _platform_haproxy_stats_hash
+      changed_when: false
+      no_log: true
+
+    - name: "B2d. Render HAProxy configuration"
       ansible.builtin.template:
         src: haproxy.cfg.j2
         dest: /etc/haproxy/haproxy.cfg
@@ -66,7 +75,7 @@
         mode: "0640"
       notify: Restart HAProxy
 
-    - name: "B2d. Verify HAProxy configuration"
+    - name: "B2e. Verify HAProxy configuration"
       ansible.builtin.command:
         cmd: haproxy -c -f /etc/haproxy/haproxy.cfg
       changed_when: false

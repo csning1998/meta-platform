@@ -135,6 +135,7 @@ locals {
     haproxy_stats_port       = module.context.primary_net_config.lb_config.ports["stats"].frontend_port
     haproxy_listen_address   = local.haproxy_listen_address
     keepalived_auth_pass     = data.vault_kv_secret_v2.haproxy_credential.data["keepalived_auth_pass"]
+    haproxy_stats_password   = data.vault_kv_secret_v2.haproxy_credential.data["stats_password"]
 
     spire_server_port               = tostring(local.state.platform_spire_parent.spire_agent_bootstrap.server_port)
     spire_parent_node_ip            = local.state.platform_spire_parent.spire_agent_bootstrap.node_ip

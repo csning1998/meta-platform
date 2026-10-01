@@ -29,10 +29,14 @@ defaults
     timeout server  60000
     timeout http-keep-alive 10000
 
+userlist stats_users
+    user {{ platform_haproxy_stats_user }} password {{ _platform_haproxy_stats_hash.stdout }}
+
 # Stats Interface, only bind to management IP
 listen stats
     bind {{ haproxy_listen_address }}:{{ haproxy_stats_port }} ssl crt /etc/haproxy/certs/vault.pem
     mode http
+    http-request auth realm HAProxy-Stats unless { http_auth(stats_users) }
     http-request use-service prometheus-exporter if { path /metrics }
     stats enable
     stats uri /

@@ -17,3 +17,6 @@ platform_haproxy_haproxy_health_check_inter: "10s"
 platform_haproxy_haproxy_health_check_fall: "5"
 platform_haproxy_haproxy_health_check_rise: "3"
 platform_haproxy_haproxy_ca_path: "/etc/haproxy/certs/ca.crt"
+
+# The stats listener and its metrics path require this login. The password arrives as haproxy_stats_password.
+platform_haproxy_stats_user: "stats"
