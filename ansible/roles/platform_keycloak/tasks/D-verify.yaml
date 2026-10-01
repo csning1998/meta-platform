@@ -7,8 +7,11 @@
     mode: "0644"
   notify: Update CA Certificates
 
-- name: "D2. Flush Handlers to Update Trust Store Immediately"
-  ansible.builtin.meta: flush_handlers
+# Unconditional trust store refresh ensures consistency across idempotent retries when notification handlers drop.
+- name: "D2. Refresh the Trust Store"
+  become: true
+  ansible.builtin.command: update-ca-certificates
+  changed_when: false
 
 - name: "D3. Verify Keycloak Readiness via FQDN"
   ansible.builtin.uri:
