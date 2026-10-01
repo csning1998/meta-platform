@@ -39,7 +39,7 @@ locals {
 
   hubble_ui = {
     login_user  = "hubble"
-    proxy_image = "quay.io/oauth2-proxy/oauth2-proxy:v7.15.4"
+    proxy_image = "quay.io/oauth2-proxy/oauth2-proxy:v7.15.4@sha256:b1b2021fe8f4004573e8d690dec6c7bb29cc44364572cf8510a05bf3a0ae2ded"
     proxy_port  = 4180
     proxy_name  = "oauth2-proxy"
 

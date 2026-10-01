@@ -92,6 +92,8 @@ resource "kubernetes_deployment_v1" "oauth2_proxy" {
           name  = local.hubble_ui.proxy_name
           image = local.hubble_ui.proxy_image
 
+          image_pull_policy = "Always"
+
           # Oauth2-proxy requires static provider configuration while delegating authentication to htpasswd credentials.
           args = [
             "--http-address=0.0.0.0:${local.hubble_ui.proxy_port}",
@@ -104,20 +106,27 @@ resource "kubernetes_deployment_v1" "oauth2_proxy" {
             "--provider=google",
             "--client-id=unused",
             "--client-secret=unused",
+            "--cookie-secret-file=${local.hubble_ui.secret_mount}/cookie_secret",
           ]
-
-          env {
-            name = "OAUTH2_PROXY_COOKIE_SECRET"
-            value_from {
-              secret_key_ref {
-                name = local.hubble_ui.auth_secret
-                key  = "cookie_secret"
-              }
-            }
-          }
 
           port {
             container_port = local.hubble_ui.proxy_port
+          }
+
+          liveness_probe {
+            http_get {
+              path = "/ping"
+              port = local.hubble_ui.proxy_port
+            }
+            period_seconds = 10
+          }
+
+          readiness_probe {
+            http_get {
+              path = "/ready"
+              port = local.hubble_ui.proxy_port
+            }
+            period_seconds = 5
           }
 
           volume_mount {
@@ -130,11 +139,15 @@ resource "kubernetes_deployment_v1" "oauth2_proxy" {
             run_as_non_root            = true
             read_only_root_filesystem  = true
             allow_privilege_escalation = false
+
+            capabilities {
+              drop = ["ALL"]
+            }
           }
 
           resources {
             requests = { cpu = "10m", memory = "32Mi" }
-            limits   = { memory = "128Mi" }
+            limits   = { cpu = "100m", memory = "128Mi" }
           }
         }
 
@@ -145,6 +158,10 @@ resource "kubernetes_deployment_v1" "oauth2_proxy" {
             items {
               key  = "htpasswd"
               path = "htpasswd"
+            }
+            items {
+              key  = "cookie_secret"
+              path = "cookie_secret"
             }
           }
         }
