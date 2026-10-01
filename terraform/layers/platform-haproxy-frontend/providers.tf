@@ -29,13 +29,13 @@ provider "libvirt" {
 }
 
 provider "vault" {
-  address      = local.state.vault_bastion.bastion_vault.endpoint
-  ca_cert_file = local.state.vault_bastion.bastion_vault.listener_ca_cert_path
+  address      = local.state.foundation_vault_bastion.bastion_vault.endpoint
+  ca_cert_file = local.state.foundation_vault_bastion.bastion_vault.listener_ca_cert_path
 
   auth_login {
-    path = "auth/${local.state.spire_parent.spire_oidc_auth_backend_path}/login"
+    path = "auth/${local.state.platform_spire_parent.spire_oidc_auth_backend_path}/login"
     parameters = {
-      role = local.cluster_name
+      role = local.terraform_operator.role_name
       jwt  = data.external.spire_jwt.result.jwt
     }
   }
