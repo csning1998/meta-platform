@@ -1,5 +1,4 @@
 ---
-# 1. Dynamic Grouping: Map node_role to Ansible groups
 - name: "Play [Setup]: Dynamic Grouping based on node_role"
   hosts: all
   gather_facts: false
@@ -7,29 +6,27 @@
     - name: "Create dynamic groups from node_role variable"
       ansible.builtin.group_by:
         key: "{{ node_role | replace('-', '_') }}"
+      changed_when: false
 
-# 1. Harbor Origin Container and OCI Registry
 - name: "Play [Harbor]: Configure Harbor Origin Cluster"
   hosts: "{{ 'harbor_origin' if 'harbor_origin' in groups else [] }}"
   become: true
   roles:
     - platform_harbor_origin
 
-# 2. Keycloak for OIDC
 - name: "Play [Keycloak]: Configure Keycloak Container"
   hosts: "{{ 'keycloak' if 'keycloak' in groups else [] }}"
   become: true
   roles:
     - platform_keycloak
 
-# 3. HAProxy + Keepalived exposure tier for non-Kubernetes-runtime services
 - name: "Play [HAProxy]: Configure HAProxy + Keepalived Frontend"
   hosts: "{{ 'haproxy' if 'haproxy' in groups else [] }}"
   become: true
   roles:
     - platform_haproxy
 #
-# 4. Generic MicroK8s Cluster
+# Generic MicroK8s Cluster
 # Commented out: infra_microk8s role is not committed yet.
 # - name: "Play [Kubernetes]: Provision and Configure MicroK8s Cluster"
 #   hosts: "{{ 'microk8s' if 'microk8s' in groups else [] }}"
@@ -38,7 +35,7 @@
 #   roles:
 #     - infra_microk8s
 
-# 5. Generic Kubeadm Cluster
+# Generic Kubeadm Cluster
 # Commented out: infra_kubeadm role is not committed yet.
 # - name: "Play [Kubernetes]: Provision and Configure Kubeadm Cluster"
 #   hosts: "{{ (groups['master'] | default([])) + (groups['worker'] | default([])) }}"
