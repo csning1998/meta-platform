@@ -1,8 +1,8 @@
 agent {
-  data_dir     = "{{ spire_agent_dir_data }}"
+  data_dir     = "{{ utils_spire_agent_dir_data }}"
   log_level    = "{{ utils_spire_agent_log_level }}"
-  server_address = "{{ spire_parent_node_ip }}"
-  server_port    = "{{ spire_server_port }}"
+  server_address = "{{ utils_spire_agent_server_address }}"
+  server_port    = "{{ utils_spire_agent_server_port }}"
   socket_path    = "{{ utils_spire_agent_socket_dir }}/api.sock"
   trust_domain   = "{{ spire_trust_domain }}"
   trust_bundle_path = "{{ utils_spire_agent_dir_config }}/bundle.pem"
@@ -30,7 +30,7 @@ plugins {
 
   KeyManager "disk" {
     plugin_data {
-      directory = "{{ spire_agent_dir_data }}"
+      directory = "{{ utils_spire_agent_dir_data }}"
     }
   }
 }

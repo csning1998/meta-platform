@@ -1,0 +1,52 @@
+---
+# Authenticates local Terraform operator via SPIRE JWT-SVID to obtain ephemeral in-memory client token.
+- name: "Assert the caller supplied the operator coordinates"
+  ansible.builtin.assert:
+    that:
+      - >-
+        utils_vault_operator_login_use_ambient | bool
+        or (utils_vault_operator_login_wrapper | length > 0
+            and utils_vault_operator_login_role | length > 0
+            and utils_vault_operator_login_auth_mount | length > 0
+            and utils_vault_operator_login_endpoint | length > 0
+            and utils_vault_operator_login_ca_cert_path | length > 0)
+    fail_msg: >-
+      The caller MUST supply utils_vault_operator_login_wrapper, _role, _auth_mount, _endpoint, and _ca_cert_path.
+      Only the bootstrap layer which creates the operators MAY set utils_vault_operator_login_use_ambient.
+
+- name: "Fetch a JWT-SVID through the wrapper of the operator"
+  ansible.builtin.command:
+    cmd: "/usr/local/bin/{{ utils_vault_operator_login_wrapper }}"
+  register: _utils_vault_operator_login_jwt
+  changed_when: false
+  delegate_to: localhost
+  become: false
+  no_log: true
+  when: not (utils_vault_operator_login_use_ambient | bool)
+
+- name: "Log in to the Vault as the operator"
+  ansible.builtin.uri:
+    url: "{{ utils_vault_operator_login_endpoint }}/v1/auth/{{ utils_vault_operator_login_auth_mount }}/login"
+    method: POST
+    body_format: json
+    body:
+      role: "{{ utils_vault_operator_login_role }}"
+      jwt: "{{ (_utils_vault_operator_login_jwt.stdout | from_json).jwt }}"
+    ca_path: "{{ utils_vault_operator_login_ca_cert_path }}"
+    validate_certs: true
+    return_content: true
+  register: _utils_vault_operator_login_response
+  changed_when: false
+  delegate_to: localhost
+  become: false
+  no_log: true
+  when: not (utils_vault_operator_login_use_ambient | bool)
+
+- name: "Retain ephemeral client token fact"
+  ansible.builtin.set_fact:
+    utils_vault_operator_login_token: >-
+      {{
+        '' if (utils_vault_operator_login_use_ambient | bool)
+          else _utils_vault_operator_login_response.json.auth.client_token
+      }}
+  no_log: true

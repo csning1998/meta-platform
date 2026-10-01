@@ -1,0 +1,10 @@
+---
+# Operator authentication coordinates required to obtain ephemeral client token fact.
+utils_vault_operator_login_wrapper: ""
+utils_vault_operator_login_role: ""
+utils_vault_operator_login_auth_mount: ""
+utils_vault_operator_login_endpoint: ""
+utils_vault_operator_login_ca_cert_path: ""
+
+# Ambient authentication bypass flag restricted to bootstrap layer execution.
+utils_vault_operator_login_use_ambient: false

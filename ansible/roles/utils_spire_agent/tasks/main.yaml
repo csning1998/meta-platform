@@ -14,8 +14,7 @@
       failed_when: false
       when: _utils_spire_agent_binary_stat.stat.exists
 
-    # A substring test on raw output matches "1.2.3" against installed "1.2.30" or "11.2.3".
-    # Extracting the dotted version token keeps the later `not in` comparison exact.
+    # Semver token extraction prevents false substring matches against prefixes or suffixes during version validation.
     - name: "Step A0c. Combine version check stdout/stderr for downstream comparison"
       ansible.builtin.set_fact:
         _utils_spire_agent_installed_version_str: >-
@@ -110,7 +109,7 @@
 
     - name: "Step B2. Ensure SPIRE Agent persisted identity directory exists"
       ansible.builtin.file:
-        path: "{{ spire_agent_dir_data }}"
+        path: "{{ utils_spire_agent_dir_data }}"
         state: directory
         owner: root
         group: root
@@ -129,8 +128,7 @@
         path: /sys/fs/selinux
       register: utils_spire_agent_selinux_fs
 
-    # No restorecon step: the RuntimeDirectory= setting in Block G recreates this tmpfs
-    # directory fresh on every start, leaving no pre-existing mislabeled file to fix.
+    # RuntimeDirectory directive in systemd creates this tmpfs directory fresh on start, maintaining correct context.
     - name: "Step C1. Register persistent fcontext rule for the Workload API socket directory"
       community.general.sefcontext:
         target: "{{ utils_spire_agent_socket_dir }}(/.*)?"
@@ -163,16 +161,23 @@
       when: utils_spire_agent_already_attested | default(false)
       become: true
       block:
-        - name: "Step D2c-1. Fetch current trust bundle from SPIRE Parent"
-          ansible.builtin.command:
-            cmd: "spire-server bundle show -socketPath {{ spire_dir_data }}/private/api.sock"
-          register: _utils_spire_agent_live_bundle
-          changed_when: false
-          failed_when: >-
-            not _utils_spire_agent_live_bundle.unreachable | default(false) and
-            'BEGIN CERTIFICATE' not in (_utils_spire_agent_live_bundle.stdout | default(''))
-          ignore_unreachable: true
-          delegate_to: "{{ spire_parent_ssh_host }}"
+        - name: "Step D2c-1. Fetch current trust bundle from the SPIRE server"
+          ansible.builtin.include_role:
+            name: utils_spire_server_command
+          vars:
+            # The anchor holds the coordinates shared by every call, and each call adds its own arguments.
+            <<: &server_command_vars
+              utils_spire_server_command_kind: "{{ utils_spire_agent_server_kind }}"
+              utils_spire_server_command_parent_ssh_host: "{{ spire_parent_ssh_host | default('') }}"
+              utils_spire_server_command_parent_socket_path: "{{ spire_dir_data }}/private/api.sock"
+              utils_spire_server_command_child_kubeconfig_kv_path: "{{ utils_spire_agent_child_kubeconfig_kv_path }}"
+              utils_spire_server_command_terraform_operator_jwt_command: "{{ bastion_operator_wrapper | default('') }}"
+              utils_spire_server_command_terraform_operator_vault_role: "{{ bastion_operator_role | default('') }}"
+              utils_spire_server_command_terraform_operator_vault_auth_mount: "{{ bastion_operator_auth_mount | default('') }}"
+              utils_spire_server_command_bastion_vault_endpoint: "{{ bastion_vault_url | default('') }}"
+              utils_spire_server_command_bastion_vault_ca_cert_path: "{{ bastion_vault_ca_cert_path | default('') }}"
+            utils_spire_server_command_arguments: "bundle show"
+            utils_spire_server_command_tolerate_failure: true
 
         - name: "Step D2c-2. Read locally stored trust bundle"
           ansible.builtin.slurp:
@@ -182,14 +187,15 @@
 
         - name: "Step D2c-3. Clear stale attestation when trust bundle diverged"
           when: >-
-            _utils_spire_agent_live_bundle.unreachable | default(false) or
+            utils_spire_server_command_result.unreachable | default(false) | bool or
+            utils_spire_server_command_result.rc | int != 0 or
             _utils_spire_agent_local_bundle.failed | default(true) or
             (_utils_spire_agent_local_bundle.content | default('') | b64decode | trim) !=
-            (_utils_spire_agent_live_bundle.stdout | default('') | trim)
+            (utils_spire_server_command_result.stdout | default('') | trim)
           block:
             - name: "Step D2c-3a. Remove stale agent identity data"
               ansible.builtin.file:
-                path: "{{ spire_agent_dir_data }}/agent-data.json"
+                path: "{{ utils_spire_agent_dir_data }}/agent-data.json"
                 state: absent
 
             - name: "Step D2c-3b. Set attestation state to unattested"
@@ -197,14 +203,71 @@
                 utils_spire_agent_already_attested: false
 
       rescue:
-        - name: "Step D2c (rescue). Treat unreachable SPIRE Parent as stale — force re-attest"
+        - name: "Step D2c (rescue). Treat an unreachable SPIRE server as stale and force a new attestation"
           ansible.builtin.set_fact:
             utils_spire_agent_already_attested: false
+
+    # A rebuilt SPIRE server no longer knows the agent, and a healthy local agent hides that fact.
+    # The agent counts as attested only when the server lists the agent behind the recorded join token.
+    - name: "Step D2d. Invalidate attestation state when the SPIRE server does not list the agent"
+      when: utils_spire_agent_already_attested | default(false)
+      become: true
+      block:
+        - name: "Step D2d-1. Log in to the Bastion Vault as the caller operator"
+          ansible.builtin.include_role:
+            name: utils_vault_operator_login
+          vars:
+            utils_vault_operator_login_wrapper: "{{ bastion_operator_wrapper | default('') }}"
+            utils_vault_operator_login_role: "{{ bastion_operator_role | default('') }}"
+            utils_vault_operator_login_auth_mount: "{{ bastion_operator_auth_mount | default('') }}"
+            utils_vault_operator_login_endpoint: "{{ bastion_vault_url }}"
+            utils_vault_operator_login_ca_cert_path: "{{ bastion_vault_ca_cert_path }}"
+            utils_vault_operator_login_use_ambient: "{{ bastion_vault_use_ambient_token | default(false) | bool }}"
+
+        - name: "Step D2d-2. Read the recorded join_token of this host"
+          community.hashi_vault.vault_kv2_get:
+            url: "{{ bastion_vault_url }}"
+            engine_mount_point: "secret"
+            path: "{{ utils_spire_agent_join_token_vault_path }}"
+            auth_method: "{{ 'token' if utils_vault_operator_login_token | length > 0 else omit }}"
+            token: "{{ utils_vault_operator_login_token if utils_vault_operator_login_token | length > 0 else omit }}"
+            validate_certs: true
+            ca_cert: "{{ bastion_vault_ca_cert_path }}"
+          register: _utils_spire_agent_recorded_token
+          delegate_to: localhost
+          become: false
+          ignore_errors: true
+          no_log: true
+
+        - name: "Step D2d-3. List the agents which the SPIRE server knows"
+          ansible.builtin.include_role:
+            name: utils_spire_server_command
+          vars:
+            <<: *server_command_vars
+            utils_spire_server_command_arguments: "agent list -output json"
+            utils_spire_server_command_tolerate_failure: true
+
+        - name: "Step D2d-4. Clear stale attestation when the record or the agent is missing"
+          when: >-
+            (_utils_spire_agent_recorded_token.failed | default(true)) or
+            utils_spire_server_command_result.unreachable | default(false) | bool or
+            utils_spire_server_command_result.rc | int != 0 or
+            ('/spire/agent/join_token/' ~ (_utils_spire_agent_recorded_token.raw.data.data.join_token | default('-'))) not in
+            (utils_spire_server_command_result.stdout | default(''))
+          block:
+            - name: "Step D2d-4a. Remove stale agent identity data"
+              ansible.builtin.file:
+                path: "{{ utils_spire_agent_dir_data }}/agent-data.json"
+                state: absent
+
+            - name: "Step D2d-4b. Set attestation state to unattested"
+              ansible.builtin.set_fact:
+                utils_spire_agent_already_attested: false
 
     # Clearing stale identity data prevents node attestation failure during join-token re-bootstrap.
     - name: "Step D3. Remove stale agent identity data when no attested agent runs"
       ansible.builtin.file:
-        path: "{{ spire_agent_dir_data }}/agent-data.json"
+        path: "{{ utils_spire_agent_dir_data }}/agent-data.json"
         state: absent
       when: not utils_spire_agent_already_attested
 
@@ -225,27 +288,36 @@
           bastion_vault_ca_cert_path MUST name the CA file which verifies the Bastion Vault listener.
           Terraform supplies it from the foundation-vault-bastion state, and a manual run passes it with -e.
 
-    - name: "Step E1. Generate join_token on SPIRE Parent"
-      ansible.builtin.command:
-        cmd: >-
-          spire-server token generate
-          -socketPath {{ spire_dir_data }}/private/api.sock
-          -output json
-      register: utils_spire_agent_generated_token
-      changed_when: true
-      delegate_to: "{{ spire_parent_ssh_host }}"
-      become: true
-      no_log: true
+    - name: "Step E0a. Log in to the Bastion Vault as the caller operator"
+      ansible.builtin.include_role:
+        name: utils_vault_operator_login
+      vars:
+        utils_vault_operator_login_wrapper: "{{ bastion_operator_wrapper | default('') }}"
+        utils_vault_operator_login_role: "{{ bastion_operator_role | default('') }}"
+        utils_vault_operator_login_auth_mount: "{{ bastion_operator_auth_mount | default('') }}"
+        utils_vault_operator_login_endpoint: "{{ bastion_vault_url }}"
+        utils_vault_operator_login_ca_cert_path: "{{ bastion_vault_ca_cert_path }}"
+        utils_vault_operator_login_use_ambient: "{{ bastion_vault_use_ambient_token | default(false) | bool }}"
+
+    - name: "Step E1. Generate join_token on the SPIRE server"
+      ansible.builtin.include_role:
+        name: utils_spire_server_command
+      vars:
+        <<: *server_command_vars
+        utils_spire_server_command_arguments: "token generate -output json"
+        utils_spire_server_command_tolerate_failure: false
 
     - name: "Step E2. Record join_token"
       ansible.builtin.set_fact:
-        utils_spire_agent_join_token: "{{ (utils_spire_agent_generated_token.stdout | from_json).value }}"
+        utils_spire_agent_join_token: "{{ (utils_spire_server_command_result.stdout | from_json).value }}"
       no_log: true
 
     - name: "Step E3. Persist join_token to Bastion Vault for audit"
       community.hashi_vault.vault_kv2_write:
-        url: "{{ dev_vault_url }}"
+        url: "{{ bastion_vault_url }}"
         engine_mount_point: "secret"
+        auth_method: "{{ 'token' if utils_vault_operator_login_token | length > 0 else omit }}"
+        token: "{{ utils_vault_operator_login_token if utils_vault_operator_login_token | length > 0 else omit }}"
         path: "{{ utils_spire_agent_join_token_vault_path }}"
         data:
           join_token: "{{ utils_spire_agent_join_token }}"
@@ -259,24 +331,30 @@
     - name: "Block E: Provision join_token failed"
       ansible.builtin.fail:
         msg: >-
-          Unable to generate a join_token via `spire-server token generate` on the SPIRE Parent,
+          Unable to generate a join_token via `spire-server token generate` on the {{ utils_spire_agent_server_kind }} SPIRE server,
           or unable to persist it to {{ utils_spire_agent_join_token_vault_path }} in Bastion Vault.
           Reason: {{ ansible_failed_result.msg | default('see task output above') }}
 
-- name: "Block F: Fetch Trust Bundle from SPIRE Parent"
+- name: "Block F: Fetch Trust Bundle from the SPIRE server"
   become: true
   block:
-    - name: "Step F1. Read the trust bundle from SPIRE Parent"
-      ansible.builtin.command:
-        cmd: "spire-server bundle show -socketPath {{ spire_dir_data }}/private/api.sock"
-      register: utils_spire_agent_remote_bundle
-      changed_when: false
-      failed_when: "'BEGIN CERTIFICATE' not in utils_spire_agent_remote_bundle.stdout"
-      delegate_to: "{{ spire_parent_ssh_host }}"
+    - name: "Step F1. Read the trust bundle from the SPIRE server"
+      ansible.builtin.include_role:
+        name: utils_spire_server_command
+      vars:
+        <<: *server_command_vars
+        utils_spire_server_command_arguments: "bundle show"
+        utils_spire_server_command_tolerate_failure: false
+
+    - name: "Step F1a. Assert that the bundle holds a certificate"
+      ansible.builtin.assert:
+        that:
+          - "'BEGIN CERTIFICATE' in utils_spire_server_command_result.stdout"
+        fail_msg: "The trust bundle of the {{ utils_spire_agent_server_kind }} SPIRE server holds no certificate."
 
     - name: "Step F2. Deploy the trust bundle locally"
       ansible.builtin.copy:
-        content: "{{ utils_spire_agent_remote_bundle.stdout }}"
+        content: "{{ utils_spire_server_command_result.stdout }}"
         dest: "{{ utils_spire_agent_dir_config }}/bundle.pem"
         owner: root
         group: root
@@ -303,7 +381,7 @@
     - name: "Step G2. Create SPIRE Agent Systemd Service"
       ansible.builtin.template:
         src: spire-agent.service.j2
-        dest: /etc/systemd/system/spire-agent.service
+        dest: "/etc/systemd/system/{{ utils_spire_agent_unit_name }}.service"
         owner: root
         group: root
         mode: "0644"
@@ -319,14 +397,14 @@
   block:
     - name: "Step H1. Enable and start SPIRE Agent"
       ansible.builtin.systemd:
-        name: spire-agent
+        name: "{{ utils_spire_agent_unit_name }}"
         enabled: true
         state: started
         daemon_reload: "{{ utils_spire_agent_service_result.changed | default(false) }}"
 
     - name: "Step H2. Restart SPIRE Agent immediately if config changed"
       ansible.builtin.systemd:
-        name: spire-agent
+        name: "{{ utils_spire_agent_unit_name }}"
         state: restarted
       when: >
         utils_spire_agent_config_result.changed | default(false) or

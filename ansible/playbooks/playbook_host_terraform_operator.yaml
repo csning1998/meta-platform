@@ -7,10 +7,11 @@
     - name: "Create dynamic groups from node_role variable"
       ansible.builtin.group_by:
         key: "{{ node_role | replace('-', '_') }}"
+      changed_when: false
       tags:
         - always
 
-# Phase 2: The SPIRE Agent of this host, a native systemd binary per utils_spire_agent.
+# Deploys the local workstation SPIRE Agent via native systemd service.
 - name: "Play [SPIRE Agent]: Provision this host's own SPIRE Agent"
   hosts: "{{ 'host_terraform_operator' if 'host_terraform_operator' in groups else [] }}"
   become: true
@@ -19,22 +20,19 @@
   roles:
     - utils_spire_agent
 
-# Phase 3: Per-consumer Terraform-operator workload identity, consumed by data "external" in
-# each replacing layer providers.tf.
+# Registers per-component Terraform operator workload identities consumed by downstream external data sources.
 - name: "Play [Terraform Operator Identity]: Register JWT-SVID fetch wrapper"
   hosts: "{{ 'host_terraform_operator' if 'host_terraform_operator' in groups else [] }}"
   become: true
   tags:
     - terraform_operator_identity
   vars:
-    # The extra_vars of ansible-runner supplies this variable as a JSON-encoded string. A manual
-    # run with --tags terraform_operator_identity may instead pass a native YAML list for this
-    # variable, or omit the variable entirely.
+    # Normalizes input formats by accepting JSON-encoded strings from automation runners or native YAML lists.
     _utils_terraform_operator_identity_names_raw: "{{ utils_terraform_operator_identity_names | default([]) }}"
     _utils_terraform_operator_identity_names: >-
       {{ (_utils_terraform_operator_identity_names_raw is string)
         | ternary(_utils_terraform_operator_identity_names_raw | from_json, _utils_terraform_operator_identity_names_raw) }}
-    # Maps each identity name to its absolute SPIFFE ID path, supplied in the same JSON-string or native form.
+    # Resolves identity names to absolute SPIFFE ID paths across string or native list inputs.
     _utils_terraform_operator_identity_spiffe_paths_raw: >-
       {{ utils_terraform_operator_identity_spiffe_paths | default({}) }}
     _utils_terraform_operator_identity_spiffe_paths: >-
@@ -50,8 +48,7 @@
         utils_terraform_operator_identity_spiffe_path: "{{ _utils_terraform_operator_identity_spiffe_paths[item] }}"
       loop: "{{ _utils_terraform_operator_identity_names }}"
 
-# Phase 4: Proves each operator identity end to end, as the operator user without privilege escalation,
-# because the sudoers drop-in of the identity is part of the path under test.
+# Validates operator identities e2e without privilege escalation to verify drop-in sudoers permissions.
 - name: "Play [Terraform Operator Verify]: Log in to the Bastion Vault as each operator identity"
   hosts: "{{ 'host_terraform_operator' if 'host_terraform_operator' in groups else [] }}"
   become: false
@@ -64,7 +61,7 @@
       {{ (_terraform_operator_verify_names_raw is string)
         | ternary(_terraform_operator_verify_names_raw | from_json, _terraform_operator_verify_names_raw) }}
   tasks:
-    # A new registration entry reaches the agent on its next sync, and a fetch right after the creation may fail.
+    # Retries JWT retrieval until the agent sync cycle completes new registration entry propagation.
     - name: "Step V1. Fetch a JWT-SVID through the wrapper of each identity"
       ansible.builtin.command:
         cmd: "/usr/local/bin/spire-fetch-{{ item }}"

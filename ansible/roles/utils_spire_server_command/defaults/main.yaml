@@ -1,0 +1,29 @@
+---
+# The caller supplies the arguments of spire-server. The role appends the socket path of the selected server.
+utils_spire_server_command_arguments: ""
+
+# Selects where the command runs: "parent" runs on the SPIRE Parent host over SSH, "child" runs in the pod of the Child server.
+utils_spire_server_command_kind: "parent"
+
+# Outcome policy: true returns the result of a failed or unreachable command instead of failing the play.
+utils_spire_server_command_tolerate_failure: false
+utils_spire_server_command_no_log: true
+
+# Kind parent.
+utils_spire_server_command_parent_ssh_host: ""
+utils_spire_server_command_parent_socket_path: ""
+
+# Kind child. The kubeconfig of the Child cluster lives in the Bastion KV and is read with the JWT-SVID of the Terraform operator.
+utils_spire_server_command_child_kubeconfig_kv_path: ""
+utils_spire_server_command_child_namespace: "spire-server"
+utils_spire_server_command_child_pod: "spire-internal-server-0"
+utils_spire_server_command_child_container: "internal-spire-server"
+utils_spire_server_command_child_binary: "/opt/spire/bin/spire-server"
+utils_spire_server_command_child_socket_path: "/tmp/spire-server/private/api.sock"
+
+# Bastion Vault login of the Terraform operator, required for kind child.
+utils_spire_server_command_terraform_operator_jwt_command: ""
+utils_spire_server_command_terraform_operator_vault_role: ""
+utils_spire_server_command_terraform_operator_vault_auth_mount: ""
+utils_spire_server_command_bastion_vault_endpoint: ""
+utils_spire_server_command_bastion_vault_ca_cert_path: ""
