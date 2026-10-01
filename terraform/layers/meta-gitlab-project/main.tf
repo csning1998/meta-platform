@@ -11,7 +11,7 @@ module "provisioner_gitlab_project" {
   name         = "meta-platform"
   description  = "Shared platform infrastructure and GitLab group governance for the csning1998-lab group."
   visibility   = "public"
-  namespace_id = data.terraform_remote_state.group_topology.outputs.subgroup_ids["platform-engineering-lab"]
+  namespace_id = local.state.group_topology.subgroup_ids["platform-engineering-lab"]
 
   only_allow_merge_if_pipeline_succeeds = true
 }
@@ -28,22 +28,22 @@ module "workload_identity_federation" {
   }
 
   anthropic_federation = {
-    issuer_id       = data.terraform_remote_state.group_federation_anthropic.outputs.issuers.gitlab_saas.id
-    organization_id = data.terraform_remote_state.group_federation_anthropic.outputs.organization.id
+    issuer_id       = local.state.group_federation_anthropic.issuers.gitlab_saas.id
+    organization_id = local.state.group_federation_anthropic.organization.id
   }
 
   google_federation = {
-    project_id     = data.terraform_remote_state.group_federation_gcp.outputs.project.id
-    project_number = data.terraform_remote_state.group_federation_gcp.outputs.project.number
-    pool_id        = data.terraform_remote_state.group_federation_gcp.outputs.pool.id
-    provider_id    = data.terraform_remote_state.group_federation_gcp.outputs.provider.id
+    project_id     = local.state.group_federation_gcp.project.id
+    project_number = local.state.group_federation_gcp.project.number
+    pool_id        = local.state.group_federation_gcp.pool.id
+    provider_id    = local.state.group_federation_gcp.provider.id
   }
 
   azure_federation = {
-    tenant_id            = data.terraform_remote_state.group_federation_azure.outputs.tenant.id
-    subscription_id      = data.terraform_remote_state.group_federation_azure.outputs.subscription.id
-    cognitive_account_id = data.terraform_remote_state.group_federation_azure.outputs.openai.id
-    openai_endpoint      = data.terraform_remote_state.group_federation_azure.outputs.openai.endpoint
+    tenant_id            = local.state.group_federation_azure.tenant.id
+    subscription_id      = local.state.group_federation_azure.subscription.id
+    cognitive_account_id = local.state.group_federation_azure.openai.id
+    openai_endpoint      = local.state.group_federation_azure.openai.endpoint
     subjects = [
       "project_path:${module.provisioner_gitlab_project.full_path}:ref_type:branch:ref:main",
       "project_path:${module.provisioner_gitlab_project.full_path}:ref_type:branch:ref:refactor/libvirt-network",
