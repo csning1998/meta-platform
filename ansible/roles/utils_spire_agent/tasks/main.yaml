@@ -173,7 +173,8 @@
               utils_spire_server_command_child_kubeconfig_kv_path: "{{ utils_spire_agent_child_kubeconfig_kv_path }}"
               utils_spire_server_command_terraform_operator_jwt_command: "{{ bastion_operator_wrapper | default('') }}"
               utils_spire_server_command_terraform_operator_vault_role: "{{ bastion_operator_role | default('') }}"
-              utils_spire_server_command_terraform_operator_vault_auth_mount: "{{ bastion_operator_auth_mount | default('') }}"
+              utils_spire_server_command_terraform_operator_vault_auth_mount: >-
+                {{ bastion_operator_auth_mount | default('') }}
               utils_spire_server_command_bastion_vault_endpoint: "{{ bastion_vault_url | default('') }}"
               utils_spire_server_command_bastion_vault_ca_cert_path: "{{ bastion_vault_ca_cert_path | default('') }}"
             utils_spire_server_command_arguments: "bundle show"
@@ -331,7 +332,8 @@
     - name: "Block E: Provision join_token failed"
       ansible.builtin.fail:
         msg: >-
-          Unable to generate a join_token via `spire-server token generate` on the {{ utils_spire_agent_server_kind }} SPIRE server,
+          Unable to generate a join_token via `spire-server token generate`
+          on the {{ utils_spire_agent_server_kind }} SPIRE server,
           or unable to persist it to {{ utils_spire_agent_join_token_vault_path }} in Bastion Vault.
           Reason: {{ ansible_failed_result.msg | default('see task output above') }}
 

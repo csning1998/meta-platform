@@ -1,24 +1,31 @@
 ---
-# Runs one spire-server command on the selected SPIRE server and keeps the outcome in the fact utils_spire_server_command_result.
+# Runs one spire-server command on the selected SPIRE server.
+# The outcome stays in the fact utils_spire_server_command_result.
 - name: "Step 0. Assert the selected kind is supported"
   ansible.builtin.assert:
     that:
       - utils_spire_server_command_kind in ['parent', 'child']
       - utils_spire_server_command_arguments | length > 0
-    fail_msg: "utils_spire_server_command_kind MUST be parent or child, and utils_spire_server_command_arguments MUST NOT be empty."
+    fail_msg: >-
+      utils_spire_server_command_kind MUST be parent or child,
+      and utils_spire_server_command_arguments MUST NOT be empty.
 
 - name: "Block A: Run the command on the SPIRE Parent host"
   when: utils_spire_server_command_kind == 'parent'
   block:
     - name: "Step A1. Execute spire-server on the Parent host"
       ansible.builtin.command:
-        cmd: "spire-server {{ utils_spire_server_command_arguments }} -socketPath {{ utils_spire_server_command_parent_socket_path }}"
+        cmd: >-
+          spire-server {{ utils_spire_server_command_arguments }}
+          -socketPath {{ utils_spire_server_command_parent_socket_path }}
       register: _utils_spire_server_command_parent
       changed_when: false
       failed_when: false
       ignore_unreachable: true
-      # Ansible expands delegate_to before the condition of the block, and the value MUST therefore stay non empty for kind child.
-      delegate_to: "{{ utils_spire_server_command_parent_ssh_host if utils_spire_server_command_kind == 'parent' else 'localhost' }}"
+      # Ansible expands delegate_to before the condition of the block.
+      # The value MUST therefore stay non empty for kind child.
+      delegate_to: >-
+        {{ utils_spire_server_command_parent_ssh_host if utils_spire_server_command_kind == 'parent' else 'localhost' }}
       become: true
       no_log: "{{ utils_spire_server_command_no_log }}"
 
@@ -27,7 +34,9 @@
         utils_spire_server_command_result:
           rc: "{{ _utils_spire_server_command_parent.rc | default(255) }}"
           stdout: "{{ _utils_spire_server_command_parent.stdout | default('') }}"
-          stderr: "{{ _utils_spire_server_command_parent.stderr | default(_utils_spire_server_command_parent.msg | default('')) }}"
+          stderr: >-
+            {{ _utils_spire_server_command_parent.stderr
+              | default(_utils_spire_server_command_parent.msg | default('')) }}
           unreachable: "{{ _utils_spire_server_command_parent.unreachable | default(false) }}"
       no_log: "{{ utils_spire_server_command_no_log }}"
 
@@ -125,8 +134,10 @@
 - name: "Step C. Fail the play on a command failure unless the caller tolerates it"
   ansible.builtin.fail:
     msg: >-
-      spire-server {{ utils_spire_server_command_arguments.split(' ')[0] }} on the {{ utils_spire_server_command_kind }} server
-      exited {{ utils_spire_server_command_result.rc }}: {{ utils_spire_server_command_result.stderr | default('') | truncate(400) }}
+      spire-server {{ utils_spire_server_command_arguments.split(' ')[0] }}
+      on the {{ utils_spire_server_command_kind }} server
+      exited {{ utils_spire_server_command_result.rc }}:
+      {{ utils_spire_server_command_result.stderr | default('') | truncate(400) }}
   when:
     - not utils_spire_server_command_tolerate_failure
     - utils_spire_server_command_result.rc | int != 0

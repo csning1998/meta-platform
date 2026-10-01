@@ -8,7 +8,8 @@ utils_spire_agent_target_sha256: "ca1a4d1155317bdd2afc7f36663828a10410c7c840e547
 
 # One host runs one agent per SPIRE server. The empty instance keeps the paths and the unit of a single agent host.
 utils_spire_agent_instance: ""
-utils_spire_agent_unit_name: "spire-agent{{ ('-' ~ utils_spire_agent_instance) if utils_spire_agent_instance | length > 0 else '' }}"
+utils_spire_agent_unit_name: >-
+  spire-agent{{ ('-' ~ utils_spire_agent_instance) if utils_spire_agent_instance | length > 0 else '' }}
 
 # The SPIRE server to which the agent attests. Kind parent runs the server commands on the Parent host over SSH.
 # Kind child runs the commands in the pod of the Child server, and the kubeconfig of the Child comes from the Bastion KV.
@@ -19,7 +20,9 @@ utils_spire_agent_child_kubeconfig_kv_path: ""
 
 # Standard Directory Structure
 utils_spire_agent_dir_config: "/etc/spire/{{ utils_spire_agent_unit_name | regex_replace('^spire-', '') }}"
-utils_spire_agent_dir_data: "{{ spire_agent_dir_data }}{{ ('-' ~ utils_spire_agent_instance) if utils_spire_agent_instance | length > 0 else '' }}"
+utils_spire_agent_dir_data: >-
+  {{ spire_agent_dir_data }}{{
+    ('-' ~ utils_spire_agent_instance) if utils_spire_agent_instance | length > 0 else '' }}
 
 # Workload API Socket
 utils_spire_agent_socket_dir: "/run/{{ utils_spire_agent_unit_name }}/public"

@@ -117,7 +117,8 @@
           entry create -parentID {{ _utils_spire_workload_entry_parent_id }}
           -spiffeID {{ utils_spire_workload_entry_spiffe_id }}
           -selector {{ utils_spire_workload_entry_selector }}
-          {{ ('-jwtSVIDTTL ' ~ utils_spire_workload_entry_jwt_svid_ttl) if utils_spire_workload_entry_jwt_svid_ttl | length > 0 else '' }}
+          {{ ('-jwtSVIDTTL ' ~ utils_spire_workload_entry_jwt_svid_ttl)
+            if utils_spire_workload_entry_jwt_svid_ttl | length > 0 else '' }}
       when: _utils_spire_workload_entry_current | length == 0
 
   rescue:
