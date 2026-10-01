@@ -1,5 +1,4 @@
 
-# 1. Realm Configuration
 resource "keycloak_realm" "infra_realm" {
   realm             = local.realm_id
   enabled           = true
@@ -17,8 +16,7 @@ resource "keycloak_realm" "infra_realm" {
 }
 
 locals {
-  # vault_frontend is kept as a static entry: it carries the OIDC audience mapper and
-  # multiple UI/CLI redirect URIs, unlike the single-callback downstream services.
+  # Keeps vault_frontend static because the client carries the audience mapper and multiple redirect URIs, unlike single-callback services.
   oidc_clients_all = merge({
     vault_frontend = {
       client_id           = "vault-infra"
@@ -29,7 +27,6 @@ locals {
   }, local.downstream_oidc_clients_resolved)
 }
 
-# 2. OIDC Clients, Secret Generation, and Vault KV Storage
 module "oidc_clients" {
   source = "../../modules/identity-provisioning/keycloak-oidc-client"
   providers = {
@@ -39,11 +36,11 @@ module "oidc_clients" {
 
   realm_id           = keycloak_realm.infra_realm.id
   oidc_clients       = local.oidc_clients_all
-  vault_kv_namespace = data.terraform_remote_state.security_vault_approle.outputs.foundation_vault_path.kv_namespace
+  vault_kv_namespace = local.state.security_vault_downstream_tenants.foundation_vault_path.project_code
   issuer_url         = "${local.keycloak_frontend_url}/realms/${local.realm_id}"
 }
 
-# Audience Mapper for Vault to verify Token
+# Injects the target audience claim required by Vault OIDC backend token verification.
 resource "keycloak_openid_audience_protocol_mapper" "vault_audience" {
   realm_id  = keycloak_realm.infra_realm.id
   client_id = module.oidc_clients.clients["vault_frontend"].id
@@ -54,8 +51,6 @@ resource "keycloak_openid_audience_protocol_mapper" "vault_audience" {
   add_to_access_token      = true
 }
 
-# 6. Test User & Groups Configuration
-# 6a. Root Level Groups (Parents)
 resource "keycloak_group" "root_groups" {
   for_each = { for k, v in var.keycloak_groups : k => v if v.parent == null }
   realm_id = keycloak_realm.infra_realm.id
@@ -68,7 +63,6 @@ resource "keycloak_group" "root_groups" {
   }
 }
 
-# 6b. Subgroups (Children)
 resource "keycloak_group" "subgroups" {
   for_each  = { for k, v in var.keycloak_groups : k => v if v.parent != null }
   realm_id  = keycloak_realm.infra_realm.id
@@ -98,13 +92,6 @@ resource "keycloak_user" "users" {
   }
 }
 
-locals {
-  # Helper to merge both group layers for easy lookup
-  all_group_ids = merge(
-    { for k, v in keycloak_group.root_groups : k => v.id },
-    { for k, v in keycloak_group.subgroups : k => v.id }
-  )
-}
 
 resource "keycloak_user_groups" "user_assignments" {
   for_each = var.oidc_users
