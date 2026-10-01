@@ -1,0 +1,15 @@
+
+variable "spire_crds_chart_version" {
+  description = "Helm chart version for spire-crds CustomResourceDefinitions."
+  type        = string
+}
+
+variable "spire_nested_chart_version" {
+  description = "Helm chart version for spire-nested. AppVersion MUST match the parent SPIRE server release."
+  type        = string
+}
+
+variable "ca_subject_country" {
+  description = "Country code for child SPIRE server intermediate CA certificate subject."
+  type        = string
+}

@@ -1,0 +1,261 @@
+
+# Namespace creation precedes chart deployment; CSI driver and agent daemonsets REQUIRE privileged PSS enforcement.
+resource "kubernetes_namespace_v1" "spire_system" {
+  depends_on = [ephemeral.talos_cluster_health.this]
+
+  metadata {
+    name = local.chart.system_namespace
+    labels = {
+      "pod-security.kubernetes.io/enforce" = "privileged"
+      "pod-security.kubernetes.io/audit"   = "privileged"
+      "pod-security.kubernetes.io/warn"    = "privileged"
+    }
+  }
+}
+
+resource "kubernetes_namespace_v1" "spire_server" {
+  depends_on = [ephemeral.talos_cluster_health.this]
+
+  metadata {
+    name = local.chart.server_namespace
+    labels = {
+      "pod-security.kubernetes.io/enforce" = "restricted"
+      "pod-security.kubernetes.io/audit"   = "restricted"
+      "pod-security.kubernetes.io/warn"    = "restricted"
+    }
+  }
+}
+
+# Upstream agent bootstrap trust bundle injects Bastion intermediate CA for initial gRPC connection establishment.
+resource "kubernetes_config_map_v1" "upstream_bundle" {
+  metadata {
+    name      = local.chart.upstream_bundle_cm
+    namespace = kubernetes_namespace_v1.spire_system.metadata[0].name
+  }
+
+  data = {
+    (local.chart.upstream_bundle_field) = local.state.foundation_vault_bastion.bastion_vault_pki.intermediate_cert_pem
+  }
+}
+
+# Vault PKI issues TLS certificates for OIDC discovery provider endpoints verified by upstream Vault auth backends.
+resource "vault_pki_secret_backend_role" "oidc_discovery" {
+  provider = vault.bastion
+
+  backend = local.state.foundation_vault_bastion.bastion_vault_pki.intermediate_mount_path
+  name    = local.cluster_name
+
+  allowed_domains    = local.state.platform_spire_child.foundation_pki.map["spire-child"].dns_san
+  allow_subdomains   = false
+  allow_glob_domains = false
+  allow_bare_domains = true
+  allow_ip_sans      = true
+  require_cn         = true
+  enforce_hostnames  = true
+  allow_any_name     = false
+
+  key_usage   = ["DigitalSignature", "KeyEncipherment"]
+  server_flag = true
+  client_flag = false
+
+  max_ttl = 60 * 60 * 24 * 90 # 90 Days
+  ttl     = 60 * 60 * 24 * 30 # 30 Days
+
+  ou = local.state.platform_spire_child.foundation_pki.map["spire-child"].ou
+}
+
+resource "vault_pki_secret_backend_cert" "oidc_discovery" {
+  provider = vault.bastion
+
+  backend     = vault_pki_secret_backend_role.oidc_discovery.backend
+  name        = vault_pki_secret_backend_role.oidc_discovery.name
+  common_name = local.state.platform_spire_child.foundation_pki.map["spire-child"].dns_san[0]
+  alt_names   = local.state.platform_spire_child.foundation_pki.map["spire-child"].dns_san
+  ip_sans     = [local.oidc_vip]
+
+  auto_renew            = true
+  min_seconds_remaining = 60 * 60 * 24 * 7 # 7 Days
+}
+
+resource "kubernetes_secret_v1" "oidc_discovery_tls" {
+  metadata {
+    name      = local.chart.oidc_tls_secret
+    namespace = kubernetes_namespace_v1.spire_server.metadata[0].name
+  }
+  type = "kubernetes.io/tls"
+
+  data = {
+    "tls.crt" = "${vault_pki_secret_backend_cert.oidc_discovery.certificate}\n${vault_pki_secret_backend_cert.oidc_discovery.issuing_ca}"
+    "tls.key" = vault_pki_secret_backend_cert.oidc_discovery.private_key
+  }
+}
+
+# Dedicated Cilium IP pool and L2 announcement policy publish the child SPIRE OIDC discovery endpoint.
+resource "kubernetes_manifest" "oidc_ip_pool" {
+  depends_on = [ephemeral.talos_cluster_health.this]
+
+  manifest = {
+    apiVersion = "cilium.io/v2alpha1"
+    kind       = "CiliumLoadBalancerIPPool"
+    metadata   = { name = "${local.cluster_name}-oidc-discovery" }
+    spec = {
+      serviceSelector = { matchLabels = local.oidc_service_labels }
+      blocks          = [{ cidr = "${local.oidc_vip}/32" }]
+    }
+  }
+}
+
+resource "kubernetes_manifest" "oidc_l2_announcement" {
+  depends_on = [ephemeral.talos_cluster_health.this]
+
+  manifest = {
+    apiVersion = "cilium.io/v2alpha1"
+    kind       = "CiliumL2AnnouncementPolicy"
+    metadata   = { name = "${local.cluster_name}-oidc-discovery" }
+    spec = {
+      serviceSelector = { matchLabels = local.oidc_service_labels }
+      loadBalancerIPs = true
+    }
+  }
+}
+
+locals {
+  oidc_service_labels = {
+    "io.kubernetes.service.namespace" = local.chart.server_namespace
+    "io.kubernetes.service.name"      = local.chart.oidc_service_name
+  }
+
+  agent_service_labels = {
+    "io.kubernetes.service.namespace" = local.chart.server_namespace
+    "io.kubernetes.service.name"      = local.chart.internal_server_service
+  }
+}
+
+# The child server serves the agents of every downstream VM and of the operator workstation on the static agent VIP.
+resource "kubernetes_manifest" "agent_ip_pool" {
+  depends_on = [ephemeral.talos_cluster_health.this]
+
+  manifest = {
+    apiVersion = "cilium.io/v2alpha1"
+    kind       = "CiliumLoadBalancerIPPool"
+    metadata   = { name = "${local.cluster_name}-agent-endpoint" }
+    spec = {
+      serviceSelector = { matchLabels = local.agent_service_labels }
+      blocks          = [{ cidr = "${local.agent_vip}/32" }]
+    }
+  }
+}
+
+resource "kubernetes_manifest" "agent_l2_announcement" {
+  depends_on = [ephemeral.talos_cluster_health.this]
+
+  manifest = {
+    apiVersion = "cilium.io/v2alpha1"
+    kind       = "CiliumL2AnnouncementPolicy"
+    metadata   = { name = "${local.cluster_name}-agent-endpoint" }
+    spec = {
+      serviceSelector = { matchLabels = local.agent_service_labels }
+      loadBalancerIPs = true
+    }
+  }
+}
+
+# CRD installation MUST complete before spire-nested chart evaluates ClusterSPIFFEID resources.
+resource "helm_release" "spire_crds" {
+  depends_on = [ephemeral.talos_cluster_health.this]
+
+  name       = "spire-crds"
+  repository = "https://spiffe.github.io/helm-charts-hardened/"
+  chart      = "spire-crds"
+  version    = var.spire_crds_chart_version
+  namespace  = kubernetes_namespace_v1.spire_server.metadata[0].name
+}
+
+# SPIRE parent workload registration MUST precede chart deployment to prevent upstream agent attestation failures.
+resource "helm_release" "spire_nested" {
+  depends_on = [
+    module.parent_registration,
+    helm_release.spire_crds,
+    kubernetes_config_map_v1.upstream_bundle,
+    kubernetes_secret_v1.oidc_discovery_tls,
+    kubernetes_manifest.oidc_ip_pool,
+    kubernetes_manifest.oidc_l2_announcement,
+    kubernetes_manifest.agent_ip_pool,
+    kubernetes_manifest.agent_l2_announcement,
+  ]
+
+  name       = "spire"
+  repository = "https://spiffe.github.io/helm-charts-hardened/"
+  chart      = "spire-nested"
+  version    = var.spire_nested_chart_version
+  namespace  = kubernetes_namespace_v1.spire_server.metadata[0].name
+  wait       = true
+  timeout    = 900
+
+  values = [yamlencode(local.spire_nested_values)]
+}
+
+locals {
+  spire_nested_values = {
+    tags = { nestedChildFull = true }
+
+    global = {
+      spire = {
+        clusterName = local.cluster_name
+        trustDomain = local.trust_domain
+        jwtIssuer   = local.jwt_issuer
+        caSubject = {
+          country      = var.ca_subject_country
+          organization = local.project_code
+          commonName   = local.cluster_name
+        }
+        recommendations = { enabled = true }
+        namespaces      = { create = false }
+      }
+    }
+
+    # In-cluster external root server deployment is disabled in favor of upstream bare-metal/VM parent federation.
+    "external-root-spire-server-full" = { enabled = false }
+
+    "upstream-spire-agent" = {
+      trustBundleFormat = "pem"
+      server = {
+        address = local.parent.node_ip
+        port    = local.parent.server_port
+      }
+    }
+
+    "internal-spire-server" = {
+      # Ephemeral storage is tolerated as controller manager reconciles identities from ClusterSPIFFEID CRDs.
+      persistence = { type = "emptyDir" }
+
+      # Agents outside the cluster reach the server through the agent VIP and attest with a single use join token.
+      service = {
+        type        = "LoadBalancer"
+        port        = local.agent_port
+        annotations = { "lbipam.cilium.io/ips" = local.agent_vip }
+      }
+      nodeAttestor = { joinToken = { enabled = true } }
+
+      upstreamAuthority = {
+        spire = {
+          server = {
+            address = local.parent.node_ip
+            port    = local.parent.server_port
+          }
+        }
+      }
+    }
+
+    "spiffe-oidc-discovery-provider" = {
+      tls = {
+        spire          = { enabled = false }
+        externalSecret = { enabled = true, secretName = local.chart.oidc_tls_secret }
+      }
+      service = {
+        type        = "LoadBalancer"
+        annotations = { "lbipam.cilium.io/ips" = local.oidc_vip }
+      }
+    }
+  }
+}
