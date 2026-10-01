@@ -1,13 +1,26 @@
 ---
+- name: "Step 0. Log in to the Downstream Vault as the operator"
+  ansible.builtin.include_role:
+    name: utils_vault_operator_login
+  vars:
+    utils_vault_operator_login_wrapper: "{{ vault_operator_wrapper }}"
+    utils_vault_operator_login_role: "{{ vault_operator_role }}"
+    utils_vault_operator_login_auth_mount: "{{ vault_operator_mount }}"
+    utils_vault_operator_login_endpoint: "{{ vault_endpoint }}"
+    utils_vault_operator_login_ca_cert_path: "{{ vault_ca_cert_path }}"
+
 - name: Step 1. Retrieve Harbor Robot credentials from Vault (Standard KV2)
   community.hashi_vault.vault_kv2_get:
     url: "{{ vault_endpoint }}"
     engine_mount_point: "secret"
-    auth_method: "approle"
-    path: "{{ vault_kv_namespace }}/harbor-origin/robot"
-    role_id: "{{ vault_approle_role_id }}"
-    secret_id: "{{ vault_approle_secret_id }}"
+    auth_method: "token"
+    token: "{{ utils_vault_operator_login_token }}"
+    path: "{{ harbor_robot_kv_path }}"
+    validate_certs: true
+    ca_cert: "{{ vault_ca_cert_path }}"
   register: provision_harbor_origin_harbor_credentials
+  delegate_to: localhost
+  become: false
   no_log: true
 
 - name: Step 2. Verify Harbor OCI Login

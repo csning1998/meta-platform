@@ -15,23 +15,14 @@
           if platform_harbor_origin_harbor_dir_stat.stat.exists
           else platform_harbor_origin_harbor_gid) | int }}
 
-- name: "B3. Ensure Harbor PKI directories exist"
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: directory
-    owner: "{{ _platform_harbor_origin_harbor_uid }}"
-    group: "{{ _platform_harbor_origin_harbor_gid }}"
-    mode: "0700"
-  loop:
-    - "{{ platform_harbor_origin_harbor_pki_dir }}"
-    - "{{ platform_harbor_origin_harbor_config_cert_dir }}"
-
-- name: "B5. Install Vault Intermediate CA into the OS trust store"
-  when: vault_intermediate_ca_b64 is defined
+# The OS trust store MUST hold the root of the chain.
+# Python does not accept an intermediate CA as the only trust anchor.
+- name: "B5. Install the Vault PKI trust bundle into the OS trust store"
+  when: vault_ca_cert_b64 is defined
   block:
-    - name: "B5a. Write Vault Intermediate CA certificate"
+    - name: "B5a. Write the Vault PKI trust bundle"
       ansible.builtin.copy:
-        content: "{{ vault_intermediate_ca_b64 | b64decode }}"
+        content: "{{ vault_ca_cert_b64 | b64decode }}"
         dest: /usr/local/share/ca-certificates/vault-intermediate-pki.crt
         owner: root
         group: root
