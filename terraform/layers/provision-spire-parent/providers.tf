@@ -23,6 +23,6 @@ terraform {
 # Provider authentication MUST utilize the VAULT_TOKEN environment variable to prevent sensitive credential persistence
 # within Terraform state files. This layer provisions JWT authentication roles required for downstream layer bootstrapping.
 provider "vault" {
-  address      = local.state.vault_bastion.bastion_vault.endpoint
-  ca_cert_file = local.state.vault_bastion.bastion_vault.listener_ca_cert_path
+  address      = local.state.foundation_vault_bastion.bastion_vault.endpoint
+  ca_cert_file = local.state.foundation_vault_bastion.bastion_vault.listener_ca_cert_path
 }
