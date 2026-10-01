@@ -9,8 +9,8 @@ This layer provisions a Talos Linux cluster replacing `platform-haproxy-frontend
 Ownership boundaries, downstream output interfaces, and catalog constraints constitute the contractual interface consumed by dependent layers.
 
 1. Ownership Split. Layer `platform-cilium-frontend` manages guest virtual machines, Talos machine configurations, and the Cilium bootstrap manifest, while `provision-cilium-frontend` manages Kubernetes API resources requiring an active control plane. This separation maintains architectural symmetry across repository platform and provision pairs.
-2. Downstream Output Names. Five exported output names (`infrastructure_map`, `infrastructure_vips`, `global_topology_identity`, `global_topology_network`, and `global_network_baseline`) maintain compatibility with existing exports from `platform-haproxy-frontend`. Downstream consumers (`platform-harbor-origin-frontend`, `platform-keycloak-frontend`, and `platform-vault-frontend`) require only updated remote state references without modification to their underlying HCL declarations.
-3. Catalog Projection. The `segments_map` structure is duplicated from `platform-haproxy-frontend` as a service catalog property, decoupled from specific HAProxy or Cilium load-balancer implementations. Short identifiers in `var.node_config` (e.g., `00`) are expanded into fully qualified hostnames (e.g., `platform-cilium-frontend-node-00`), exposing strictly qualified keys to downstream modules.
+2. Downstream Output Names. Output `infrastructure_vips` and the pass-through category objects `foundation_topology` and `foundation_global` of `foundation-libvirt-resources` keep the shape of the foundation exports. Downstream consumers (`platform-keycloak-frontend` and `platform-vault-downstream-frontend`) read the topology and global facts from the state of `platform-cilium-frontend` through the same object members that they would read from the foundation state.
+3. Catalog Projection. The `segments_map` structure is duplicated from `platform-haproxy-frontend` as a service catalog property, decoupled from specific HAProxy or Cilium load-balancer implementations. Short identifiers in `var.node_config` (e.g., `00`) are expanded into fully qualified hostnames (e.g., `meta-platform-cilium-frontend-node-00`), exposing strictly qualified keys to downstream modules.
 4. Resolved SSoT Reservation. Earlier revisions omitted the Central Load Balancer cluster from `net_service_segments`, leaving the cluster endpoint bound to a single node address without a Single Source of Truth (SSoT) IP reservation. The service catalog declares the `cilium` segment with an explicit `cidr_index`, and `svc_network_map` propagates the resulting VIP into this module. Item C describes the endpoint binding that consumes the reservation.
 
 ### Item B. Bootstrap Sequence
@@ -20,7 +20,7 @@ Cilium MUST achieve active state prior to Kubernetes API availability and Harbor
 1. Cilium Injection Without Harbor. Direct installation via `helm_release` is impossible during initial provisioning because the Kubernetes API server is offline and Harbor helm repository services depend on the cluster VIP. Instead, `data.helm_template.cilium` renders the upstream chart locally for injection via `cluster.inlineManifests`, enabling Talos to apply the CNI manifest during early node initialization before API availability. To align with Sidero Labs production recommendations, `cluster.network.cni.name` is set to `none` and `cluster.proxy.disabled` is set to `true`.
 2. Cilium Values Required by Talos. Because Talos restricts the `SYS_MODULE` capability from workloads, Helm configuration explicitly defines required system capabilities while disabling `cgroup.autoMount` to leverage host-managed `cgroupv2` and `bpffs` mounts. With `kube-proxy` disabled, `k8sServiceHost` and `k8sServicePort` route traffic through the node-local KubePrism endpoint (`localhost:7445`, matching `machine.features.kubePrism.port`) to ensure API connectivity prior to CNI initialization. Setting `ipam.mode` to `kubernetes` alongside `kubeProxyReplacement` and `l2announcements` enables direct service VIP broadcasting across attached network bridges.
 3. Hubble Disabled. Hubble remains disabled (`hubble.enabled = false`). Stateless `helm_template` evaluation emits a new self-signed CA on every render. Embedding those certificates in `cluster.inlineManifests` produces spurious `machine_configuration_hash` diffs for Hubble, which this layer does not operate.
-4. eBPF Masquerading. Helm value `bpf.masquerade` MUST resolve to `true`. The IPTables masquerade implementation selects an incorrect source device when routing toward bare-metal backends behind the catalog VIPs, and the eBPF implementation binds the source address to the egress path Cilium itself programs.
+4. eBPF Masquerading. Helm value `bpf.masquerade` resolves to `true`, the configuration validated for in-cluster traffic on this cluster. The setting does not resolve SNAT toward external bare-metal backends, because one direct-routing device per node is an architectural constraint of Cilium. HAProxy serves those backends instead (`decisions.md`, external bare-metal services).
 5. Address Handoff After Installation. Initial node configuration (`talos_machine_configuration_apply`) reaches maintenance-mode nodes via temporary NAT DHCP leases, whereas post-installation bootstrapping (`talos_machine_bootstrap`) and health probes target static HostOnly addresses. Resource creation timeouts accommodate disk installation reboots and non-bootstrap etcd cluster joins up to `constants.EtcdJoinTimeout` (30 minutes in Talos v1.13.8), while health check deadlines account for container image retrieval required for CNI-dependent kubelet readiness.
 
 ### Item C. Guest Topology
@@ -55,10 +55,10 @@ The disk format decision recorded in commit `591b1ae` propagates into scheduling
 
 Binds Kubernetes API clients strictly to credentials exported by `platform-cilium-frontend`, isolating Talos OS credentials from Kubernetes object provisioning.
 
-1. Remote State Source: `terraform_remote_state.cilium_frontend` reads `kubeconfig_raw` and `infrastructure_map` directly from `platform-cilium-frontend` state, bypassing Vault.
+1. Remote State Source: `terraform_remote_state.platform_cilium_frontend` reads `kubeconfig_raw` and `foundation_topology.infrastructure` directly from `platform-cilium-frontend` state, bypassing Vault.
 2. Credential Partitioning: Local `api_server_connection` decodes `kubeconfig_raw` into `host`, `ca_cert`, `client_certificate`, and `client_key`. Unused Talos `client_configuration` isolates OS-level `apid` credentials from Kubernetes control-plane credentials.
 3. Provider Binding: Provider `hashicorp/kubernetes` serves both typed resources (`kubernetes_namespace_v1`, `kubernetes_service_v1`, `kubernetes_endpoints_v1`) and untyped Cilium custom resources through `kubernetes_manifest`. Provider `gavinbunney/kubectl` is removed, and the `manifest` attribute accepts a native HCL object where `kubectl_manifest` required a `yamlencode` string.
-4. Vault Authentication: The `vault` provider MUST authenticate through the SPIRE JWT backend rather than through an AppRole credential pair. The `data.external.spire_jwt` block invokes the per-cluster wrapper `spire-fetch-<cluster_name>` deployed by Ansible role `utils_terraform_operator_identity`, and the returned JWT-SVID authenticates against `auth/meta-platform-spire-parent-jwt-svid-provider/login` under the role named by `local.cilium_cluster_name`. The `ca_cert_file` attribute reads output `bastion_vault.listener_ca_cert_path` instead of a hardcoded relative path.
+4. Vault Authentication: The `vault` provider MUST authenticate through the SPIRE JWT backend rather than through an AppRole credential pair. The `data.external.spire_jwt` block invokes the wrapper `spire-fetch-<identity>` deployed by Ansible role `utils_terraform_operator_identity`, and the returned JWT-SVID authenticates against `auth/meta-platform-spire-parent-jwt-svid-provider/login` under the role `<owner>-terraform-operator-cilium-frontend`. Both names come from output `terraform_operator` of layer `provision-spire-parent`. The `ca_cert_file` attribute reads output `bastion_vault.listener_ca_cert_path` instead of a hardcoded relative path.
 
 ### Item B. Apply-Time Health Gate
 
@@ -77,16 +77,51 @@ Defines cluster-scoped Cilium resources and namespaced Services per ownership bo
 
 ### Item D. Catalog Fronting
 
-Local `fronted_segments` maps `infrastructure_map` entries to selector-less `LoadBalancer` Services backed by catalog bare-metal guest IP endpoints.
+Local `fronted_segments` maps `foundation_topology.infrastructure` entries to selector-less `LoadBalancer` Services backed by catalog bare-metal guest IP endpoints.
 
-1. Segment Exclusion: Omits keys matching `global_topology_identity["cilium"]["frontend"].cluster_name` and `global_topology_identity["central-lb"]["frontend"].cluster_name` to eliminate circular routing and self-referential load balancing.
+1. Segment Exclusion: Omits the key matching `foundation_topology.identity["cilium"]["frontend"].cluster_name` to eliminate circular routing and self-referential load balancing, and keeps only segments whose runtime is Kubernetes-native (`talos`, `kubeadm`, `microk8s`, `minikube`), because `platform-haproxy-frontend` exposes every other runtime.
 2. Selector-less Service Pair: `kubernetes_service_v1.catalog` sets `type = LoadBalancer` without pod selectors, linking to a matching `kubernetes_endpoints_v1.catalog` object. Endpoint target addresses iterate over `backend_servers`; Service ports bind `frontend_port` and forward to `backend_port`.
 3. VIP Allocation: Annotation `io.cilium/lb-ipam-ips` requests `lb_config.vip` per Service, with pool `spec.blocks` assigning corresponding `/32` CIDR prefixes. Field `spec.loadBalancerIP` remains unset per Kubernetes v1.24 deprecation. `CiliumL2AnnouncementPolicy` sets `loadBalancerIPs = true` to enable Layer 2 VIP advertisement.
 
-## Section 3. References
+## Section 3. Health Gate Diagnosis
+
+A timeout of `data.talos_cluster_health.this` does not identify a root cause. The diagnosis procedure isolates the fault by elimination across the hypervisor layer, the guest layer, and the network layer. Each step MUST pair a hypothesis with a metric which can falsify the hypothesis. Every command in this section MUST remain read only.
+
+### Item A. Hypervisor Layer
+
+1. Disk Throughput. The delta of `/proc/diskstats` over a fixed interval measures NVMe write volume and utilization. A utilization near zero falsifies disk saturation as the cause of etcd latency.
+2. Pressure Attribution. The global value of `/proc/pressure/io` MUST NOT serve as sole evidence. The `io.pressure` file of each `machine.slice` scope attributes stall time to one guest domain. Stall time confined to `user.slice` is unrelated to the cluster.
+3. CPU Contention. The `vcpupin` elements of `virsh dumpxml` expose the physical core range of each node. Deltas of `/proc/stat` on the pinned cores measure host CPU contention.
+
+### Item B. Guest Observation Without Credentials
+
+The steps in Item B require neither a Talos client credential nor a kubeconfig.
+
+1. Console Capture. Command `virsh screenshot` captures the Talos dashboard of each node. The dashboard log exposes etcd health check results, controller errors, and VIP reachability.
+2. Port Probes. TCP probes against ports 50000, 6443, and 2379 on each HostOnly address and on the VIP locate the stalled bootstrap stage. An anonymous API server request returns HTTP 401 under Talos defaults. The HTTP 401 response does not carry health information.
+
+### Item C. Credential Recovery
+
+1. Vault Path Absence. The Vault KV leaf `cilium/frontend/cluster-config` remains empty during a health gate failure. Module `credentials_cilium_frontend` depends on `kubeconfig_raw`, which depends on `data.talos_cluster_health.this`.
+2. State Extraction. Command `terraform state pull` reads `talos_machine_secrets.client_configuration` from the GitLab HTTP backend. Variables `TF_HTTP_USERNAME` and `TF_HTTP_PASSWORD` MUST come from the Vault KV path `secret/parent-group-governance/terraform/state-backend`. The derived talosconfig and the state copy MUST reside outside the repository working tree. The derived talosconfig and the state copy MUST be deleted after the diagnosis.
+
+### Item D. Guest Layer
+
+1. Etcd Latency Signature. The count of `apply request took too long` in `talosctl logs etcd` measures etcd request latency. The count of `slow fdatasync` in the same log measures storage latency. A high count of slow requests together with a zero count of `slow fdatasync` falsifies the storage hypothesis.
+2. Guest Pressure. Command `talosctl read` against `/proc/pressure/cpu`, `/proc/pressure/memory`, and `/proc/pressure/io` measures resource stall inside the guest. Values near zero falsify resource starvation as the cause of etcd latency.
+3. Request Profile. Slow requests concentrated on large range responses (e.g., CRD listings) indicate a frame size defect when small requests succeed. The error `connection reset by peer` on apid proxy traffic between nodes corroborates a transport defect.
+
+### Item E. MTU Verification
+
+1. Guest Link MTU. Command `talosctl get links` reports the MTU of each guest interface.
+2. Host Bridge MTU. The file `/sys/class/net/<tap>/mtu` reports the MTU of each tap device. The `mtu` element of `virsh net-dumpxml` reports the MTU of each libvirt bridge.
+3. Acceptance Criteria. Every guest interface MUST report the bridge MTU. The count of `apply request took too long` MUST remain at zero after bootstrap completes. The Cilium agent route table MUST report `mtu 1400` for pod CIDR routes. Command `talosctl health` MUST pass every check.
+
+## Section 4. References
 
 1. Architecture decision record for this migration, stored at `documentation/architecture-decision-record/20260813_1630-clb-migration-to-talos-cilium.md`.
 2. Sidero Labs. (2026). _Deploy Cilium CNI_. Retrieved from [https://docs.siderolabs.com/kubernetes-guides/cni/deploying-cilium](https://docs.siderolabs.com/kubernetes-guides/cni/deploying-cilium)
 3. Cilium Authors. (2026). _Kubernetes Without kube-proxy_. Retrieved from [https://docs.cilium.io/en/stable/network/kubernetes/kubeproxy-free/](https://docs.cilium.io/en/stable/network/kubernetes/kubeproxy-free/)
 4. Cilium Authors. (2026). _LoadBalancer IP Address Management (LB IPAM)_. Retrieved from [https://docs.cilium.io/en/stable/network/lb-ipam/](https://docs.cilium.io/en/stable/network/lb-ipam/)
 5. Sidero Labs. (2026). _Talos Provider_. Terraform Registry. Retrieved from [https://registry.terraform.io/providers/siderolabs/talos/latest](https://registry.terraform.io/providers/siderolabs/talos/latest)
+6. Cilium Authors. (2024). _pkg/mtu/mtu.go_ (v1.16.5). Retrieved from [https://github.com/cilium/cilium/blob/v1.16.5/pkg/mtu/mtu.go](https://github.com/cilium/cilium/blob/v1.16.5/pkg/mtu/mtu.go)
