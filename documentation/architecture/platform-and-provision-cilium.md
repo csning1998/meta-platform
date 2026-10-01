@@ -71,7 +71,7 @@ Kubernetes object creation MUST NOT proceed against a control plane whose quorum
 
 Defines cluster-scoped Cilium resources and namespaced Services per ownership boundaries in ADR `20260813_1630-clb-migration-to-talos-cilium.md`.
 
-1. Cluster-Scoped Custom Resources: Provisions `CiliumLoadBalancerIPPool` and `CiliumL2AnnouncementPolicy` (`meta-platform-catalog`). Both match `spec.serviceSelector.matchLabels` (`platform.io/lb-managed=cilium-frontend`), isolating managed allocations from external workloads.
+1. Cluster-Scoped Custom Resources: Provisions `CiliumLoadBalancerIPPool` and `CiliumL2AnnouncementPolicy` (`<project_code>-catalog`). Both match `spec.serviceSelector.matchLabels` (`platform.io/lb-managed=cilium-frontend`), isolating managed allocations from external workloads.
 2. Project-Scoped Service Objects: Consuming projects own respective `kubernetes_service` and `kubernetes_endpoints` resources. This layer generates those objects for `meta-platform` catalog entries, as `meta-platform` acts as the consuming project for bare-metal services.
 3. Namespace Isolation: Encapsulates generated objects within namespace `platform-lb`. Output `fronted_service_vips` exposes allocated VIPs keyed by catalog segment.
 
