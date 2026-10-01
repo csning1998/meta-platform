@@ -82,6 +82,10 @@ module "platform_trust_engine" {
     pki_mount_path  = local.trust.cluster_issuer.pki_mount_path
     issue_path      = local.trust.cluster_issuer.issue_path
   }
+  reviewer_service_account = {
+    name      = "vault-reviewer"
+    namespace = local.trust.cluster_issuer.namespace
+  }
 }
 
 module "platform_cluster_issuer" {
