@@ -1,6 +1,10 @@
 
 terraform {
   required_providers {
+    external = {
+      source  = "hashicorp/external"
+      version = "2.4.1"
+    }
     vault = {
       source  = "hashicorp/vault"
       version = "5.5.0"
@@ -20,38 +24,34 @@ terraform {
   }
 }
 
-module "contexts_local_credential" {
-  source  = "gitlab.com/csning1998-lab/contexts-local-credential/gitlab"
-  version = "0.3.0"
-}
-
+# Bastion Vault, authenticated as the SPIRE JWT-SVID operator of the Downstream Vault. The operator policy grants the signing path.
 provider "vault" {
   alias        = "bastion"
-  address      = local.state.vault_bastion.bastion_vault.endpoint
-  ca_cert_file = module.contexts_local_credential.bastion_vault_config.ca_cert_path
+  address      = local.state.foundation_vault_bastion.bastion_vault.endpoint
+  ca_cert_file = local.state.foundation_vault_bastion.bastion_vault.listener_ca_cert_path
 
   auth_login {
-    path = "auth/approle/login"
+    path = "auth/${local.state.platform_spire_parent.spire_oidc_auth_backend_path}/login"
     parameters = {
-      role_id   = local.state.vault_bastion.bastion_vault_tenant.terraform_operator.role_ids[local.owner_code]
-      secret_id = local.state.vault_bastion.bastion_vault_tenant_credential.terraform_operator.secret_ids[local.owner_code]
+      role = local.state.provision_spire_parent.terraform_operator["vault-downstream"].role_name
+      jwt  = data.external.spire_jwt_bastion.result.jwt
     }
   }
   skip_child_token = true
 }
 
-# Downstream Provider: scoped production_admin AppRole, not the root-token-backed provider
-# security-vault-downstream-approle uses for its own bootstrap operations.
+# Downstream Provider: the local Terraform operator through its SPIRE JWT-SVID, not the root token
+# which security-vault-downstream-tenants uses for its own bootstrap operations.
 provider "vault" {
   alias        = "downstream"
-  address      = local.prod_vault_endpoint
-  ca_cert_file = local.state.vault_downstream.ca_cert_path
+  address      = local.downstream_vault.endpoint
+  ca_cert_file = local.state.platform_vault_downstream_frontend.ca_cert_path
 
   auth_login {
-    path = "auth/approle/login"
+    path = "auth/${local.state.security_vault_downstream_tenants.tenant_operator.auth_mount}/login"
     parameters = {
-      role_id   = local.state.security_vault_downstream_approle.role_id
-      secret_id = local.state.security_vault_downstream_approle.secret_id
+      role = local.state.security_vault_downstream_tenants.tenant_operator.role_name
+      jwt  = data.external.spire_jwt_downstream.result.jwt
     }
   }
   skip_child_token = true

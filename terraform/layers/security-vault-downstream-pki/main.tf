@@ -1,47 +1,51 @@
 
 # Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 1 Item C.
-# Configure Downstream Issuing Intermediate, per-service PKI roles, and AppRole authentication.
+# Configure Downstream Issuing Intermediate and the PKI roles of the workloads which use the Downstream PKI.
 # Generates and retains the private key locally within Downstream Vault; transmits only the CSR
 # to Bootstrap Vault for signing.
 module "vault_pki_setup" {
   source = "../../modules/vault-provisioning/vault-pki-setup"
   providers = {
-    vault.production = vault.downstream
-    vault.bootstrap  = vault.bastion
+    vault.issuing = vault.downstream
+    vault.signing = vault.bastion
   }
 
-  prod_vault_endpoint = local.prod_vault_endpoint
+  prod_vault_endpoint = local.downstream_vault.endpoint
   pki_settings = {
-    intermediate_ca_common_name = local.global_pki_config.intermediate_ca_common_name
+    intermediate_ca_common_name = local.state.platform_vault_downstream_frontend.pki_identity.intermediate_ca_common_name
   }
   pki_roles = local.pki_roles
   pki_engine_config = {
-    path                      = local.prod_pki_issuer_mount_path
+    path                      = local.downstream_vault.pki_mount_path
     default_lease_ttl_seconds = local.pki_lease_ttl_seconds
     max_lease_ttl_seconds     = local.pki_lease_ttl_seconds
   }
-  bastion_pki_inter_mount_path = local.state.vault_bastion.bastion_vault_pki.intermediate_mount_path
+  bastion_pki_inter_mount_path = local.state.foundation_vault_bastion.bastion_vault_pki.intermediate_mount_path
 }
 
-# Provision individual workload AppRoles scoped to corresponding PKI roles defined in `global_pki_map`.
-module "vault_workload_identity_approle" {
-  source = "../../modules/vault-provisioning/vault-workload-identity"
-  providers = {
-    vault = vault.downstream
-  }
-  depends_on = [module.vault_pki_setup]
+# The ACL policies of the human management identities. The policy name equals the identity name.
+# provision-vault-oidc maps each OIDC group to the policy of the identity. Workloads on VMs and in Kubernetes log in
+# with a JWT-SVID through the tenant registry of security-vault-downstream-tenants.
+resource "vault_policy" "management" {
+  provider = vault.downstream
+  for_each = local.management_identities
 
-  for_each           = local.pki_roles
-  name               = each.key
-  vault_role_name    = each.value.name
-  approle_mount_path = module.vault_pki_setup.auth_backend_paths["approle"]
-  pki_mount_path     = module.vault_pki_setup.prod_pki_issuer_mount_path
-  extra_policy_hcl   = lookup(local.workload_identity_extra_rules, each.key, {})
+  name = each.key
+  policy = jsonencode({
+    path = merge(
+      {
+        "${module.vault_pki_setup.prod_pki_issuer_mount_path}/issue/${local.pki_roles[each.key].name}" = {
+          capabilities = ["create", "update"]
+        }
+      },
+      local.workload_identity_extra_rules[each.key]
+    )
+  })
 }
 
 # Listener CA (`MetaProvisionVaultCA`) for Bastion Vault TLS endpoints. Distinct from PKI secrets engine roots.
 data "local_file" "bastion_listener_ca" {
-  filename = module.contexts_local_credential.bastion_vault_config.ca_cert_path
+  filename = local.state.foundation_vault_bastion.bastion_vault.listener_ca_cert_path
 }
 
 # Combined certificate chain (Bastion Listener CA, Bootstrap Root/Intermediate, Production Intermediate)

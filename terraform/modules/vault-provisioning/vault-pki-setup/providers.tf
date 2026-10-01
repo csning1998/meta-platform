@@ -4,7 +4,7 @@ terraform {
     vault = {
       source                = "hashicorp/vault"
       version               = "5.5.0"
-      configuration_aliases = [vault.production, vault.bootstrap]
+      configuration_aliases = [vault.issuing, vault.signing]
     }
     time = {
       source  = "hashicorp/time"
