@@ -18,7 +18,7 @@ module "service_identity" {
   }
 }
 
-# The VRRP password of the HAProxy cluster outlives the VMs, and the consumer layer only reads the app leaf.
+# The VRRP password and the stats login of the HAProxy cluster outlive the VMs, and the consumer layer only reads the app leaf.
 module "haproxy_keepalived_credential" {
   source    = "gitlab.com/csning1998-lab/provisioner-vault-credential/gitlab"
   version   = "0.1.1"
@@ -30,6 +30,7 @@ module "haproxy_keepalived_credential" {
     component    = basename(local.kv_path.haproxy_app)
     generate = {
       keepalived_auth_pass = { length = 32 }
+      stats_password       = { length = 24 }
     }
   }
 }
