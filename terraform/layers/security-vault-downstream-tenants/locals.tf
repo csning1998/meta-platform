@@ -22,15 +22,12 @@ locals {
   cluster_name       = local.state.foundation_libvirt_resources.foundation_topology.identity["vault-downstream"]["frontend"].cluster_name
   terraform_operator = local.state.provision_spire_parent.terraform_operator["vault-downstream"]
 
-  # Downstream Vault root initialization token path written by platform-vault-downstream-frontend.
-  kv_paths = {
-    init = local.state.foundation_libvirt_resources.foundation_vault_path.kv_paths["vault-downstream"]["frontend"].init
-  }
-
   downstream_vault = {
     endpoint       = local.state.platform_vault_downstream_frontend.endpoint
     ca_cert_path   = local.state.platform_vault_downstream_frontend.ca_cert_path
     pki_mount_path = local.state.platform_vault_downstream_frontend.pki_identity.intermediate_mount_path
+    init_kv_path   = local.state.foundation_libvirt_resources.foundation_vault_path.kv_paths["vault-downstream"]["frontend"].init
+    # The root initialization token is written to this KV path by platform-vault-downstream-frontend.
   }
 
   # The Downstream Vault role for the workstation operator, bound on the Parent and the Child JWT mounts below.
