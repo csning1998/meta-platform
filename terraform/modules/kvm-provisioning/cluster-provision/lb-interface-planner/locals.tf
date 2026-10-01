@@ -55,6 +55,19 @@ locals {
             )
           ]
         }
+      ],
+
+      # Generates deterministic MAC addresses from extra network CIDR strings to prevent inter-cluster collisions.
+      [
+        for net in sort(keys(node_spec.extra_networks)) : {
+          network_name = net
+          mac = format("52:54:00:%s:%s:%s",
+            substr(md5("${node_spec.extra_networks[net]}-${net}"), 0, 2),
+            substr(md5("${node_spec.extra_networks[net]}-${net}"), 2, 2),
+            substr(md5("${node_spec.extra_networks[net]}-${net}"), 4, 2)
+          )
+          addresses = [node_spec.extra_networks[net]]
+        }
       ]
     )
   }

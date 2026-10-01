@@ -63,8 +63,9 @@ data "talos_machine_configuration" "this" {
         kubelet = { nodeIP = { validSubnets = [local.svc_net.cidr_block] } }
       }
       cluster = {
-        network = { cni = { name = "none" } }
-        proxy   = { disabled = true }
+        network                        = { cni = { name = "none" } }
+        proxy                          = { disabled = true }
+        allowSchedulingOnControlPlanes = var.allow_scheduling_on_control_planes
         etcd = {
           advertisedSubnets = [local.svc_net.cidr_block]
           # Heartbeat intervals MUST be increased beyond baseline defaults
@@ -74,7 +75,10 @@ data "talos_machine_configuration" "this" {
             "heartbeat-interval" = "250"
           }
         }
-        inlineManifests = [{ name = "cilium", contents = var.cilium_inline_manifest }]
+        inlineManifests = concat(
+          [{ name = "cilium", contents = var.cilium_inline_manifest }],
+          [for name in sort(keys(var.extra_inline_manifests)) : { name = name, contents = var.extra_inline_manifests[name] }]
+        )
       }
     })
   ]
