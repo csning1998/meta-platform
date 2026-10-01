@@ -9,7 +9,7 @@ variable "primary_role" {
   type        = string
 }
 
-variable "wipe_spire_state" {
+variable "spire_trust_domain_reinitialization" {
   description = "Deletes the SPIRE Server datastore and CA keys on the next apply, forcing a fresh trust domain. Never true by default: a routine OS-disk rebuild MUST preserve the existing trust chain. Set true only for a deliberate greenfield reset, then revert to false before the next apply."
   type        = bool
   default     = false

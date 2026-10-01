@@ -1,5 +1,4 @@
 ---
-# 1. Dynamic Grouping: Map node_role to Ansible groups
 - name: "Play [Setup]: Dynamic Grouping based on node_role"
   hosts: all
   gather_facts: false
@@ -7,15 +6,14 @@
     - name: "Create dynamic groups from node_role variable"
       ansible.builtin.group_by:
         key: "{{ node_role | replace('-', '_') }}"
+      changed_when: false
 
-# Phase 2: Vault (Refactored)
 - name: "Play [Vault]: Provision Vault Cluster"
   hosts: "{{ 'vault' if 'vault' in groups else [] }}"
   become: true
   roles:
     - platform_vault
 
-# Phase 3: SPIRE Parent
 - name: "Play [SPIRE]: Configure SPIRE Parent Server"
   hosts: "{{ 'spire_parent' if 'spire_parent' in groups else [] }}"
   become: true

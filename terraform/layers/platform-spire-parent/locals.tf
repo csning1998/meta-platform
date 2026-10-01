@@ -7,7 +7,14 @@ locals {
 }
 
 locals {
-  owner_code = "meta-platform"
+  state = {
+    foundation_libvirt_resources = data.terraform_remote_state.foundation_libvirt_resources.outputs
+    foundation_vault_bastion     = data.terraform_remote_state.foundation_vault_bastion.outputs
+  }
+}
+
+locals {
+  project_code = local.state.foundation_libvirt_resources.foundation_vault_path.project_code
 
   # Extracts the SPIRE trust domain ("<stage>.<domain_suffix>") from module.context.svc_fqdn.
   # Asserts structural alignment with "<service_name>.<stage>.<domain_suffix>".
@@ -18,13 +25,22 @@ locals {
   spire_parent_node_ip = one(module.context.svc_network.node_ips)
 
   # Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 1 Item C.
-  bastion_pki_chain_pem = "${data.terraform_remote_state.vault_bastion.outputs.bastion_vault_pki.root_cert_pem}\n${data.terraform_remote_state.vault_bastion.outputs.bastion_vault_pki.intermediate_cert_pem}"
+  bastion_pki_chain_pem = "${local.state.foundation_vault_bastion.bastion_vault_pki.root_cert_pem}\n${local.state.foundation_vault_bastion.bastion_vault_pki.intermediate_cert_pem}"
 
   oidc_listener_bundle = {
     server_cert_b64 = base64encode(vault_pki_secret_backend_cert.oidc_discovery.certificate)
     server_key_b64  = base64encode(vault_pki_secret_backend_cert.oidc_discovery.private_key)
     ca_cert_b64     = base64encode(local.bastion_pki_chain_pem)
   }
+
+  # k8s:psat node attestation configures trusted ServiceAccount allowlists for downstream SPIRE child clusters.
+  spire_child_k8s_psat_clusters = [
+    for c_name, identity in local.state.foundation_libvirt_resources.foundation_topology.identity["spire"] : {
+      name                       = identity.cluster_name
+      service_account_allow_list = ["spire-system:spire-agent-upstream"]
+    }
+    if contains(local.state.foundation_libvirt_resources.foundation_topology.kubernetes_native_runtimes, local.state.foundation_libvirt_resources.foundation_topology.infrastructure[identity.cluster_name].runtime)
+  ]
 
   ansible_template_config = {
     global_mss                = module.context.global_mss
@@ -37,17 +53,19 @@ locals {
 
     # Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 4 Item B.
     spire_oidc_domain = local.spire_parent_node_ip
+
+    spire_k8s_psat_clusters = jsonencode(local.spire_child_k8s_psat_clusters)
   }
 
   ansible_extra_config = {
-    ansible_user            = module.context.sec_vm_credentials.username
-    spire_parent_wipe_state = var.wipe_spire_state
+    ansible_user = module.context.sec_vm_credentials.username
 
-    spire_vault_upstream_addr               = data.terraform_remote_state.vault_bastion.outputs.bastion_vault.endpoint
-    spire_vault_upstream_pki_mount_path     = data.terraform_remote_state.vault_bastion.outputs.bastion_vault_pki.intermediate_mount_path
-    spire_vault_upstream_approle_mount_path = data.terraform_remote_state.vault_bastion.outputs.bastion_vault_auth.approle_mount_path
-    spire_vault_upstream_role_id            = vault_approle_auth_backend_role.spire_upstream_authority.role_id
-    spire_vault_upstream_secret_id          = vault_approle_auth_backend_role_secret_id.spire_upstream_authority.secret_id
-    spire_vault_upstream_ca_cert_b64        = filebase64(data.terraform_remote_state.vault_bastion.outputs.bastion_vault.listener_ca_cert_path)
+    spire_vault_upstream_addr                  = local.state.foundation_vault_bastion.bastion_vault.endpoint
+    spire_vault_upstream_pki_mount_path        = local.state.foundation_vault_bastion.bastion_vault_pki.intermediate_mount_path
+    spire_vault_upstream_approle_mount_path    = local.state.foundation_vault_bastion.bastion_vault_auth.approle_mount_path
+    spire_vault_upstream_role_id               = vault_approle_auth_backend_role.spire_upstream_authority.role_id
+    spire_vault_upstream_secret_id             = vault_approle_auth_backend_role_secret_id.spire_upstream_authority.secret_id
+    spire_vault_upstream_ca_cert_b64           = filebase64(local.state.foundation_vault_bastion.bastion_vault.listener_ca_cert_path)
+    spire_parent_trust_domain_reinitialization = var.spire_trust_domain_reinitialization
   }
 }

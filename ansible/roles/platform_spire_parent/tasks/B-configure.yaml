@@ -19,6 +19,15 @@
         mode: "0640"
       notify: Restart SPIRE Server Service
 
+    # Pre-creates the directory consumed by downstream child registration tasks for k8s_psat kubeconfig delivery.
+    - name: "B1a3. Create the k8s_psat kubeconfig directory"
+      ansible.builtin.file:
+        path: "{{ platform_spire_parent_k8s_psat_dir }}"
+        state: directory
+        owner: "{{ spire_owner }}"
+        group: "{{ spire_group }}"
+        mode: "0750"
+
     - name: "B1b. Deploy SPIRE Server Config"
       ansible.builtin.template:
         src: server.conf.j2

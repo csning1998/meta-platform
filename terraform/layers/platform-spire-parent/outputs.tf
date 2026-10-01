@@ -26,3 +26,8 @@ output "spire_oidc_auth_backend_path" {
   description = "Mount path of the SPIRE Parent workload JWT-SVID federation backend, for role provisioning by workload-identity-federation module callers."
   value       = vault_jwt_auth_backend.spire_oidc.path
 }
+
+output "spire_oidc_discovery_url" {
+  description = "Issuer URL of the OIDC Discovery Provider of the SPIRE Parent, which a Vault instance trusts to validate the JWT-SVIDs of the local Terraform operators."
+  value       = "https://${local.spire_parent_node_ip}:${local.spire_oidc_port}"
+}

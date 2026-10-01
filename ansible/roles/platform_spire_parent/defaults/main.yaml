@@ -1,14 +1,16 @@
 ---
-# Section B: Configuration
 platform_spire_parent_log_level: "INFO"
 platform_spire_parent_ca_ttl: "8760h" # 1 year, matches the Bootstrap Issuing Intermediate's signed lease
 platform_spire_parent_default_svid_ttl: "1h"
 
-# Section B: Upstream Authority
 platform_spire_parent_upstream_ca_cert_path: "{{ spire_dir_config }}/upstream-ca.pem"
 platform_spire_parent_upstream_approle_auth_mount_point: "{{ spire_vault_upstream_approle_mount_path }}"
 
-# Section D: OIDC Discovery Provider
+# Cluster registration parameters for k8s_psat node attestation.
+# The caller supplies spire_k8s_psat_clusters as a JSON string or a native list of {name, service_account_allow_list}.
+platform_spire_parent_k8s_psat_clusters: "{{ spire_k8s_psat_clusters | default([]) }}"
+platform_spire_parent_k8s_psat_dir: "{{ spire_dir_config }}/k8s-psat"
+
 platform_spire_parent_oidc_dir_config: "/etc/spire/oidc-discovery-provider"
 platform_spire_parent_oidc_cert_path: "{{ platform_spire_parent_oidc_dir_config }}/server.crt"
 platform_spire_parent_oidc_key_path: "{{ platform_spire_parent_oidc_dir_config }}/server.key"
