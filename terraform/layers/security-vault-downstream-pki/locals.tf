@@ -7,47 +7,54 @@ locals {
 }
 
 locals {
-  owner_code = "meta-platform"
-
   state = {
-    vault_bastion                     = data.terraform_remote_state.vault_bastion.outputs
-    vault_downstream                  = data.terraform_remote_state.vault_downstream.outputs
-    security_vault_downstream_approle = data.terraform_remote_state.security_vault_downstream_approle.outputs
+    foundation_vault_bastion           = data.terraform_remote_state.foundation_vault_bastion.outputs
+    platform_vault_downstream_frontend = data.terraform_remote_state.platform_vault_downstream_frontend.outputs
+    security_vault_downstream_tenants  = data.terraform_remote_state.security_vault_downstream_tenants.outputs
+    foundation_libvirt_resources       = data.terraform_remote_state.foundation_libvirt_resources.outputs
+    platform_spire_parent              = data.terraform_remote_state.platform_spire_parent.outputs
+    provision_spire_parent             = data.terraform_remote_state.provision_spire_parent.outputs
+    provision_spire_child              = data.terraform_remote_state.provision_spire_child.outputs
   }
+  project_code = local.state.foundation_libvirt_resources.foundation_vault_path.project_code
 }
 
 locals {
-  prod_vault_endpoint        = "https://${local.state.vault_downstream.service_vip}:${local.state.vault_downstream.prod_vault_api_port}"
-  prod_pki_issuer_mount_path = local.global_pki_config.mount_path
-  pki_lease_ttl_seconds      = 60 * 60 * 24 * 365
-  bastion_pki_chain_pem      = "${local.state.vault_bastion.bastion_vault_pki.root_cert_pem}\n${local.state.vault_bastion.bastion_vault_pki.intermediate_cert_pem}"
-  root_domain                = data.terraform_remote_state.foundation.outputs.foundation_global.domain_suffix
-  vault_kv_namespace         = data.terraform_remote_state.foundation.outputs.foundation_vault_path.kv_namespace
-  global_pki_config          = data.terraform_remote_state.foundation.outputs.foundation_pki.config
+  downstream_vault = {
+    endpoint       = local.state.platform_vault_downstream_frontend.endpoint
+    pki_mount_path = local.state.platform_vault_downstream_frontend.pki_identity.intermediate_mount_path
+  }
+  pki_lease_ttl_seconds = 60 * 60 * 24 * 365
+  bastion_pki_chain_pem = "${local.state.foundation_vault_bastion.bastion_vault_pki.root_cert_pem}\n${local.state.foundation_vault_bastion.bastion_vault_pki.intermediate_cert_pem}"
+  root_domain           = local.state.foundation_libvirt_resources.foundation_global.domain_suffix
 }
 
 locals {
-  # Consolidated PKI roles: SSoT global_pki_map (machine workloads) merged with the human management identities
+  # Machine workloads which take their listener certificate from the Downstream Vault. The other services obtain a
+  # certificate from the Bastion PKI role which their own platform layer creates, and need no role here.
+  downstream_pki_services = toset(["keycloak-frontend", "harbor-origin-frontend"])
+
+  # Consolidated PKI roles: the machine workloads above merged with the human management identities
   # consumed by provision-vault-oidc and on-prem gitlab for OIDC group-to-policy mapping.
+  # The role name equals the identity string of the workload, which is the owner code followed by the catalog key.
   pki_roles = merge(
     {
-      for key, item in data.terraform_remote_state.foundation.outputs.foundation_pki.map : key => {
-        name            = item.role_name
+      for key, item in local.state.foundation_libvirt_resources.foundation_pki.map : key => {
+        name            = "${local.project_code}-${key}"
         auth_method     = item.auth_config.method
         auth_path       = item.auth_config.path
-        approle_path    = item.auth_config.approle_path
         allowed_domains = item.dns_san
         ou              = item.ou
         max_ttl         = 60 * 60 * 24 * 90
         ttl             = 60 * 60 * 24 * 30
       }
+      if contains(local.downstream_pki_services, key)
     },
     {
       "oidc-admin" = {
         name            = "oidc-admin"
-        auth_method     = "approle"
-        auth_path       = "workload-approle"
-        approle_path    = "workload-approle"
+        auth_method     = "oidc"
+        auth_path       = "oidc"
         allowed_domains = [local.root_domain]
         ou              = ["infrastructure"]
         max_ttl         = 60 * 60 * 24 * 365
@@ -55,9 +62,8 @@ locals {
       }
       "oidc-auditor" = {
         name            = "oidc-auditor"
-        auth_method     = "approle"
-        auth_path       = "workload-approle"
-        approle_path    = "workload-approle"
+        auth_method     = "oidc"
+        auth_path       = "oidc"
         allowed_domains = [local.root_domain]
         ou              = ["compliance"]
         max_ttl         = 60 * 60 * 24 * 365
@@ -65,9 +71,8 @@ locals {
       }
       "oidc-developer" = {
         name            = "oidc-developer"
-        auth_method     = "approle"
-        auth_path       = "workload-approle"
-        approle_path    = "workload-approle"
+        auth_method     = "oidc"
+        auth_path       = "oidc"
         allowed_domains = [local.root_domain]
         ou              = ["development"]
         max_ttl         = 60 * 60 * 24 * 7
@@ -81,26 +86,23 @@ locals {
   # Extra ACL rules merged into each workload identity's generated policy, beyond the
   # baseline PKI issue capability.
   workload_identity_extra_rules = {
-    "harbor-origin-frontend" = {
-      "secret/data/${local.vault_kv_namespace}/harbor-origin/frontend" = { capabilities = ["read"] }
-    }
     "oidc-admin" = {
-      "secret/metadata/"                              = { capabilities = ["list"] }
-      "secret/metadata/${local.vault_kv_namespace}/"  = { capabilities = ["list"] }
-      "secret/data/${local.vault_kv_namespace}/*"     = { capabilities = ["create", "update", "read", "delete", "list"] }
-      "secret/metadata/${local.vault_kv_namespace}/*" = { capabilities = ["list", "read", "delete"] }
-      "auth/token/lookup-self"                        = { capabilities = ["read"] }
-      "identity/lookup/entity"                        = { capabilities = ["read", "update"] }
+      "secret/metadata/"                        = { capabilities = ["list"] }
+      "secret/metadata/${local.project_code}/"  = { capabilities = ["list"] }
+      "secret/data/${local.project_code}/*"     = { capabilities = ["create", "update", "read", "delete", "list"] }
+      "secret/metadata/${local.project_code}/*" = { capabilities = ["list", "read", "delete"] }
+      "auth/token/lookup-self"                  = { capabilities = ["read"] }
+      "identity/lookup/entity"                  = { capabilities = ["read", "update"] }
     }
     "oidc-auditor" = {
-      "secret/metadata/*"                         = { capabilities = ["list", "read"] }
-      "secret/data/${local.vault_kv_namespace}/*" = { capabilities = ["read", "list"] }
-      "sys/audit"                                 = { capabilities = ["read"] }
-      "sys/policies/acl"                          = { capabilities = ["list", "read"] }
+      "secret/metadata/*"                   = { capabilities = ["list", "read"] }
+      "secret/data/${local.project_code}/*" = { capabilities = ["read", "list"] }
+      "sys/audit"                           = { capabilities = ["read"] }
+      "sys/policies/acl"                    = { capabilities = ["list", "read"] }
     }
     "oidc-developer" = {
-      "secret/data/${local.vault_kv_namespace}/applications/*"     = { capabilities = ["create", "update", "read", "delete", "list"] }
-      "secret/metadata/${local.vault_kv_namespace}/applications/*" = { capabilities = ["list", "read"] }
+      "secret/data/${local.project_code}/applications/*"     = { capabilities = ["create", "update", "read", "delete", "list"] }
+      "secret/metadata/${local.project_code}/applications/*" = { capabilities = ["list", "read"] }
     }
   }
 }

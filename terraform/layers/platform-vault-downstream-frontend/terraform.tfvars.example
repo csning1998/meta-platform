@@ -20,3 +20,8 @@ service_config = {
     }
   }
 }
+
+pki_identity = {
+  intermediate_ca_common_name = "Platform Infrastructure Intermediate CA"
+  intermediate_mount_path     = "pki-intermediate"
+}

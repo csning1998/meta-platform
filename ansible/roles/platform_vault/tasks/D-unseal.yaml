@@ -12,37 +12,27 @@
       changed_when: false
       failed_when: false
 
-    - name: "D1b. Fetch Administrative AppRole Credentials"
-      community.hashi_vault.vault_kv2_get:
-        url: "{{ dev_vault_url }}"
-        engine_mount_point: "secret"
-        path: "{{ dev_vault_api_path }}"
-        validate_certs: true
-        ca_cert: "{{ bastion_vault_ca_cert_path }}"
-      register: platform_vault_bootstrapper_credentials
-      delegate_to: localhost
-      become: false
+    - name: "D1b. Log in to the Bastion Vault as the operator"
+      ansible.builtin.include_role:
+        name: utils_vault_operator_login
+      vars:
+        utils_vault_operator_login_wrapper: "{{ platform_vault_operator_wrapper }}"
+        utils_vault_operator_login_role: "{{ platform_vault_operator_role }}"
+        utils_vault_operator_login_auth_mount: "{{ platform_vault_operator_auth_mount }}"
+        utils_vault_operator_login_endpoint: "{{ bastion_vault_url }}"
+        utils_vault_operator_login_ca_cert_path: "{{ bastion_vault_ca_cert_path }}"
       when:
         - platform_vault_vault_status_check.rc == 2
         - platform_vault_vault_status_check.stdout | length > 0
         - (platform_vault_vault_status_check.stdout | from_json).sealed
-      no_log: true
 
-    - name: "D1c. Set AppRole Credentials"
-      ansible.builtin.set_fact:
-        platform_vault_vault_approle_role_id: "{{ platform_vault_bootstrapper_credentials.secret.role_id }}"
-        platform_vault_vault_approle_secret_id: "{{ platform_vault_bootstrapper_credentials.secret.secret_id }}"
-      when: platform_vault_bootstrapper_credentials is not skipped
-      no_log: true
-
-    - name: "D1d. Fetch Unseal Keys from Bootstrap Vault"
+    - name: "D1c. Fetch Unseal Keys from Bootstrap Vault"
       community.hashi_vault.vault_kv2_get:
-        url: "{{ dev_vault_url }}"
+        url: "{{ bastion_vault_url }}"
         engine_mount_point: "secret"
-        path: "{{ dev_vault_api_path }}"
-        auth_method: "approle"
-        role_id: "{{ platform_vault_vault_approle_role_id }}"
-        secret_id: "{{ platform_vault_vault_approle_secret_id }}"
+        path: "{{ platform_vault_init_kv_path }}"
+        auth_method: "token"
+        token: "{{ utils_vault_operator_login_token }}"
         validate_certs: true
         ca_cert: "{{ bastion_vault_ca_cert_path }}"
       register: platform_vault_unseal_secrets
@@ -56,7 +46,7 @@
 
     - name: "D1e. Parse Unseal Keys"
       ansible.builtin.set_fact:
-        platform_vault_vault_unseal_keys: "{{ platform_vault_unseal_secrets.secret.prod_vault_unseal_keys }}"
+        platform_vault_vault_unseal_keys: "{{ platform_vault_unseal_secrets.secret.prod_vault_unseal_keys | from_json }}"
       when: platform_vault_unseal_secrets is not skipped
       no_log: true
 
@@ -95,14 +85,30 @@
       changed_when: false
       failed_when: platform_vault_vault_init_check.rc not in [0, 2]
 
-    - name: "D2b. Fetch Administrative AppRole Credentials"
+    - name: "D2b. Log in to the Bastion Vault as the operator"
+      ansible.builtin.include_role:
+        name: utils_vault_operator_login
+      vars:
+        utils_vault_operator_login_wrapper: "{{ platform_vault_operator_wrapper }}"
+        utils_vault_operator_login_role: "{{ platform_vault_operator_role }}"
+        utils_vault_operator_login_auth_mount: "{{ platform_vault_operator_auth_mount }}"
+        utils_vault_operator_login_endpoint: "{{ bastion_vault_url }}"
+        utils_vault_operator_login_ca_cert_path: "{{ bastion_vault_ca_cert_path }}"
+      when:
+        - platform_vault_vault_init_check.rc == 2
+        - platform_vault_vault_init_check.stdout | length > 0
+        - (platform_vault_vault_init_check.stdout | from_json).sealed
+
+    - name: "D2c. Fetch Unseal Keys from Bootstrap Vault"
       community.hashi_vault.vault_kv2_get:
-        url: "{{ dev_vault_url }}"
+        url: "{{ bastion_vault_url }}"
         engine_mount_point: "secret"
-        path: "{{ dev_vault_api_path }}"
+        path: "{{ platform_vault_init_kv_path }}"
+        auth_method: "token"
+        token: "{{ utils_vault_operator_login_token }}"
         validate_certs: true
         ca_cert: "{{ bastion_vault_ca_cert_path }}"
-      register: platform_vault_bootstrapper_credentials
+      register: platform_vault_unseal_secrets
       delegate_to: localhost
       become: false
       when:
@@ -111,32 +117,9 @@
         - (platform_vault_vault_init_check.stdout | from_json).sealed
       no_log: true
 
-    - name: "D2c. Set AppRole Credentials"
-      ansible.builtin.set_fact:
-        platform_vault_vault_approle_role_id: "{{ platform_vault_bootstrapper_credentials.secret.role_id }}"
-        platform_vault_vault_approle_secret_id: "{{ platform_vault_bootstrapper_credentials.secret.secret_id }}"
-      when: platform_vault_bootstrapper_credentials is not skipped
-      no_log: true
-
-    - name: "D2d. Fetch Unseal Keys from Bootstrap Vault"
-      community.hashi_vault.vault_kv2_get:
-        url: "{{ dev_vault_url }}"
-        engine_mount_point: "secret"
-        path: "{{ dev_vault_api_path }}"
-        auth_method: "approle"
-        role_id: "{{ platform_vault_vault_approle_role_id }}"
-        secret_id: "{{ platform_vault_vault_approle_secret_id }}"
-        validate_certs: true
-        ca_cert: "{{ bastion_vault_ca_cert_path }}"
-      register: platform_vault_unseal_secrets
-      delegate_to: localhost
-      become: false
-      when: platform_vault_bootstrapper_credentials is not skipped
-      no_log: true
-
     - name: "D2e. Parse Unseal Keys"
       ansible.builtin.set_fact:
-        platform_vault_vault_unseal_keys: "{{ platform_vault_unseal_secrets.secret.prod_vault_unseal_keys }}"
+        platform_vault_vault_unseal_keys: "{{ platform_vault_unseal_secrets.secret.prod_vault_unseal_keys | from_json }}"
       when: platform_vault_unseal_secrets is not skipped
       no_log: true
 

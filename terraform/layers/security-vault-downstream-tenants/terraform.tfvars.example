@@ -1,0 +1,24 @@
+
+# One entry per tenant workload.
+# issuer = "child": a pod in the SPIRE Child, whose SPIFFE ID follows spiffe://<trust domain>/ns/<namespace>/sa/<service account>.
+# issuer = "parent": a workload on a VM, whose SPIFFE ID follows spiffe://<trust domain>/<owner>/<service>/<component>.
+tenants = {
+  "meta-platform-e2e-probe" = {
+    issuer    = "child"
+    spiffe_id = "spiffe://production.homelab-infra.dev/ns/e2e-probe/sa/e2e-probe"
+    kv_paths  = ["meta-platform/e2e-probe"]
+  }
+
+  "meta-platform-keycloak-frontend" = {
+    issuer        = "parent"
+    spiffe_id     = "spiffe://production.homelab-infra.dev/meta-platform/keycloak/frontend"
+    kv_read_paths = ["meta-platform/keycloak/frontend"]
+    pki_roles     = ["meta-platform-keycloak-frontend"]
+  }
+
+  "meta-platform-harbor-origin-frontend" = {
+    issuer        = "parent"
+    spiffe_id     = "spiffe://production.homelab-infra.dev/meta-platform/harbor-origin/frontend"
+    kv_read_paths = ["meta-platform/harbor-origin/frontend"]
+  }
+}

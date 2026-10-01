@@ -5,9 +5,20 @@ locals {
   _state_base = "https://gitlab.com/api/v4/projects/84608830/terraform/state"
 }
 
+locals {
+  state = {
+    security_vault_downstream_tenants = data.terraform_remote_state.security_vault_downstream_tenants.outputs
+    provision_spire_child             = data.terraform_remote_state.provision_spire_child.outputs
+  }
+}
+
 # Provider prerequisites: Must be defined as root-level locals because provider blocks cannot reference module outputs.
 locals {
-  downstream_vault_endpoint = "https://${data.terraform_remote_state.security_vault_downstream_approle.outputs.prod_vault_svc_vip}:443"
-  vault_pki_cert_path       = data.terraform_remote_state.security_vault_downstream_pki.outputs.bastion_pki_chain_b64.path
-  vault_kv_namespace        = data.terraform_remote_state.security_vault_downstream_approle.outputs.foundation_vault_path.kv_namespace
+  project_code = local.state.security_vault_downstream_tenants.foundation_vault_path.project_code
+  kv_paths     = local.state.security_vault_downstream_tenants.foundation_vault_path.kv_paths
+
+  downstream_vault = {
+    endpoint     = local.state.security_vault_downstream_tenants.endpoint
+    ca_cert_path = local.state.security_vault_downstream_tenants.ca_cert_path
+  }
 }

@@ -22,8 +22,5 @@ output "prod_pki_leaf_roles" {
 
 output "auth_backend_paths" {
   description = "Map of enabled Auth Backend paths"
-  value = merge(
-    { "approle" = vault_auth_backend.approle.path },
-    { for k, v in vault_auth_backend.kubernetes : k => v.path }
-  )
+  value       = { for k, v in vault_auth_backend.kubernetes : k => v.path }
 }

@@ -26,18 +26,6 @@ output "prod_pki_configuration" {
 }
 
 output "management_policies" {
-  description = "Map of human management identities (oidc-admin, oidc-auditor, oidc-developer) to their generated Vault ACL policy names, for OIDC group-to-policy mapping."
-  value       = { for k in local.management_identities : k => module.vault_workload_identity_approle[k].policy_name }
-}
-
-output "workload_identities_approle" {
-  description = "Export workload AppRole authentication parameters indexed by service name."
-  sensitive   = true
-  value = {
-    for service_name, mod in module.vault_workload_identity_approle : service_name => {
-      role_id   = mod.approle_role_id
-      role_name = mod.approle_name
-      auth_path = module.vault_pki_setup.auth_backend_paths["approle"]
-    }
-  }
+  description = "Map of human management identities (oidc-admin, oidc-auditor, oidc-developer) to their Vault ACL policy names, for OIDC group-to-policy mapping."
+  value       = { for k in local.management_identities : k => vault_policy.management[k].name }
 }
