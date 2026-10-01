@@ -8,22 +8,27 @@ locals {
 
 locals {
   state = {
-    network       = data.terraform_remote_state.network.outputs
-    vault_bastion = data.terraform_remote_state.vault_bastion.outputs
-    spire_parent  = data.terraform_remote_state.spire_parent.outputs
+    foundation_libvirt_resources = data.terraform_remote_state.foundation_libvirt_resources.outputs
+    foundation_vault_bastion     = data.terraform_remote_state.foundation_vault_bastion.outputs
+    platform_spire_parent        = data.terraform_remote_state.platform_spire_parent.outputs
+    provision_spire_parent       = data.terraform_remote_state.provision_spire_parent.outputs
   }
-  vault_kv_namespace = local.state.network.foundation_vault_path.kv_namespace
-  cluster_name       = local.state.network.foundation_topology.identity["haproxy"]["frontend"].cluster_name
+}
+
+locals {
+  project_code       = local.state.foundation_libvirt_resources.foundation_vault_path.project_code
+  cluster_name       = local.state.foundation_libvirt_resources.foundation_topology.identity["haproxy"]["frontend"].cluster_name
+  terraform_operator = local.state.provision_spire_parent.terraform_operator["haproxy"]
 }
 
 # Kubernetes-native runtimes stay on the Cilium Service/L2Announcement path. Any other
 # runtime in the catalog is an external service, owned end to end by this tier per the
 # decisions.md entry retiring Cilium Service exposure for non-Kubernetes backends.
 locals {
-  kubernetes_native_runtimes = ["talos", "kubeadm", "microk8s", "minikube"]
+  kubernetes_native_runtimes = local.state.foundation_libvirt_resources.foundation_topology.kubernetes_native_runtimes
 
   fronted_segments = {
-    for key, seg in local.state.network.foundation_topology.infrastructure : key => seg
+    for key, seg in local.state.foundation_libvirt_resources.foundation_topology.infrastructure : key => seg
     if key != local.cluster_name
     && !contains(local.kubernetes_native_runtimes, seg.runtime)
     && seg.lb_config.vip != null
@@ -108,7 +113,7 @@ check "haproxy_extra_network_offsets_safe" {
 }
 
 locals {
-  bastion_pki_chain_pem = "${local.state.vault_bastion.bastion_vault_pki.root_cert_pem}\n${local.state.vault_bastion.bastion_vault_pki.intermediate_cert_pem}"
+  bastion_pki_chain_pem = "${local.state.foundation_vault_bastion.bastion_vault_pki.root_cert_pem}\n${local.state.foundation_vault_bastion.bastion_vault_pki.intermediate_cert_pem}"
 
   # ansible_host resolves through the operator SSH config alias, meaningless inside the
   # guest. The stats listener needs the real address on this segment.
@@ -130,24 +135,27 @@ locals {
     haproxy_stats_port       = module.context.primary_net_config.lb_config.ports["stats"].frontend_port
     haproxy_listen_address   = local.haproxy_listen_address
     keepalived_auth_pass     = data.vault_kv_secret_v2.haproxy_credential.data["keepalived_auth_pass"]
+    haproxy_stats_password   = data.vault_kv_secret_v2.haproxy_credential.data["stats_password"]
 
-    spire_server_port              = tostring(local.state.spire_parent.spire_agent_bootstrap.server_port)
-    spire_parent_node_ip           = local.state.spire_parent.spire_agent_bootstrap.node_ip
-    spire_parent_ssh_host          = local.state.spire_parent.spire_agent_bootstrap.ssh_host
-    spire_trust_domain             = local.state.spire_parent.spire_agent_bootstrap.trust_domain
-    spire_cluster_name             = module.context.svc_identity.cluster_name
-    spire_workload_spiffe_id       = local.spire_workload_spiffe_id
-    spire_oidc_auth_path           = local.state.spire_parent.spire_oidc_auth_backend_path
-    spire_workload_vault_role_name = module.spire_workload_identity.role_name
+    spire_server_port               = tostring(local.state.platform_spire_parent.spire_agent_bootstrap.server_port)
+    spire_parent_node_ip            = local.state.platform_spire_parent.spire_agent_bootstrap.node_ip
+    spire_parent_ssh_host           = local.state.platform_spire_parent.spire_agent_bootstrap.ssh_host
+    spire_trust_domain              = local.state.platform_spire_parent.spire_agent_bootstrap.trust_domain
+    spire_cluster_name              = module.context.svc_identity.cluster_name
+    spire_parent_join_token_kv_path = local.state.foundation_libvirt_resources.foundation_vault_path.kv_paths["spire"]["parent"].join_token
+    spire_child_join_token_kv_path  = local.state.foundation_libvirt_resources.foundation_vault_path.kv_paths["spire"]["child"].join_token
+    spire_workload_spiffe_id        = local.spire_workload_spiffe_id
+    spire_oidc_auth_path            = local.state.platform_spire_parent.spire_oidc_auth_backend_path
+    spire_workload_vault_role_name  = module.spire_workload_identity.role_name
 
-    vault_endpoint             = local.state.vault_bastion.bastion_vault.endpoint
+    vault_endpoint             = local.state.foundation_vault_bastion.bastion_vault.endpoint
     vault_role_name            = local.haproxy_pki_role_name
-    vault_pki_mount_path       = local.state.vault_bastion.bastion_vault_pki.intermediate_mount_path
-    vault_listener_ca_cert_b64 = filebase64(local.state.vault_bastion.bastion_vault.listener_ca_cert_path)
+    vault_pki_mount_path       = local.state.foundation_vault_bastion.bastion_vault_pki.intermediate_mount_path
+    vault_listener_ca_cert_b64 = filebase64(local.state.foundation_vault_bastion.bastion_vault.listener_ca_cert_path)
     vault_agent_common_name    = module.context.svc_fqdn
     vault_intermediate_ca_b64  = base64encode(local.bastion_pki_chain_pem)
   }
 
-  spire_workload_spiffe_id = "spiffe://${local.state.spire_parent.spire_agent_bootstrap.trust_domain}/${local.state.network.foundation_vault_path.kv_namespace}/${module.context.primary_context.s_name}/${module.context.primary_context.c_name}"
+  spire_workload_spiffe_id = "spiffe://${local.state.platform_spire_parent.spire_agent_bootstrap.trust_domain}/${local.state.foundation_libvirt_resources.foundation_vault_path.project_code}/${module.context.primary_context.s_name}/${module.context.primary_context.c_name}"
   haproxy_pki_role_name    = module.context.svc_identity.cluster_name
 }
