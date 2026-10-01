@@ -7,17 +7,22 @@ locals {
 
 locals {
   state = {
-    prod_vault_frontend    = data.terraform_remote_state.prod_vault_frontend.outputs
-    security_pki           = data.terraform_remote_state.security_pki.outputs
-    security_vault_approle = data.terraform_remote_state.security_vault_approle.outputs
-    keycloak_oidc          = data.terraform_remote_state.keycloak_provisioning.outputs
+    platform_vault_downstream_frontend = data.terraform_remote_state.platform_vault_downstream_frontend.outputs
+    security_vault_downstream_tenants  = data.terraform_remote_state.security_vault_downstream_tenants.outputs
+    security_vault_downstream_pki      = data.terraform_remote_state.security_vault_downstream_pki.outputs
+    provision_keycloak_oidc            = data.terraform_remote_state.provision_keycloak_oidc.outputs
+    provision_spire_child              = data.terraform_remote_state.provision_spire_child.outputs
+  }
+}
+
+locals {
+  downstream_vault = {
+    endpoint = local.state.platform_vault_downstream_frontend.endpoint
+    fqdn     = "https://${local.state.security_vault_downstream_tenants.foundation_pki.map["vault-downstream-frontend"].dns_san[0]}"
   }
 
-  vault_endpoint = "https://${local.state.prod_vault_frontend.service_vip}:443"
-  vault_fqdn     = "https://${local.state.security_vault_approle.foundation_pki.map["vault-downstream-frontend"].dns_san[0]}"
-
   # OIDC Configuration
-  oidc_discovery_url = local.state.keycloak_oidc.issuer_url
+  oidc_discovery_url = local.state.provision_keycloak_oidc.issuer_url
   oidc_client_id     = data.vault_kv_secret_v2.keycloak_vault_client.data["client_id"]
   oidc_client_secret = data.vault_kv_secret_v2.keycloak_vault_client.data["client_secret"]
 }
