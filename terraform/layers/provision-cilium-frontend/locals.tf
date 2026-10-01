@@ -8,15 +8,19 @@ locals {
 
 locals {
   state = {
-    cilium_frontend        = data.terraform_remote_state.cilium_frontend.outputs
-    spire_parent           = data.terraform_remote_state.spire_parent.outputs
-    provision_spire_parent = data.terraform_remote_state.provision_spire_parent.outputs
+    platform_cilium_frontend     = data.terraform_remote_state.platform_cilium_frontend.outputs
+    foundation_libvirt_resources = data.terraform_remote_state.foundation_libvirt_resources.outputs
+    foundation_vault_bastion     = data.terraform_remote_state.foundation_vault_bastion.outputs
+    platform_spire_parent        = data.terraform_remote_state.platform_spire_parent.outputs
+    provision_spire_parent       = data.terraform_remote_state.provision_spire_parent.outputs
   }
+}
 
+locals {
   terraform_operator = local.state.provision_spire_parent.terraform_operator["cilium"]
 
-  infrastructure_map = local.state.cilium_frontend.foundation_topology.infrastructure
-  vault_kv_namespace = "meta-platform"
+  infrastructure_map = local.state.platform_cilium_frontend.foundation_topology.infrastructure
+  project_code       = local.state.platform_cilium_frontend.foundation_vault_path.project_code
 }
 
 locals {
@@ -34,18 +38,20 @@ locals {
 
 # Exclude the Cilium cluster segment from Service generation to prevent circular routing dependencies and self-referential load balancing.
 locals {
-  cilium_cluster_name = local.state.cilium_frontend.foundation_topology.identity["cilium"]["frontend"].cluster_name
+  cilium_cluster_name = local.state.platform_cilium_frontend.foundation_topology.identity["cilium"]["frontend"].cluster_name
 
   # Kubernetes-native runtimes only. Any other runtime is an external service owned end to
   # end by platform-haproxy-frontend, per the decisions.md entry retiring Cilium Service
   # exposure for non-Kubernetes backends. Registering both here and there double-owns the VIP.
-  kubernetes_native_runtimes = ["talos", "kubeadm", "microk8s", "minikube"]
+  kubernetes_native_runtimes = local.state.foundation_libvirt_resources.foundation_topology.kubernetes_native_runtimes
 
   # Excludes entries missing an SSoT VIP (an open ADR defect) or a backend server, both
   # of which fail downstream against Cilium or the Kubernetes API.
+  # A cluster tagged self-managed-lb holds its own VIP. An announcement of the VIP from this layer duplicates the holder.
   fronted_segments = {
     for key, seg in local.infrastructure_map : key => seg
     if key != local.cilium_cluster_name
+    && !contains(seg.lb_config.tags, "self-managed-lb")
     && contains(local.kubernetes_native_runtimes, seg.runtime)
     && seg.lb_config.vip != null
     && length(seg.backend_servers) > 0

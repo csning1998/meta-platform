@@ -7,6 +7,7 @@ variable "node_config" {
     ram                  = number
     base_image_path      = string
     os_disk_capacity_gib = optional(number, 40)
+    extra_networks       = optional(map(string), {}) # Map of network names to static CIDR addresses appended after service segments.
   }))
 
   validation {

@@ -31,14 +31,14 @@ module "contexts_local_credential" {
 
 provider "vault" {
   alias        = "bastion"
-  address      = local.state.vault_bastion.bastion_vault.endpoint
+  address      = local.state.foundation_vault_bastion.bastion_vault.endpoint
   ca_cert_file = module.contexts_local_credential.bastion_vault_config.ca_cert_path
 
   auth_login {
     path = "auth/approle/login"
     parameters = {
-      role_id   = local.state.vault_bastion.bastion_vault_tenant.terraform_operator.role_ids[local.owner_code]
-      secret_id = local.state.vault_bastion.bastion_vault_tenant_credential.terraform_operator.secret_ids[local.owner_code]
+      role_id   = local.state.foundation_vault_bastion.bastion_vault_tenant.terraform_operator.role_ids[local.project_code]
+      secret_id = local.state.foundation_vault_bastion.bastion_vault_tenant_credential.terraform_operator.secret_ids[local.project_code]
     }
   }
   skip_child_token = true

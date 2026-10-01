@@ -10,13 +10,16 @@ resource "kubernetes_namespace_v1" "platform_lb" {
 # Cilium L2 announcements MUST declare dedicated IP pools to advertise frontend load balancer VIPs across the local network segment.
 # Consuming projects maintain ownership of namespaced Service and Endpoints objects.
 resource "kubernetes_manifest" "lb_ip_pool" {
+  # A pool without blocks has no address to serve.
+  count = length(local.fronted_segments) > 0 ? 1 : 0
+
   depends_on = [ephemeral.talos_cluster_health.this]
 
   manifest = {
     apiVersion = "cilium.io/v2alpha1"
     kind       = "CiliumLoadBalancerIPPool"
     metadata = {
-      name = "meta-platform-catalog"
+      name = "${local.project_code}-catalog"
     }
     spec = {
       serviceSelector = {
@@ -36,7 +39,7 @@ resource "kubernetes_manifest" "l2_announcement_policy" {
     apiVersion = "cilium.io/v2alpha1"
     kind       = "CiliumL2AnnouncementPolicy"
     metadata = {
-      name = "meta-platform-catalog"
+      name = "${local.project_code}-catalog"
     }
     spec = {
       serviceSelector = {
@@ -50,6 +53,8 @@ resource "kubernetes_manifest" "l2_announcement_policy" {
 # Bind selector-less LoadBalancer Services to explicit Endpoints objects matching
 # by name and namespace for backing address resolution.
 resource "kubernetes_service_v1" "catalog" {
+  depends_on = [ephemeral.talos_cluster_health.this]
+
   for_each = local.fronted_segments
 
   metadata {
@@ -88,6 +93,8 @@ resource "kubernetes_service_v1" "catalog" {
 }
 
 resource "kubernetes_endpoints_v1" "catalog" {
+  depends_on = [ephemeral.talos_cluster_health.this]
+
   for_each = local.fronted_segments
 
   metadata {

@@ -18,9 +18,10 @@ variable "topology_cluster" {
 
     load_balancer_config = object({
       nodes = map(object({
-        vcpu      = number
-        ram       = number
-        ip_suffix = number
+        vcpu           = number
+        ram            = number
+        ip_suffix      = number
+        extra_networks = optional(map(string), {})
       }))
     })
   })
@@ -135,6 +136,23 @@ variable "talos_kubernetes_version" {
 variable "cilium_inline_manifest" {
   description = "Rendered Cilium installation manifest, injected via cluster.inlineManifests so Cilium becomes active during bootstrap, before kubectl is reachable and before Harbor exists to serve the chart."
   type        = string
+}
+
+variable "extra_inline_manifests" {
+  description = "Additional manifests injected via cluster.inlineManifests, keyed by manifest name, with 'cilium' reserved."
+  type        = map(string)
+  default     = {}
+
+  validation {
+    condition     = !contains(keys(var.extra_inline_manifests), "cilium")
+    error_message = "The manifest name cilium is reserved for cilium_inline_manifest."
+  }
+}
+
+variable "allow_scheduling_on_control_planes" {
+  description = "Removes the control plane NoSchedule taint, so that workloads run on the control plane nodes. Every node of this module is a control plane member, and a cluster without workers schedules nothing otherwise."
+  type        = bool
+  default     = false
 }
 
 variable "bootstrap_timeout" {
