@@ -5,3 +5,10 @@
   become: true
   roles:
     - role: provision_harbor_origin
+
+- name: SPIRE Child Registration on the SPIRE Parent
+  hosts: "{{ 'spire_child_registration' if 'spire_child_registration' in groups else [] }}"
+  gather_facts: false
+  become: false
+  roles:
+    - role: provision_spire_child

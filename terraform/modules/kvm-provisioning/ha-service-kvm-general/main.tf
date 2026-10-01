@@ -13,8 +13,9 @@ module "hypervisor_kvm" {
 # Host SSH keys MUST originate from pre-boot cryptographic generation
 # to populate client known_hosts files before guest network initialization.
 resource "local_file" "known_hosts" {
-  filename        = pathexpand("~/.ssh/known_hosts_${var.svc_identity.cluster_name}")
-  file_permission = "0644"
+  filename             = pathexpand("~/.ssh/known_hosts_${var.svc_identity.cluster_name}")
+  file_permission      = "0644"
+  directory_permission = "0700"
   content = join("", [
     for k, v in local.flat_node_map :
     "${v.ip} ${module.hypervisor_kvm.guest_host_public_keys[k]}\n"

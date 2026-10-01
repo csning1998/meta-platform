@@ -1,5 +1,14 @@
 
 locals {
+  state = {
+    group_federation_anthropic = data.terraform_remote_state.group_federation_anthropic.outputs
+    group_federation_gcp       = data.terraform_remote_state.group_federation_gcp.outputs
+    group_federation_azure     = data.terraform_remote_state.group_federation_azure.outputs
+    group_topology             = data.terraform_remote_state.group_topology.outputs
+  }
+}
+
+locals {
   _state_base_parent_group_governance = "https://gitlab.com/api/v4/projects/86417732/terraform/state"
   _state_auth                         = module.contexts_local_credential.state_auth_gitlab_saas
 
