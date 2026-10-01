@@ -96,7 +96,7 @@ flowchart TD
 ### Item E. Ownership Boundary of `service_catalog`
 
 1. The consuming project declaring a `service_catalog` entry MUST maintain ownership of that configuration schema. The `meta-platform` repository SHALL NOT aggregate distinct project catalogs into a single state file when composite `pki_map` keys risk name collisions across identical service and component pairs.
-2. The `meta-platform` repository MUST define three global parameters consumed across all catalog entries: `network_baseline`, `pki_config`, and `domain_suffix`. The first segment of every Vault KV path derives from the `project_code` of the catalog entry.
+2. The `meta-platform` repository MUST define two global parameters consumed across all catalog entries: `network_baseline` and `domain_suffix`. The first segment of every Vault KV path derives from the `project_code` of the catalog entry.
 3. Secret material MUST NOT traverse `terraform_remote_state` outputs. The `layer-context` module SHALL accept `guest_vm_data` and `security_pki_outputs` sourced from a `vault_generic_secret` data source or an authenticated Vault API response.
 
 ### Item F. Libvirt Provider Connection
@@ -175,7 +175,10 @@ Location: `terraform/modules/service-catalog`. The module accepts `service_catal
 
 1. Outputs `topology_network` and `topology_identity` MUST maintain nesting structured by service name and component name.
 2. Outputs `volume_map`, `pki_map`, and `dns_records` MUST expose flat maps keyed by the composite cluster key or volume identifier.
-3. The `credential_paths` output MUST expose Vault KV path strings structured as `${project_code}/${service}/${component}`. The output SHALL NOT contain plaintext secret data.
+3. The `credential_paths` output MUST expose Vault KV path strings structured as `${project_code}/${service}/${component}`, and each string names the folder of a component. The folder SHALL NOT hold a secret itself. The output SHALL NOT contain plaintext secret data.
+4. Output `foundation_vault_path` of layer `foundation-libvirt-resources` MUST expose the leaf paths `kv_paths[service][component][leaf]` structured as `${project_code}/${service}/${component}/${leaf}`. The leaf vocabulary is `ssh`, `cluster-config`, `app`, `addon`, `init`, `join-token`, `registrar`, `parent-attestor`, and `robot`, and the entry `addon` is a prefix which a consumer completes as `addon-<name>`.
+5. Output `foundation_vault_path` MUST also expose `ssh_credential_paths`, which resolves to the `ssh` leaf of every SSH-enabled cluster, and `guest_vm_path`, the one project-wide secret which no service owns. Consumers SHALL read these paths and MUST NOT compose them.
+6. Each leaf has exactly one writer layer: `security-vault-bastion-credentials` writes the `ssh` leaf, the keepalived password at `haproxy/frontend/app`, and the Hubble UI login at `cilium/frontend/addon-hubble-ui`. The platform layer of a cluster writes the `cluster-config` leaf. Layer `platform-vault-downstream-frontend` writes the `init` leaf. Layer `provision-spire-child` writes the `registrar` and `parent-attestor` leaves. Role `utils_spire_agent` writes the `join-token` leaves below `spire/parent` and `spire/child`.
 
 ## Section 3. Foundation Realization: `kvm-foundation-resources`
 
@@ -295,7 +298,7 @@ flowchart TD
     subgraph FLATTEN ["Node & Storage Resolution"]
         FNM["flat_node_map\n(Calculates Node IP via cidrhost)"]
         V_DISC["attached_volumes\n(Filter: prefix matching node_name-ip_suffix)"]
-        DEV_MAP["Device Mapping\n(Assigns /dev/vdb, /dev/vdc sequentially)"]
+        DEVICE_MAP["Device Mapping\n(Assigns /dev/vdb, /dev/vdc sequentially)"]
     end
 
     subgraph INV_PROC ["Inventory Processing"]
@@ -313,12 +316,12 @@ flowchart TD
     CTX_TOP & NET_INF --> FNM
     FNM --> V_DISC
     STOR_INF --> V_DISC
-    V_DISC --> DEV_MAP
+    V_DISC --> DEVICE_MAP
 
     FNM --> ROLE_GRP --> PRI_SEC
     ANS_CFG --> VARS_MERGE
 
-    DEV_MAP & FNM --> H_KVM
+    DEVICE_MAP & FNM --> H_KVM
     H_KVM -->|guest_status_trigger| S_MGR
     S_MGR -->|ssh_access_ready_trigger| A_RUN
     PRI_SEC & VARS_MERGE --> A_RUN
@@ -377,7 +380,7 @@ Location: `terraform/layers/platform-spire-parent`.
 
 ### Item A. Remote State and Authentication Configuration
 
-1. The `data.tf` file MUST declare `terraform_remote_state` data sources for `metadata` (`foundation-libvirt-resources`) and `vault_bastion` (`foundation-vault-bastion`). The file SHALL declare a `vault_generic_secret.guest_vm` data source reading `secret/meta-platform/guest_vm`.
+1. The `data.tf` file MUST declare `terraform_remote_state` data sources named `foundation_libvirt_resources` and `foundation_vault_bastion`, and every layer SHALL read the outputs through `local.state.<layer directory name with underscores>`. The file SHALL declare a `vault_generic_secret.guest_vm` data source reading `secret/meta-platform/guest_vm`.
 2. The `providers.tf` file MUST authenticate the default `vault` provider via `auth/approle/login` using the `meta-platform` tenant AppRole, read from the objects `bastion_vault_tenant` and `bastion_vault_tenant_credential` that `foundation-vault-bastion` exports.
 
 ### Item B. Context and Middleware Invocation

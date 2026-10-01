@@ -16,7 +16,7 @@ This specification states the coordination contract between the SPIRE trust doma
 ### Item B. Nested Parent and Child Topology within One Trust Domain
 
 1. SPIRE Server deploys in two tiers under one trust domain, following a Nested topology: SPIRE Parent runs as a bare-metal virtual machine, and SPIRE Child runs on Talos through the `spire-nested` Helm chart.
-2. SPIRE Parent serves rootless Podman workloads running directly on bare metal, and SPIRE Child, once deployed, serves workloads running inside the Cilium-fronted Kubernetes cluster.
+2. SPIRE Parent serves the operator workstation, whose identities reach the Bastion Vault. SPIRE Child serves every downstream workload, which comprises the pods of the Cilium-fronted Kubernetes cluster, the rootless Podman workloads of the Keycloak and Harbor Origin virtual machines, and the operator identities which reach the Downstream Vault.
 3. SPIRE Child obtains an Intermediate CA from SPIRE Parent through the `upstreamauthority/spire` plugin, using a SPIRE Agent colocated with SPIRE Child that authenticates against SPIRE Parent through the Workload API.
 4. A single SPIRE Server instance accepts exactly one `UpstreamAuthority` configuration, and SPIRE Child MUST NOT configure `UpstreamAuthority "vault"` alongside `UpstreamAuthority "spire"`.
 5. Nested topology chains multiple SPIRE Server instances within a single trust domain, distinct from federation, which exchanges trust bundles across separate trust domains.
@@ -36,18 +36,19 @@ This specification states the coordination contract between the SPIRE trust doma
 
 1. Layer `security-vault-downstream-pki` requires an authenticated connection to Downstream Vault, and Downstream Vault becomes reachable only after Cilium, HAProxy, and SPIRE Child complete in the platform deployment order.
 2. The Tier 3 Issuing Intermediate carries no issued certificate until that layer applies.
-3. The listener certificates of Downstream Vault, SPIRE Parent, Harbor Origin, and HAProxy issue directly from Bastion Vault's Tier 2 `pki-intermediate` mount. The arrangement is permanent since these services do not follow the rebuild lifecycle of Downstream Vault.
-4. Each platform layer creates the Bastion PKI role of its own service, named after the `cluster_name`, and issues the bootstrap listener certificate through that role: `vault_pki_secret_backend_role.vault_listener` in `platform-vault-downstream-frontend`, `vault_pki_secret_backend_role.leaf` in `platform-spire-parent`, `vault_pki_secret_backend_role.listener` in `platform-harbor-origin-frontend`, and `vault_pki_secret_backend_role.stats` in `platform-haproxy-frontend`.
-5. Module `vault-spiffe-workload-identity-federation`, invoked by layer `platform-harbor-origin-frontend` for the SPIFFE-authenticated workload certificate, receives argument `pki_mount_path` set to the `pki-intermediate` mount.
-6. Keycloak and Cilium start after Downstream Vault and take their listener certificates from the Downstream Issuing Intermediate.
+3. The listener certificates of Downstream Vault, SPIRE Parent, and HAProxy issue directly from Bastion Vault's Tier 2 `pki-intermediate` mount. The arrangement is permanent since these services do not follow the rebuild lifecycle of Downstream Vault.
+4. Each platform layer creates the Bastion PKI role of its own service, named after the `cluster_name`, and issues the bootstrap listener certificate through that role: `vault_pki_secret_backend_role.vault_listener` in `platform-vault-downstream-frontend`, `vault_pki_secret_backend_role.leaf` in `platform-spire-parent`, and `vault_pki_secret_backend_role.stats` in `platform-haproxy-frontend`.
+5. Module `vault-spiffe-workload-identity-federation`, invoked by layer `provision-spire-parent` for the operator identities, receives argument `pki_mount_path` set to the `pki-intermediate` mount.
+6. Keycloak, Harbor Origin, and Cilium start after Downstream Vault and take their listener certificates from the Downstream Issuing Intermediate. The layer `security-vault-downstream-pki` declares the PKI role of each service, and the layers `platform-keycloak-frontend` and `platform-harbor-origin-frontend` issue the bootstrap leaf through that role.
 
 ### Item E. Per-Issuer JWT Federation Boundary
 
 1. The `upstreamauthority/vault` plugin does not support the `PublishJWTKey` RPC, a limitation that would normally block global JWT-SVID interoperability across a Nested topology.
 2. Global JWT interoperability is not required across the Nested SPIRE topology since JWT-SVID authentication follows a one-issuer-one-mount convention already established for `gitlab-saas-ci-job-jwt-provider`.
-3. SPIRE Parent's workload authentication mounts on the `auth/jwt` backend fronted by SPIRE Parent's own `spire-oidc-discovery-provider` instance.
-4. SPIRE Child's workload authentication, once deployed, mounts on an independent `auth/jwt` backend fronted by SPIRE Child's own OIDC Discovery Provider instance, requiring no JWT key relay from SPIRE Parent.
-5. X.509-SVID authentication follows the PKI certificate chain established in Item C and carries no dependency on the `PublishJWTKey` RPC.
+3. SPIRE Parent's workload authentication mounts on the `auth/jwt` backend of the Bastion Vault, fronted by SPIRE Parent's own `spire-oidc-discovery-provider` instance. The Bastion Vault trusts only that mount.
+4. SPIRE Child's workload authentication mounts on an independent `auth/jwt` backend of the Downstream Vault, fronted by SPIRE Child's own OIDC Discovery Provider instance, requiring no JWT key relay from SPIRE Parent. The Downstream Vault trusts that mount for every tenant and for the operator role.
+5. Layer `security-vault-downstream-tenants` retains a legacy Parent mount and the role `operator_parent` on the Downstream Vault until every downstream consumer logs in through SPIRE Child. Removing that mount is the last step of the migration.
+6. X.509-SVID authentication follows the PKI certificate chain established in Item C and carries no dependency on the `PublishJWTKey` RPC.
 
 ### Item F. Trust Chain Topology Diagram
 
@@ -61,7 +62,7 @@ flowchart TD
     subgraph PARENT ["SPIRE Parent: Tier 3 Issuer, Bare Metal"]
         PARENT_CA["SPIRE Parent Intermediate CA\n(upstreamauthority/vault)"]
         PARENT_OIDC["spire-oidc-discovery-provider"]
-        PARENT_SVID["Bare-Metal Workload Leaf SVID: Tier 4"]
+        PARENT_SVID["Operator Workstation Leaf SVID: Tier 4"]
     end
 
     subgraph CHILD ["SPIRE Child: Talos, Nested, Pending Deployment"]
@@ -72,7 +73,7 @@ flowchart TD
 
     subgraph PRODVAULT ["Downstream Vault: Tier 3 Issuer, security-vault-downstream-pki Layer, Pending Apply"]
         PROD_ISSUER["Downstream Issuing Intermediate"]
-        PROD_LEAF["Keycloak and Cilium Leaf: Tier 4"]
+        PROD_LEAF["Keycloak, Harbor Origin, and Cilium Leaf: Tier 4"]
     end
 
     ROOT --> INTER
@@ -85,8 +86,8 @@ flowchart TD
     PARENT_CA --> PARENT_OIDC
     CHILD_CA --> CHILD_OIDC
     PARENT_OIDC -.->|JWT-SVID| BASTION_JWT["Bastion Vault: auth/jwt, meta-platform-spire-parent-jwt-svid-provider"]
-    CHILD_OIDC -.->|JWT-SVID, Pending Deployment| CHILD_JWT["Independent auth/jwt Mount"]
-    INTER -.->|Bootstrap Direct Leaf, Item D| BOOTSTRAP_LEAF["Downstream Vault, SPIRE OIDC, HAProxy, and Harbor Listener Certs"]
+    CHILD_OIDC -.->|JWT-SVID| CHILD_JWT["Downstream Vault: auth/jwt, meta-platform-spire-child-jwt-svid-provider"]
+    INTER -.->|Bootstrap Direct Leaf, Item D| BOOTSTRAP_LEAF["Downstream Vault, SPIRE OIDC, and HAProxy Listener Certs"]
 ```
 
 ## Section 2. Design Rationale
@@ -180,7 +181,9 @@ flowchart TD
 2. The tenant policy grants read on `secret/data/parent-group-governance/github/publication`, which the project governance layer requires.
 3. The tenant policy grants create and update on `pki-intermediate/root/sign-intermediate`, which Downstream Vault needs to have its Issuing Intermediate signed.
 4. The SPIRE upstream authority AppRole holds a separate policy which grants create and update on that same signing path only.
-5. The registry of `parent-group-governance` records each cross-tenant grant together with its reason.
+5. The operator policy of the Downstream Vault, which layer `provision-spire-parent` generates, grants create and update on that same signing path, and no other operator policy holds the grant. Layer `security-vault-downstream-pki` signs through the JWT-SVID of that operator instead of the tenant AppRole.
+6. Only the layers `platform-spire-parent` and `security-vault-bastion-credentials` keep the tenant AppRole, because both run before SPIRE Parent exists.
+7. The registry of `parent-group-governance` records each cross-tenant grant together with its reason.
 
 ## Section 5. Per-Consumer Role Provisioning
 
@@ -232,7 +235,7 @@ flowchart TD
 
 ### Item A. Agent Parent ID Resolution
 
-1. Role `utils_spire_workload_entry` reads `join_token` from Bastion Vault as the lookup key for `inventory_hostname`'s Agent SPIFFE ID.
+1. Role `utils_spire_workload_entry` reads `join_token` from Bastion Vault as the lookup key for `inventory_hostname`'s Agent SPIFFE ID. The token lives at the join-token leaf below the SPIRE server which issued the token, `<project>/spire/parent/join-token/<cluster>/<host>` or `<project>/spire/child/join-token/<cluster>/<host>`.
 2. A persisted Vault record allows a subsequent playbook run to resolve the same parent ID since Ansible facts from the initial node attestation do not survive across separate playbook invocations.
 
 ### Item B. Idempotent Entry Creation
@@ -245,7 +248,8 @@ flowchart TD
 ### Item A. Role Sequencing in `platform_harbor_origin`
 
 1. Role 83 (`utils_spire_agent`) and Role 84 (`utils_spire_workload_entry`) execute before Role 82 (`utils_vault_agent`) since certificate issuance in Role 82 depends on an SPIFFE ID already registered as a SPIRE workload entry.
-2. Role 82 executes only when `spire_oidc_auth_path` and `spire_workload_vault_role_name` are defined. `platform-harbor-origin-frontend` requires `provision-cilium-frontend` to be applied first via a hard `postcondition` on `data.terraform_remote_state.cilium_provision`; no runtime stage variable exists.
+2. Role 82 executes only when `vault_auth_path` and `vault_agent_auth_role_name` are defined. Both variables come from the tenant login of the Downstream Vault, and the auth path is the mount of SPIRE Child.
+3. Role 83 and Role 84 attest the Harbor Origin agent to SPIRE Child. Variable `vault_agent_jwt_audience` carries the audience which the Child mount requires, the cluster name of the Downstream Vault.
 
 ## Section 10. Local Terraform Operator Identity
 
@@ -254,7 +258,7 @@ flowchart TD
 1. Layer `provision-spire-parent` derives the operator identity string `<owner>-terraform-operator-<service>-<component>` for each consumer service, and that string names the JWT role and its policy.
 2. The SPIFFE ID path of the operator is `/<owner>/terraform-operator/<service>/<component>`.
 3. The workload of the consumer uses a role and policy named after its `cluster_name`, and the SPIFFE ID path `/<project_code>/<service>/<component>`.
-4. The layer exports the derived role name and wrapper name through output `terraform_operator`, which layers `provision-cilium-frontend`, `platform-harbor-origin-frontend`, and `platform-haproxy-frontend` read.
+4. The layer exports the derived role name and wrapper name through output `terraform_operator`, which every layer that reaches the Bastion Vault reads.
 
 ### Item B. Host Provisioning and Verification
 
@@ -262,3 +266,30 @@ flowchart TD
 2. The verification play logs in to Bastion Vault as the operator user without privilege escalation, and asserts that each login grants the policy named after its identity.
 3. The operator supplies the sudo password through environment variable `ANSIBLE_BECOME_PASS`, which the playbook and the Terraform action, a child process, both inherit.
 4. Role `utils_spire_agent` removes stale agent identity data when the agent fails its health check, and the caller supplies the Bastion Vault CA file through `bastion_vault_ca_cert_path`.
+
+### Item C. Operator Identity for the Downstream Vault
+
+1. The Downstream Vault trusts SPIRE Child only, and the operator identity which reaches the Downstream Vault therefore comes from SPIRE Child.
+2. Layer `provision-spire-child` installs a second SPIRE Agent instance, `child`, on the operator host. The instance has its own unit `spire-agent-child`, its own directories, and its own Workload API socket.
+3. The same layer registers each operator identity on SPIRE Child and creates the JWT-SVID fetch wrapper `spire-fetch-<identity>-child`. Output `terraform_operator_downstream` exposes the role name, the wrapper name, and the audience, keyed like output `terraform_operator`.
+4. The JWT-SVID of that wrapper carries the cluster name of the Downstream Vault as audience, and the operator role on the Child mount of `security-vault-downstream-tenants` binds that audience and the SPIFFE ID glob `spiffe://<trust domain>/<owner>/terraform-operator/*`.
+5. The layers which write to the Downstream Vault read the wrapper name from output `terraform_operator_downstream` and log in through the Child mount. The layers which write to the Bastion Vault keep the Parent wrapper.
+
+## Section 11. SPIRE Child as the Server of Downstream Consumers
+
+### Item A. Agent Endpoint
+
+1. Service `spire-internal-server` of the Child chart is a LoadBalancer service. Cilium LB IPAM assigns the VIP at host offset plus two of the Child segment, and L2 announcement makes the VIP reachable from the virtual machines and the operator host.
+2. Layer `provision-spire-child` exports the address and port through output `spire_child_agent_endpoint`, and the platform layers of Keycloak and Harbor Origin pass both to role `utils_spire_agent`.
+3. The Child server enables the `join_token` node attestor, and the agents of the virtual machines attest with a token which role `utils_spire_agent` generates on the Child server.
+
+### Item B. Registrar Credential
+
+1. Role `utils_spire_server_command` runs `spire-server` commands. For kind `parent`, the role runs the command on the Parent host over SSH. For kind `child`, the role runs the command through `kubectl exec` in the pod of the Child server.
+2. Layer `provision-spire-child` creates ServiceAccount `registrar` with a Role limited to `pods get` and `pods/exec get, create` on pod `spire-internal-server-0`, and stores the resulting kubeconfig in the Bastion Vault at the registrar leaf of the Child.
+3. The operator policies of `provision-spire-parent` grant read on the registrar leaf, and the roles never hold the admin kubeconfig of the Child cluster.
+
+### Item C. Vault Agent of the Virtual Machines
+
+1. The tenants of Keycloak and Harbor Origin declare issuer `child` in `security-vault-downstream-tenants`, and the Vault Agent logs in through the Child mount.
+2. The workload entries of both services register on SPIRE Child through role `utils_spire_workload_entry` with server kind `child`.
