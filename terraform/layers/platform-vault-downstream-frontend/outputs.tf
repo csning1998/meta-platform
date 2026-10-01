@@ -21,3 +21,8 @@ output "node_exporter_targets" {
     port = module.context.node_exporter_port
   }
 }
+
+output "pki_identity" {
+  description = "Identity of the intermediate CA which the Downstream Vault holds, for the layers which create the PKI engine and its policies."
+  value       = var.pki_identity
+}

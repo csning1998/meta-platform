@@ -1,7 +1,7 @@
 
 locals {
   vault_listener_dns_names = concat(
-    data.terraform_remote_state.metadata.outputs.foundation_pki.map[module.context.primary_context.pki_key].dns_san,
+    local.state.foundation_libvirt_resources.foundation_pki.map[module.context.primary_context.pki_key].dns_san,
     ["vault", "localhost"]
   )
 }
@@ -10,7 +10,7 @@ locals {
 # The role name equals the identity string of the service, which the tenant ACL scopes by the owner code prefix.
 resource "vault_pki_secret_backend_role" "vault_listener" {
   provider = vault.bastion
-  backend  = data.terraform_remote_state.vault_bastion.outputs.bastion_vault_pki.intermediate_mount_path
+  backend  = local.state.foundation_vault_bastion.bastion_vault_pki.intermediate_mount_path
   name     = module.context.svc_identity.cluster_name
 
   allowed_domains    = local.vault_listener_dns_names
@@ -29,7 +29,7 @@ resource "vault_pki_secret_backend_role" "vault_listener" {
   max_ttl = 60 * 60 * 24 * 90 # 90 Days
   ttl     = 60 * 60 * 24 * 30 # 30 Days
 
-  ou = data.terraform_remote_state.metadata.outputs.foundation_pki.map[module.context.primary_context.pki_key].ou
+  ou = local.state.foundation_libvirt_resources.foundation_pki.map[module.context.primary_context.pki_key].ou
 }
 
 resource "vault_pki_secret_backend_cert" "vault_listener" {

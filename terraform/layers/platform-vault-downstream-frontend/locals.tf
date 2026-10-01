@@ -7,9 +7,20 @@ locals {
 }
 
 locals {
-  owner_code = "meta-platform"
+  state = {
+    foundation_libvirt_resources = data.terraform_remote_state.foundation_libvirt_resources.outputs
+    foundation_vault_bastion     = data.terraform_remote_state.foundation_vault_bastion.outputs
+    platform_cilium_frontend     = data.terraform_remote_state.platform_cilium_frontend.outputs
+    platform_spire_parent        = data.terraform_remote_state.platform_spire_parent.outputs
+    provision_spire_parent       = data.terraform_remote_state.provision_spire_parent.outputs
+  }
 
-  bastion_pki_chain_pem = "${data.terraform_remote_state.vault_bastion.outputs.bastion_vault_pki.root_cert_pem}\n${data.terraform_remote_state.vault_bastion.outputs.bastion_vault_pki.intermediate_cert_pem}"
+  terraform_operator    = local.state.provision_spire_parent.terraform_operator["vault-downstream"]
+  bastion_pki_chain_pem = "${local.state.foundation_vault_bastion.bastion_vault_pki.root_cert_pem}\n${local.state.foundation_vault_bastion.bastion_vault_pki.intermediate_cert_pem}"
+}
+
+locals {
+  project_code = local.state.foundation_libvirt_resources.foundation_vault_path.project_code
 
   ansible_template_config = {
     global_mss         = module.context.global_mss
@@ -18,12 +29,17 @@ locals {
   }
 
   ansible_extra_config = {
-    ansible_user               = module.context.sec_vm_credentials.username
-    dev_vault_url              = var.bastion_vault_endpoint
-    bastion_vault_ca_cert_path = data.terraform_remote_state.vault_bastion.outputs.bastion_vault.listener_ca_cert_path
-    dev_vault_api_path         = "meta-platform/credentials"
-    vault_server_cert_b64      = base64encode(vault_pki_secret_backend_cert.vault_listener.certificate)
-    vault_server_key_b64       = base64encode(vault_pki_secret_backend_cert.vault_listener.private_key)
-    vault_ca_cert_b64          = base64encode(local.bastion_pki_chain_pem)
+    ansible_user                = module.context.sec_vm_credentials.username
+    bastion_vault_url           = var.bastion_vault_endpoint
+    bastion_vault_ca_cert_path  = local.state.foundation_vault_bastion.bastion_vault.listener_ca_cert_path
+    platform_vault_init_kv_path = local.state.foundation_libvirt_resources.foundation_vault_path.kv_paths["vault-downstream"]["frontend"].init
+
+    # The play logs in to the Bastion Vault as the local Terraform operator of this component.
+    platform_vault_operator_wrapper    = local.terraform_operator.wrapper_name
+    platform_vault_operator_role       = local.terraform_operator.role_name
+    platform_vault_operator_auth_mount = local.state.platform_spire_parent.spire_oidc_auth_backend_path
+    vault_server_cert_b64              = base64encode(vault_pki_secret_backend_cert.vault_listener.certificate)
+    vault_server_key_b64               = base64encode(vault_pki_secret_backend_cert.vault_listener.private_key)
+    vault_ca_cert_b64                  = base64encode(local.bastion_pki_chain_pem)
   }
 }
