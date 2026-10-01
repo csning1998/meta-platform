@@ -12,5 +12,5 @@ output "oidc_role" {
 }
 
 output "login_url" {
-  value = "${local.vault_fqdn}/ui/vault/auth/oidc"
+  value = "${local.downstream_vault.fqdn}/ui/vault/auth/oidc"
 }

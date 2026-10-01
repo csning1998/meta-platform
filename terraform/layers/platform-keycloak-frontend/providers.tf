@@ -1,6 +1,10 @@
 
 terraform {
   required_providers {
+    external = {
+      source  = "hashicorp/external"
+      version = "2.4.1"
+    }
     vault = {
       source  = "hashicorp/vault"
       version = "5.5.0"
@@ -24,17 +28,32 @@ provider "libvirt" {
   uri = "qemu:///system?socket=/var/run/libvirt/virtqemud-sock"
 }
 
-# Downstream Provider (security-vault-downstream-approle)
+# Downstream Provider, authenticated as the local Terraform operator through its SPIRE JWT-SVID
 provider "vault" {
   alias        = "downstream"
   address      = local.sys_vault_endpoint
   ca_cert_file = local.vault_pki_cert_path
 
   auth_login {
-    path = "auth/approle/login"
+    path = "auth/${local.state.security_vault_downstream_tenants.tenant_operator.auth_mount}/login"
     parameters = {
-      role_id   = data.terraform_remote_state.security_vault_approle.outputs.role_id
-      secret_id = data.terraform_remote_state.security_vault_approle.outputs.secret_id
+      role = local.state.security_vault_downstream_tenants.tenant_operator.role_name
+      jwt  = data.external.spire_jwt_downstream.result.jwt
+    }
+  }
+  skip_child_token = true
+}
+
+# Bastion Vault, authenticated as the local Terraform operator of this component through the same JWT-SVID.
+provider "vault" {
+  address      = local.state.foundation_vault_bastion.bastion_vault.endpoint
+  ca_cert_file = local.state.foundation_vault_bastion.bastion_vault.listener_ca_cert_path
+
+  auth_login {
+    path = "auth/${local.state.platform_spire_parent.spire_oidc_auth_backend_path}/login"
+    parameters = {
+      role = local.terraform_operator.role_name
+      jwt  = data.external.spire_jwt.result.jwt
     }
   }
   skip_child_token = true

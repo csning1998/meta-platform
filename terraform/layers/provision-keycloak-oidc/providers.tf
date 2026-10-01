@@ -1,6 +1,10 @@
 
 terraform {
   required_providers {
+    external = {
+      source  = "hashicorp/external"
+      version = "2.4.1"
+    }
     keycloak = {
       source  = "keycloak/keycloak"
       version = "5.7.0"
@@ -26,14 +30,14 @@ terraform {
 
 provider "vault" {
   alias        = "downstream"
-  address      = local.vault_frontend_url
-  ca_cert_file = local.state.security_pki.bastion_pki_chain_b64.path
+  address      = local.state.security_vault_downstream_tenants.endpoint
+  ca_cert_file = local.state.security_vault_downstream_pki.bastion_pki_chain_b64.path
 
   auth_login {
-    path = "auth/approle/login"
+    path = "auth/${local.state.security_vault_downstream_tenants.tenant_operator.auth_mount}/login"
     parameters = {
-      role_id   = local.state.security_vault_approle.role_id
-      secret_id = local.state.security_vault_approle.secret_id
+      role = local.state.security_vault_downstream_tenants.tenant_operator.role_name
+      jwt  = data.external.spire_jwt_downstream.result.jwt
     }
   }
   skip_child_token = true
@@ -44,6 +48,6 @@ provider "keycloak" {
   username            = local.keycloak_admin_user
   password            = local.keycloak_admin_password
   url                 = local.keycloak_frontend_url
-  root_ca_certificate = base64decode(local.state.security_pki.bastion_pki_chain_b64.content_b64)
+  root_ca_certificate = base64decode(local.state.security_vault_downstream_pki.bastion_pki_chain_b64.content_b64)
   initial_login       = false
 }

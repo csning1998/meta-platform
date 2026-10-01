@@ -47,7 +47,7 @@ output "keycloak_groups" {
 
 output "node_exporter_targets" {
   description = "Node Exporter scrape target for the Keycloak node."
-  value       = local.state.keycloak.node_exporter_targets
+  value       = local.state.platform_keycloak_frontend.node_exporter_targets
 }
 
 # Since GitLab CE does not support native OIDC inventory/sync,

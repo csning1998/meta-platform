@@ -16,7 +16,6 @@
     - "data"
     - "conf"
     - "providers"
-    - "certs"
 
 - name: "A3. Create persistent subdirectory for Postgres"
   ansible.builtin.file:

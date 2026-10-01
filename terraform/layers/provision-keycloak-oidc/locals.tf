@@ -7,28 +7,33 @@ locals {
 
 locals {
   state = {
-    security_vault_approle = data.terraform_remote_state.security_vault_approle.outputs
-    security_pki           = data.terraform_remote_state.security_pki.outputs
-    keycloak               = data.terraform_remote_state.keycloak.outputs
+    security_vault_downstream_tenants = data.terraform_remote_state.security_vault_downstream_tenants.outputs
+    security_vault_downstream_pki     = data.terraform_remote_state.security_vault_downstream_pki.outputs
+    platform_keycloak_frontend        = data.terraform_remote_state.platform_keycloak_frontend.outputs
+    provision_spire_child             = data.terraform_remote_state.provision_spire_child.outputs
   }
 }
 
 locals {
   fdqn = {
-    keycloak_frontend = local.state.security_vault_approle.foundation_pki.map["keycloak-frontend"].dns_san[0]
-    vault_frontend    = local.state.security_vault_approle.foundation_pki.map["vault-downstream-frontend"].dns_san[0]
+    keycloak_frontend = local.state.security_vault_downstream_tenants.foundation_pki.map["keycloak-frontend"].dns_san[0]
+    vault_frontend    = local.state.security_vault_downstream_tenants.foundation_pki.map["vault-downstream-frontend"].dns_san[0]
   }
 }
 
 locals {
   all_groups = distinct(flatten([for u in var.oidc_users : u.groups]))
+  all_group_ids = merge(
+    { for k, v in keycloak_group.root_groups : k => v.id },
+    { for k, v in keycloak_group.subgroups : k => v.id }
+  )
 }
 
 locals {
   # Downstream OIDC clients derived from global_pki_map: declaring oidc_client on a
   # component in service_catalog is sufficient to onboard a new consumer here.
   downstream_oidc_clients_resolved = {
-    for k, v in local.state.security_vault_approle.foundation_pki.map : k => {
+    for k, v in local.state.security_vault_downstream_tenants.foundation_pki.map : k => {
       client_id           = v.oidc_client.client_id
       name                = v.oidc_client.name
       valid_redirect_uris = ["https://${v.dns_san[0]}${v.oidc_client.redirect_path}"]
@@ -59,7 +64,6 @@ locals {
   ]
 }
 
-# Credential path map alias passed through from security-vault-approle
 locals {
-  credential_paths = data.terraform_remote_state.security_vault_approle.outputs.foundation_vault_path.credential_paths
+  kv_paths = local.state.security_vault_downstream_tenants.foundation_vault_path.kv_paths
 }
