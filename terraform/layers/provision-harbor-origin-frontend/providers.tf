@@ -1,6 +1,10 @@
 
 terraform {
   required_providers {
+    external = {
+      source  = "hashicorp/external"
+      version = "2.4.1"
+    }
     vault = {
       source  = "hashicorp/vault"
       version = "5.5.0"
@@ -21,24 +25,24 @@ terraform {
 }
 
 
-# Production Provider (security-vault-approle)
+# Downstream Provider, authenticated as the local Terraform operator through its SPIRE JWT-SVID
 provider "vault" {
-  alias        = "production"
+  alias        = "downstream"
   address      = local.sys_vault_endpoint
-  ca_cert_file = local.state.security_pki.bastion_pki_chain_b64.path
+  ca_cert_file = local.state.security_vault_downstream_pki.bastion_pki_chain_b64.path
 
   auth_login {
-    path = "auth/approle/login"
+    path = "auth/${local.state.security_vault_downstream_tenants.tenant_operator.auth_mount}/login"
     parameters = {
-      role_id   = data.terraform_remote_state.security_vault_approle.outputs.role_id
-      secret_id = data.terraform_remote_state.security_vault_approle.outputs.secret_id
+      role = local.state.security_vault_downstream_tenants.tenant_operator.role_name
+      jwt  = data.external.spire_jwt_downstream.result.jwt
     }
   }
   skip_child_token = true
 }
 
 provider "harbor" {
-  url      = "https://${data.terraform_remote_state.harbor_origin.outputs.harbor_origin_fqdn}"
+  url      = "https://${local.state.platform_harbor_origin_frontend.harbor_origin_fqdn}"
   username = "admin"
   password = ephemeral.vault_kv_secret_v2.harbor_origin.data["harbor_origin_admin_password"]
 }

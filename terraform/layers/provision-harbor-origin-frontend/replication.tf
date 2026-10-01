@@ -11,13 +11,12 @@ resource "harbor_replication" "charts" {
   name        = "sync-${each.key}"
   action      = "pull"
   registry_id = harbor_registry.external[each.value.registry_key].registry_id
+  override    = true
 
-  # Destination is the central helm-charts project
+  # Aggregates remote OCI Helm charts into the central helm-charts project.
   dest_namespace = harbor_project.proxy_oci["helm_charts"].name
 
   filters {
     name = each.value.resource_name
   }
-
-  override = true
 }

@@ -7,31 +7,38 @@ locals {
 
 locals {
   state = {
-    security_pki           = data.terraform_remote_state.security_pki.outputs
-    security_vault_approle = data.terraform_remote_state.security_vault_approle.outputs
-    harbor_origin          = data.terraform_remote_state.harbor_origin.outputs
+    security_vault_downstream_tenants = data.terraform_remote_state.security_vault_downstream_tenants.outputs
+    security_vault_downstream_pki     = data.terraform_remote_state.security_vault_downstream_pki.outputs
+    platform_harbor_origin_frontend   = data.terraform_remote_state.platform_harbor_origin_frontend.outputs
+    provision_keycloak_oidc           = data.terraform_remote_state.provision_keycloak_oidc.outputs
+    provision_spire_child             = data.terraform_remote_state.provision_spire_child.outputs
   }
-
-  sys_vault_endpoint = "https://${local.state.security_vault_approle.prod_vault_svc_vip}:443"
 }
 
 locals {
-  credential_paths = local.state.security_vault_approle.foundation_vault_path.credential_paths
+  sys_vault_endpoint = "https://${local.state.security_vault_downstream_tenants.service_vip}:443"
+}
+
+locals {
+  kv_paths = local.state.security_vault_downstream_tenants.foundation_vault_path.kv_paths
 }
 
 locals {
   ansible_extra_vars = {
-    harbor_robot_user       = harbor_robot_account.helm_pusher.full_name
-    harbor_registry         = local.state.harbor_origin.harbor_origin_fqdn
-    harbor_project          = local.proxy_oci["helm_charts"].name
-    vault_endpoint          = local.sys_vault_endpoint
-    vault_approle_role_id   = local.state.security_vault_approle.role_id
-    vault_approle_secret_id = local.state.security_vault_approle.secret_id
+    harbor_robot_user      = harbor_robot_account.helm_pusher.full_name
+    harbor_registry        = local.state.platform_harbor_origin_frontend.harbor_origin_fqdn
+    harbor_project         = local.proxy_oci["helm_charts"].name
+    vault_endpoint         = local.sys_vault_endpoint
+    vault_ca_cert_path     = local.state.security_vault_downstream_tenants.ca_cert_path
+    vault_operator_wrapper = local.state.provision_spire_child.terraform_operator_downstream["harbor-origin"].wrapper_name
+    vault_operator_role    = local.state.security_vault_downstream_tenants.tenant_operator.role_name
+    vault_operator_mount   = local.state.security_vault_downstream_tenants.tenant_operator.auth_mount
+    harbor_robot_kv_path   = local.kv_paths["harbor-origin"]["frontend"].robot
   }
 
   ansible_config = {
     root_path       = abspath("${path.root}/../../../ansible")
-    ssh_config_path = local.state.harbor_origin.ssh_config_file_path
+    ssh_config_path = local.state.platform_harbor_origin_frontend.ssh_config_file_path
     inventory_file  = "inventory-provision-harbor-origin-frontend.yaml"
   }
 
@@ -41,7 +48,7 @@ locals {
       children = {
         harbor_origin_oci = {
           hosts = {
-            for k, v in local.state.harbor_origin.ansible_inventory.data.all.children.primary.hosts : k => merge(v, {
+            for k, v in local.state.platform_harbor_origin_frontend.ansible_inventory.data.all.children.primary.hosts : k => merge(v, {
               node_role = "harbor_origin_oci"
             })
           }
