@@ -56,5 +56,7 @@ resource "local_file" "trust_bundle" {
     chomp(local.bastion_pki_chain_pem),
     chomp(base64decode(module.vault_pki_setup.prod_pki_issuer_cert_b64)),
   ])
-  filename = "${path.module}/tls/trust-bundle.crt"
+  filename             = "${path.module}/tls/trust-bundle.crt"
+  file_permission      = "0644"
+  directory_permission = "0755"
 }

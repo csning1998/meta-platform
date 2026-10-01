@@ -21,9 +21,10 @@ locals {
 */
 resource "local_file" "ssh_config" {
 
-  filename        = local.ssh_config_path
-  file_permission = "0600"
-  content         = <<-EOT
+  filename             = local.ssh_config_path
+  file_permission      = "0600"
+  directory_permission = "0700"
+  content              = <<-EOT
     %{~for node in var.nodes~}
     Host ${node.key} ${node.ip}
       HostName ${node.ip}

@@ -31,8 +31,9 @@ resource "local_file" "inventory" {
     yamlencode(var.inventory_data),
     jsonencode(var.status_trigger)
   )
-  filename        = local.inventory_path
-  file_permission = "0644"
+  filename             = local.inventory_path
+  file_permission      = "0644"
+  directory_permission = "0755"
 
   lifecycle {
     action_trigger {
@@ -59,7 +60,9 @@ resource "local_file" "ansible_cfg" {
       var.ansible_config.identity_key_path != null ? "-i ${var.ansible_config.identity_key_path}" : "",
     ]))
   )
-  filename = "${path.cwd}/ansible.cfg"
+  filename             = "${path.cwd}/ansible.cfg"
+  file_permission      = "0644"
+  directory_permission = "0755"
 }
 
 action "ansible_playbook_run" "run_playbook" {
