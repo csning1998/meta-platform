@@ -40,7 +40,7 @@ data "kubernetes_resource" "cert_manager_webhook" {
 
   lifecycle {
     postcondition {
-      condition     = try(self.object.status.availableReplicas, 0) >= 1
+      condition     = coalesce(self.object.status.availableReplicas, 0) >= 1
       error_message = "The cert-manager webhook is not available yet. Apply again after the Deployment reports an available replica."
     }
   }
@@ -59,7 +59,7 @@ data "kubernetes_resource" "external_secrets_webhook" {
 
   lifecycle {
     postcondition {
-      condition     = try(self.object.status.availableReplicas, 0) >= 1
+      condition     = coalesce(self.object.status.availableReplicas, 0) >= 1
       error_message = "The External Secrets Operator webhook is not available yet. Apply again after the Deployment reports an available replica."
     }
   }
