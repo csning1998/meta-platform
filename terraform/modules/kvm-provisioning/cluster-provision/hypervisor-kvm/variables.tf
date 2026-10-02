@@ -60,7 +60,6 @@ variable "credentials" {
   description = "Access credentials for the virtual machines."
   type = object({
     username            = string
-    password            = string
     ssh_public_key_path = string
   })
 }

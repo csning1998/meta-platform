@@ -155,7 +155,6 @@ locals {
 locals {
   guest_credentials_for_hypervisor = {
     username            = var.credentials_system.username
-    password            = var.credentials_system.password
     ssh_public_key_path = var.credentials_system.ssh_public_key_path
   }
 

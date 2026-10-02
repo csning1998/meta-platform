@@ -7,7 +7,7 @@ module "context" {
   global_pki_map           = local.state.foundation_libvirt_resources.foundation_pki.map
   global_network_baseline  = local.state.foundation_libvirt_resources.foundation_global.network_baseline
   infrastructure_map       = local.state.platform_cilium_frontend.foundation_topology.infrastructure
-  guest_vm_data            = data.vault_kv_secret_v2.guest_vm.data
+  guest_usernames          = local.state.foundation_libvirt_resources.foundation_ssh.usernames
 
   target_clusters = var.target_clusters
   primary_role    = var.primary_role
@@ -20,6 +20,14 @@ module "context" {
 resource "local_file" "bootstrap_ca" {
   content              = local.bastion_pki_chain_pem
   filename             = "${path.root}/tls/bootstrap-ca.crt"
+  file_permission      = "0644"
+  directory_permission = "0755"
+}
+
+# Matches the cluster inventory naming to allow automated pairing of unseal variables in the platform CLI.
+resource "local_file" "unseal_vars" {
+  content              = jsonencode(local.ansible_unseal_vars)
+  filename             = abspath("${path.root}/../../../ansible/inventory-${module.context.svc_identity.cluster_name}-unseal-vars.json")
   file_permission      = "0644"
   directory_permission = "0755"
 }

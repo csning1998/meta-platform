@@ -35,17 +35,6 @@ data "terraform_remote_state" "provision_spire_parent" {
   config  = { address = "${local._state_base_meta_platform}/provision-spire-parent-frontend" }
 }
 
-# The baseline guest credentials are minted on the Bastion Vault.
-data "vault_kv_secret_v2" "guest_vm" {
-  mount = "secret"
-  name  = local.state.security_vault_downstream_tenants.foundation_vault_path.guest_vm_path
-}
-
-# Vault authentication MUST obtain ephemeral JWT-SVID credentials on every execution to prevent state file persistence.
-data "external" "spire_jwt" {
-  program = ["/usr/local/bin/${local.terraform_operator.wrapper_name}"]
-}
-
 data "terraform_remote_state" "provision_spire_child" {
   backend = "http"
   config  = { address = "${local._state_base_meta_platform}/provision-spire-child" }

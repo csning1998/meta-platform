@@ -2,6 +2,7 @@
 - name: "Play [Setup]: Dynamic Grouping based on node_role"
   hosts: all
   gather_facts: false
+  tags: always
   tasks:
     - name: "Create dynamic groups from node_role variable"
       ansible.builtin.group_by:

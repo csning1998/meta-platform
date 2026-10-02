@@ -200,8 +200,7 @@ variable "service_config" {
   }))
 }
 
-variable "guest_vm_data" {
-  description = "Raw VM credential key-value pairs from Vault secret."
+variable "guest_usernames" {
+  description = "Login account of the guest VMs, keyed by cluster_name. The ssh block of the service catalog defines the account."
   type        = map(string)
-  sensitive   = true
 }

@@ -21,8 +21,6 @@ module "spire_terraform_operator" {
       }
 
       # secret/*
-      "secret/data/${local.state.foundation_libvirt_resources.foundation_vault_path.guest_vm_path}" = { capabilities = ["read"] }
-
       # The registrar credential of the SPIRE Child grants exec into the pod of the Child server only.
       # The exact path outranks the glob of the component, and the operator of the Child which writes the credential keeps its write grant.
       "secret/data/${local.kv_paths["spire"]["child"].registrar}" = {

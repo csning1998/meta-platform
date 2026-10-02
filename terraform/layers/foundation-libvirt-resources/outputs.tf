@@ -46,7 +46,6 @@ output "foundation_vault_path" {
     ssh_credential_paths = {
       for key, base in module.foundation_libvirt_resources.ssh_credential_paths : key => "${base}/${local.kv_leaf.ssh}"
     }
-    guest_vm_path = "${local.project_code}/guest_vm"
   }
 }
 
@@ -57,5 +56,6 @@ output "foundation_ssh" {
     public_key_paths   = module.ssh_identity_bootstrap.identity_key_public_paths
     config_paths       = module.ssh_identity_bootstrap.host_config_paths
     known_hosts_paths  = module.ssh_identity_bootstrap.known_hosts_paths
+    usernames          = { for key, host in module.foundation_libvirt_resources.ssh_hosts : key => host.nodes[0].user if length(host.nodes) > 0 }
   }
 }
