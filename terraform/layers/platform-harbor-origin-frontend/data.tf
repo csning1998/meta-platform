@@ -29,13 +29,12 @@ data "terraform_remote_state" "security_vault_downstream_tenants" {
   config  = { address = "${local._state_base_meta_platform}/security-vault-downstream-tenants" }
 }
 
-data "vault_generic_secret" "guest_vm" {
-  path = "secret/${local.state.foundation_libvirt_resources.foundation_vault_path.guest_vm_path}"
-}
+# security-vault-downstream-credentials replicates the guest credentials from the Bastion Vault into the Downstream Vault.
+data "vault_kv_secret_v2" "guest_vm" {
+  provider = vault.downstream
 
-# Vault authentication MUST obtain ephemeral JWT-SVID credentials on every execution to prevent state file persistence.
-data "external" "spire_jwt" {
-  program = ["/usr/local/bin/${local.terraform_operator.wrapper_name}"]
+  mount = "secret"
+  name  = local.state.foundation_libvirt_resources.foundation_vault_path.guest_vm_path
 }
 
 data "terraform_remote_state" "provision_spire_child" {

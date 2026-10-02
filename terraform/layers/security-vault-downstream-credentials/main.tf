@@ -40,3 +40,11 @@ module "credential_harbor_origin_frontend" {
     }
   }
 }
+
+resource "vault_kv_secret_v2" "guest_vm_downstream" {
+  provider             = vault.downstream
+  mount                = "secret"
+  name                 = local.guest_vm_kv
+  data_json_wo         = jsonencode(ephemeral.vault_kv_secret_v2.guest_vm_bastion.data)
+  data_json_wo_version = var.guest_vm_sync_version
+}

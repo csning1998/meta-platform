@@ -9,7 +9,7 @@ module "context" {
   infrastructure_map       = local.state.foundation_libvirt_resources.foundation_topology.infrastructure
   prod_vault_svc_vip       = local.state.security_vault_downstream_tenants.service_vip
   security_pki_outputs     = local.state.security_vault_downstream_pki
-  guest_vm_data            = data.vault_generic_secret.guest_vm.data
+  guest_vm_data            = data.vault_kv_secret_v2.guest_vm.data
 
   target_clusters = var.target_clusters
   primary_role    = var.primary_role
