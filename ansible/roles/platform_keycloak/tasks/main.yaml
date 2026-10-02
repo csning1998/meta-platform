@@ -1,4 +1,23 @@
 ---
+# Read Keycloak credentials from Downstream Vault to keep secrets out of Terraform state.
+- name: "Section 0. Read the Keycloak credentials from the Downstream Vault"
+  ansible.builtin.include_role:
+    name: utils_vault_kv2_read
+  vars:
+    utils_vault_kv2_read_target: downstream
+    utils_vault_kv2_read_secrets:
+      - path: "{{ keycloak_credential_kv_path }}"
+        as: keycloak
+        fields: [keycloak_admin_user, keycloak_admin_password, keycloak_db_user, keycloak_db_password]
+
+- name: "Section 0. Expose the Keycloak credentials to the role"
+  ansible.builtin.set_fact:
+    platform_keycloak_admin_user: "{{ utils_vault_kv2_read_result.keycloak.keycloak_admin_user }}"
+    platform_keycloak_admin_password: "{{ utils_vault_kv2_read_result.keycloak.keycloak_admin_password }}"
+    platform_keycloak_db_user: "{{ utils_vault_kv2_read_result.keycloak.keycloak_db_user }}"
+    platform_keycloak_db_password: "{{ utils_vault_kv2_read_result.keycloak.keycloak_db_password }}"
+  no_log: true
+
 - name: "Role 81: Configure Network Routing (Asymmetric Fix)"
   ansible.builtin.include_role:
     name: "utils_asymmetric_routing"

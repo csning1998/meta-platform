@@ -21,7 +21,7 @@ A layer directory without the Bastion CA file fails with the error `Error loadin
 The module `contexts_local_credential` MUST be applied before the rest of the layer.
 
 ```bash
-terraform apply -target=module.contexts_local_credential
+terraform apply -auto-approve -target=module.contexts_local_credential.local_file.bastion_ca_cert
 ```
 
 The module reads `~/.terraform.d/credentials.tfrc.json` and `~/.vault-token`, and the command therefore MUST run in the account of the operator.
@@ -193,12 +193,12 @@ The direction from the nodes to SPIRE Parent needs a temporary pod in the cluste
 
 ### Task H. Read the result
 
-| Symptom | Cause | Action |
-| --- | --- | --- |
-| Task C prints a count other than `2` | The Bastion Vault answered with an error, or the listener CA is wrong | Check `LISTENER_CA` and the mount names `pki-root` and `pki-intermediate` in the output `bastion_vault_pki` of `foundation-vault-bastion` |
-| Task D fails with `unable to get local issuer certificate` | The trust anchor lacks the intermediate, or the PEM files lack the newline separator | Rebuild the chain file with Task C |
-| Task D shows no key | The OIDC discovery provider runs without a JWT key | Check `systemctl status spire-oidc-discovery-provider` on SPIRE Parent |
-| Task E prints no JWT | The agent of the workstation holds no valid identity for the current SPIRE Parent | Apply `provision-spire-parent` again, because the role `utils_spire_agent` re-attests a stale agent |
-| Task E login answers `permission denied` or an audience error | The mount or the role is missing, or the audience differs from `vault` | Apply `platform-spire-parent` and then `provision-spire-parent` |
-| Task F lists no agent | The workstation agent never attested to this SPIRE Parent | Apply `provision-spire-parent` again |
-| Task G reports `CLOSED` for every node | The addresses come from the wrong source, or the route between the segments is down | Use the `INTERNAL-IP` column and check the route `172.16.0.0/16` on SPIRE Parent |
+| Symptom                                                       | Cause                                                                                | Action                                                                                                                                    |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Task C prints a count other than `2`                          | The Bastion Vault answered with an error, or the listener CA is wrong                | Check `LISTENER_CA` and the mount names `pki-root` and `pki-intermediate` in the output `bastion_vault_pki` of `foundation-vault-bastion` |
+| Task D fails with `unable to get local issuer certificate`    | The trust anchor lacks the intermediate, or the PEM files lack the newline separator | Rebuild the chain file with Task C                                                                                                        |
+| Task D shows no key                                           | The OIDC discovery provider runs without a JWT key                                   | Check `systemctl status spire-oidc-discovery-provider` on SPIRE Parent                                                                    |
+| Task E prints no JWT                                          | The agent of the workstation holds no valid identity for the current SPIRE Parent    | Apply `provision-spire-parent` again, because the role `utils_spire_agent` re-attests a stale agent                                       |
+| Task E login answers `permission denied` or an audience error | The mount or the role is missing, or the audience differs from `vault`               | Apply `platform-spire-parent` and then `provision-spire-parent`                                                                           |
+| Task F lists no agent                                         | The workstation agent never attested to this SPIRE Parent                            | Apply `provision-spire-parent` again                                                                                                      |
+| Task G reports `CLOSED` for every node                        | The addresses come from the wrong source, or the route between the segments is down  | Use the `INTERNAL-IP` column and check the route `172.16.0.0/16` on SPIRE Parent                                                          |

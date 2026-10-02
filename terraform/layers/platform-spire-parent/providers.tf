@@ -26,7 +26,7 @@ provider "libvirt" {
 
 module "contexts_local_credential" {
   source  = "gitlab.com/csning1998-lab/contexts-local-credential/gitlab"
-  version = "0.3.0"
+  version = "0.3.1"
 }
 
 # Default for Bootstrap, connect to Local Podman Vault

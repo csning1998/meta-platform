@@ -12,11 +12,12 @@ platform_haproxy_central_lb_sysctl_hardening:
   - { name: "net.ipv4.tcp_wmem", value: "4096 65536 16777216" }
   - { name: "net.ipv4.tcp_mtu_probing", value: "1" }
 
-# Section B: Service Timings (from 17-central-lb-service)
+# Section B: Service Timings
 platform_haproxy_haproxy_health_check_inter: "10s"
 platform_haproxy_haproxy_health_check_fall: "5"
 platform_haproxy_haproxy_health_check_rise: "3"
 platform_haproxy_haproxy_ca_path: "/etc/haproxy/certs/ca.crt"
 
-# The stats listener and its metrics path require this login. The password arrives as haproxy_stats_password.
+# The stats listener and its metrics path require this login.
+# The password is read from Bastion KV into platform_haproxy_stats_password.
 platform_haproxy_stats_user: "stats"

@@ -23,34 +23,30 @@
 
 - name: "Deliver k8s_psat kubeconfig"
   block:
-    - name: "Log in to Bastion Vault as operator"
-      ansible.builtin.include_role:
-        name: utils_vault_operator_login
-      vars:
-        utils_vault_operator_login_wrapper: "{{ provision_spire_child_operator_wrapper }}"
-        utils_vault_operator_login_role: "{{ provision_spire_child_operator_role }}"
-        utils_vault_operator_login_auth_mount: "{{ provision_spire_child_operator_auth_mount }}"
-        utils_vault_operator_login_endpoint: "{{ bastion_vault_endpoint }}"
-        utils_vault_operator_login_ca_cert_path: "{{ bastion_vault_ca_cert_path }}"
-
     - name: "Read kubeconfig of Child cluster from Bastion Vault"
-      community.hashi_vault.vault_kv2_get:
-        url: "{{ bastion_vault_endpoint }}"
-        engine_mount_point: "secret"
-        path: "{{ provision_spire_child_kubeconfig_vault_path }}"
-        auth_method: "{{ 'token' if utils_vault_operator_login_token | length > 0 else omit }}"
-        token: "{{ utils_vault_operator_login_token if utils_vault_operator_login_token | length > 0 else omit }}"
-        validate_certs: true
-        ca_cert: "{{ bastion_vault_ca_cert_path }}"
-      register: _provision_spire_child_kubeconfig
-      delegate_to: localhost
-      become: false
+      ansible.builtin.include_role:
+        name: utils_vault_kv2_read
+      vars:
+        utils_vault_kv2_read_access:
+          endpoint: "{{ bastion_vault_endpoint }}"
+          ca_cert_path: "{{ bastion_vault_ca_cert_path }}"
+          auth_mount: "{{ provision_spire_child_operator_auth_mount }}"
+          role: "{{ provision_spire_child_operator_role }}"
+          wrapper: "{{ provision_spire_child_operator_wrapper }}"
+        utils_vault_kv2_read_secrets:
+          - path: "{{ provision_spire_child_kubeconfig_vault_path }}"
+            as: child_kubeconfig
+            fields: [kubeconfig_b64]
+
+    - name: "Keep the kubeconfig of the Child cluster"
+      ansible.builtin.set_fact:
+        _provision_spire_child_kubeconfig_b64: "{{ utils_vault_kv2_read_result.child_kubeconfig.kubeconfig_b64 }}"
       no_log: true
 
     # Dynamic reload mechanism of k8s_psat applies rotated kubeconfig credentials without service restarts.
     - name: "Write kubeconfig to k8s_psat directory"
       ansible.builtin.copy:
-        content: "{{ _provision_spire_child_kubeconfig.secret.kubeconfig_b64 | b64decode }}"
+        content: "{{ _provision_spire_child_kubeconfig_b64 | b64decode }}"
         dest: "{{ provision_spire_child_k8s_psat_dir }}/{{ provision_spire_child_cluster_name }}.kubeconfig"
         owner: "{{ spire_owner }}"
         group: "{{ spire_group }}"

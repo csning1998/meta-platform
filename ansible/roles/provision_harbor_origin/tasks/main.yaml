@@ -1,33 +1,29 @@
 ---
-- name: "Step 0. Log in to the Downstream Vault as the operator"
+- name: "Step 0. Read the Harbor Robot credentials from the Downstream Vault"
   ansible.builtin.include_role:
-    name: utils_vault_operator_login
+    name: utils_vault_kv2_read
   vars:
-    utils_vault_operator_login_wrapper: "{{ vault_operator_wrapper }}"
-    utils_vault_operator_login_role: "{{ vault_operator_role }}"
-    utils_vault_operator_login_auth_mount: "{{ vault_operator_mount }}"
-    utils_vault_operator_login_endpoint: "{{ vault_endpoint }}"
-    utils_vault_operator_login_ca_cert_path: "{{ vault_ca_cert_path }}"
+    utils_vault_kv2_read_access:
+      endpoint: "{{ vault_endpoint }}"
+      ca_cert_path: "{{ vault_ca_cert_path }}"
+      auth_mount: "{{ vault_operator_mount }}"
+      role: "{{ vault_operator_role }}"
+      wrapper: "{{ vault_operator_wrapper }}"
+    utils_vault_kv2_read_secrets:
+      - path: "{{ harbor_robot_kv_path }}"
+        as: harbor_robot
+        fields: [password_pusher]
 
-- name: Step 1. Retrieve Harbor Robot credentials from Vault (Standard KV2)
-  community.hashi_vault.vault_kv2_get:
-    url: "{{ vault_endpoint }}"
-    engine_mount_point: "secret"
-    auth_method: "token"
-    token: "{{ utils_vault_operator_login_token }}"
-    path: "{{ harbor_robot_kv_path }}"
-    validate_certs: true
-    ca_cert: "{{ vault_ca_cert_path }}"
-  register: provision_harbor_origin_harbor_credentials
-  delegate_to: localhost
-  become: false
+- name: Step 1. Keep the Harbor Robot password
+  ansible.builtin.set_fact:
+    provision_harbor_origin_robot_password: "{{ utils_vault_kv2_read_result.harbor_robot.password_pusher }}"
   no_log: true
 
 - name: Step 2. Verify Harbor OCI Login
   kubernetes.core.helm_registry_auth:
     host: "{{ harbor_registry }}"
     username: "{{ harbor_robot_user }}"
-    password: "{{ provision_harbor_origin_harbor_credentials.secret.password_pusher }}"
+    password: "{{ provision_harbor_origin_robot_password }}"
   register: provision_harbor_origin_harbor_login
   no_log: true
 

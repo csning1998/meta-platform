@@ -33,15 +33,6 @@ data "vault_generic_secret" "guest_vm" {
   path = "secret/${local.state.foundation_libvirt_resources.foundation_vault_path.guest_vm_path}"
 }
 
-# security-vault-downstream-credentials mints the administrator and database passwords of Harbor.
-# The Downstream Vault is the only holder of the passwords.
-data "vault_kv_secret_v2" "harbor_origin" {
-  provider = vault.downstream
-
-  mount = "secret"
-  name  = local.state.foundation_libvirt_resources.foundation_vault_path.kv_paths["harbor-origin"]["frontend"].app
-}
-
 # Vault authentication MUST obtain ephemeral JWT-SVID credentials on every execution to prevent state file persistence.
 data "external" "spire_jwt" {
   program = ["/usr/local/bin/${local.terraform_operator.wrapper_name}"]

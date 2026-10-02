@@ -60,11 +60,11 @@
     - name: "B2c. Assert the stats login inputs"
       ansible.builtin.assert:
         that:
-          - haproxy_stats_password is defined
-          - haproxy_stats_password | length >= 16
+          - platform_haproxy_stats_password is defined
+          - platform_haproxy_stats_password | length >= 16
           - cluster_name is defined
         fail_msg: >-
-          haproxy_stats_password MUST come from the Bastion KV with at least 16 characters,
+          platform_haproxy_stats_password MUST come from the Bastion KV with at least 16 characters,
           and cluster_name MUST be defined.
       no_log: true
 
@@ -72,7 +72,7 @@
     - name: "B2d. Derive the crypt hash of the stats password"
       ansible.builtin.command:
         cmd: "openssl passwd -6 -salt {{ (cluster_name | hash('sha256'))[:16] }} -stdin"
-        stdin: "{{ haproxy_stats_password }}"
+        stdin: "{{ platform_haproxy_stats_password }}"
       register: _platform_haproxy_stats_hash
       changed_when: false
       no_log: true

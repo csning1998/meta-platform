@@ -129,13 +129,21 @@ locals {
   }
 
   ansible_extra_config = {
-    lb_service_segments      = jsonencode(local.lb_service_segments)
-    vault_haproxy_bundle_b64 = base64encode("${vault_pki_secret_backend_cert.stats.certificate}\n${vault_pki_secret_backend_cert.stats.private_key}\n")
-    vault_ca_cert_b64        = base64encode("${local.bastion_pki_chain_pem}\n")
-    haproxy_stats_port       = module.context.primary_net_config.lb_config.ports["stats"].frontend_port
-    haproxy_listen_address   = local.haproxy_listen_address
-    keepalived_auth_pass     = data.vault_kv_secret_v2.haproxy_credential.data["keepalived_auth_pass"]
-    haproxy_stats_password   = data.vault_kv_secret_v2.haproxy_credential.data["stats_password"]
+    lb_service_segments        = jsonencode(local.lb_service_segments)
+    vault_haproxy_bundle_b64   = base64encode("${vault_pki_secret_backend_cert.stats.certificate}\n${vault_pki_secret_backend_cert.stats.private_key}\n")
+    vault_ca_cert_b64          = base64encode("${local.bastion_pki_chain_pem}\n")
+    haproxy_stats_port         = module.context.primary_net_config.lb_config.ports["stats"].frontend_port
+    haproxy_listen_address     = local.haproxy_listen_address
+    haproxy_credential_kv_path = local.state.foundation_libvirt_resources.foundation_vault_path.kv_paths["haproxy"]["frontend"].app
+    vault_access = jsonencode({
+      bastion = {
+        endpoint     = local.state.foundation_vault_bastion.bastion_vault.endpoint
+        ca_cert_path = local.state.foundation_vault_bastion.bastion_vault.listener_ca_cert_path
+        auth_mount   = local.state.platform_spire_parent.spire_oidc_auth_backend_path
+        role         = local.terraform_operator.role_name
+        wrapper      = local.terraform_operator.wrapper_name
+      }
+    })
 
     spire_server_port               = tostring(local.state.platform_spire_parent.spire_agent_bootstrap.server_port)
     spire_parent_node_ip            = local.state.platform_spire_parent.spire_agent_bootstrap.node_ip

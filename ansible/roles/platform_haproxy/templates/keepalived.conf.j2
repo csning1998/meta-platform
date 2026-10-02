@@ -50,7 +50,7 @@ vrrp_instance VI_{{ segment.name | upper | replace('-', '_') }} {
 
     authentication {
         auth_type PASS
-        auth_pass {{ keepalived_auth_pass }}
+        auth_pass {{ platform_haproxy_keepalived_auth_pass }}
     }
 
     virtual_ipaddress {

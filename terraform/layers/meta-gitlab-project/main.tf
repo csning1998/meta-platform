@@ -1,7 +1,7 @@
 
 module "contexts_local_credential" {
   source  = "gitlab.com/csning1998-lab/contexts-local-credential/gitlab"
-  version = "0.3.0"
+  version = "0.3.1"
 }
 
 module "provisioner_gitlab_project" {
@@ -18,7 +18,7 @@ module "provisioner_gitlab_project" {
 
 module "workload_identity_federation" {
   source    = "gitlab.com/csning1998-lab/provisioner-workload-identity-federation/gitlab"
-  version   = "~> 0.3.0"
+  version   = "0.3.1"
   providers = { vault = vault.bastion }
 
   gitlab_project = {
@@ -62,7 +62,7 @@ module "code_reviewer" {
 
 module "github_mirror" {
   source  = "gitlab.com/csning1998-lab/provisioner-github-mirror/gitlab"
-  version = "~> 0.3.0"
+  version = "0.3.1"
 
   gitlab_project_id = module.provisioner_gitlab_project.project_id
 

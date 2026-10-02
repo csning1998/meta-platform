@@ -68,11 +68,27 @@ locals {
     harbor_origin_cluster_ips      = local.harbor_node_ips
   }
 
-  harbor_origin_secrets = data.vault_kv_secret_v2.harbor_origin.data
+  # Vault access configuration for Ansible operator login and secret retrieval.
+  vault_access = {
+    bastion = {
+      endpoint     = local.state.foundation_vault_bastion.bastion_vault.endpoint
+      ca_cert_path = local.state.foundation_vault_bastion.bastion_vault.listener_ca_cert_path
+      auth_mount   = local.state.platform_spire_parent.spire_oidc_auth_backend_path
+      role         = local.terraform_operator.role_name
+      wrapper      = local.terraform_operator.wrapper_name
+    }
+    downstream = {
+      endpoint     = local.state.security_vault_downstream_tenants.endpoint
+      ca_cert_path = local.state.security_vault_downstream_tenants.ca_cert_path
+      auth_mount   = local.state.security_vault_downstream_tenants.tenant_operator.auth_mount
+      role         = local.state.security_vault_downstream_tenants.tenant_operator.role_name
+      wrapper      = local.state.provision_spire_child.terraform_operator_downstream["harbor-origin"].wrapper_name
+    }
+  }
 
   ansible_extra_vars = {
-    harbor_origin_admin_password = sensitive(local.harbor_origin_secrets["harbor_origin_admin_password"])
-    harbor_origin_pg_db_password = sensitive(local.harbor_origin_secrets["harbor_origin_pg_db_password"])
+    harbor_origin_credential_kv_path = local.state.foundation_libvirt_resources.foundation_vault_path.kv_paths["harbor-origin"]["frontend"].app
+    vault_access                     = jsonencode(local.vault_access)
 
     spire_server_port               = tostring(local.state.platform_spire_parent.spire_agent_bootstrap.server_port)
     spire_parent_node_ip            = local.state.platform_spire_parent.spire_agent_bootstrap.node_ip

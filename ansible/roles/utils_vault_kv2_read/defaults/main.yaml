@@ -1,0 +1,17 @@
+---
+# Target Vault instance key defined in the Terraform vault_access contract.
+utils_vault_kv2_read_target: ""
+
+# Decodes JSON input because ansible-runner passes extra_vars as string values.
+utils_vault_kv2_read_access: >-
+  {{
+    ((vault_access | from_json) if (vault_access | default({})) is string else (vault_access | default({})))
+    [utils_vault_kv2_read_target] | default({})
+  }}
+
+# Secret items to retrieve. Each entry requires 'path' and 'as', with optional 'mount' and 'fields'.
+utils_vault_kv2_read_secrets: []
+utils_vault_kv2_read_engine_mount: "secret"
+
+# Enable direct token authentication only during operator bootstrapping.
+utils_vault_kv2_read_use_ambient: false

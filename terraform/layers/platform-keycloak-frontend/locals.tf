@@ -30,13 +30,6 @@ locals {
 }
 
 locals {
-  sec_app_creds = {
-    keycloak_admin_user     = data.vault_kv_secret_v2.creds.data["keycloak_admin_user"]
-    keycloak_admin_password = data.vault_kv_secret_v2.creds.data["keycloak_admin_password"]
-    keycloak_db_user        = data.vault_kv_secret_v2.creds.data["keycloak_db_user"]
-    keycloak_db_password    = data.vault_kv_secret_v2.creds.data["keycloak_db_password"]
-  }
-
   # Configures VM Vault Agent workload authentication using SPIRE Child JWT-SVID credentials.
   tenant_login = local.state.security_vault_downstream_tenants.downstream_tenants.tenant_login[module.context.svc_identity.cluster_name]
 
@@ -72,11 +65,27 @@ locals {
     service_name = module.context.primary_context.s_name
   }
 
+  # Vault access configuration for Ansible operator login and secret retrieval.
+  vault_access = {
+    bastion = {
+      endpoint     = local.state.foundation_vault_bastion.bastion_vault.endpoint
+      ca_cert_path = local.state.foundation_vault_bastion.bastion_vault.listener_ca_cert_path
+      auth_mount   = local.state.platform_spire_parent.spire_oidc_auth_backend_path
+      role         = local.terraform_operator.role_name
+      wrapper      = local.terraform_operator.wrapper_name
+    }
+    downstream = {
+      endpoint     = local.state.security_vault_downstream_tenants.endpoint
+      ca_cert_path = local.state.security_vault_downstream_tenants.ca_cert_path
+      auth_mount   = local.state.security_vault_downstream_tenants.tenant_operator.auth_mount
+      role         = local.state.security_vault_downstream_tenants.tenant_operator.role_name
+      wrapper      = local.state.provision_spire_child.terraform_operator_downstream["keycloak"].wrapper_name
+    }
+  }
+
   ansible_extra_vars = {
-    keycloak_admin_user     = local.sec_app_creds.keycloak_admin_user
-    keycloak_admin_password = local.sec_app_creds.keycloak_admin_password
-    keycloak_db_user        = local.sec_app_creds.keycloak_db_user
-    keycloak_db_password    = local.sec_app_creds.keycloak_db_password
+    keycloak_credential_kv_path = local.kv_paths["keycloak"]["frontend"].app
+    vault_access                = jsonencode(local.vault_access)
 
     spire_server_port               = tostring(local.spire_parent.server_port)
     spire_parent_node_ip            = local.spire_parent.node_ip
