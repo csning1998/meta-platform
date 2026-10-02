@@ -9,5 +9,10 @@
   ansible.builtin.include_tasks: C-initialize.yaml
   when: inventory_hostname in groups['primary']
 
+# Target for platform CLI post-reboot unseal or tagged playbook execution.
 - name: "Section D. Unseal Vault Cluster"
-  ansible.builtin.include_tasks: D-unseal.yaml
+  ansible.builtin.include_tasks:
+    file: D-unseal.yaml
+    apply:
+      tags: [vault-unseal]
+  tags: [vault-unseal]

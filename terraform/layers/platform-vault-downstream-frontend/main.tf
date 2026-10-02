@@ -24,6 +24,14 @@ resource "local_file" "bootstrap_ca" {
   directory_permission = "0755"
 }
 
+# Matches the cluster inventory naming to allow automated pairing of unseal variables in the platform CLI.
+resource "local_file" "unseal_vars" {
+  content              = jsonencode(local.ansible_unseal_vars)
+  filename             = abspath("${path.root}/../../../ansible/inventory-${module.context.svc_identity.cluster_name}-unseal-vars.json")
+  file_permission      = "0644"
+  directory_permission = "0755"
+}
+
 module "platform_vault" {
   source            = "../../modules/kvm-provisioning/ha-service-kvm-general"
   ansible_root_path = abspath("${path.root}/../../../ansible")

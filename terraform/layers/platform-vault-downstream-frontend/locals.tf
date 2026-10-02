@@ -28,18 +28,21 @@ locals {
     vault_cluster_name = module.context.svc_identity.cluster_name
   }
 
-  ansible_extra_config = {
-    ansible_user                = module.context.sec_vm_credentials.username
-    bastion_vault_url           = var.bastion_vault_endpoint
-    bastion_vault_ca_cert_path  = local.state.foundation_vault_bastion.bastion_vault.listener_ca_cert_path
-    platform_vault_init_kv_path = local.state.foundation_libvirt_resources.foundation_vault_path.kv_paths["vault-downstream"]["frontend"].init
-
-    # The play logs in to the Bastion Vault as the local Terraform operator of this component.
+  # Variables required exclusively by platform_vault unseal tasks (tasks/D-unseal.yaml).
+  # Exported to local_file.unseal_vars for platform CLI post-reboot unseal operations without a Terraform run.
+  ansible_unseal_vars = {
+    bastion_vault_url                  = var.bastion_vault_endpoint
+    bastion_vault_ca_cert_path         = local.state.foundation_vault_bastion.bastion_vault.listener_ca_cert_path
+    platform_vault_init_kv_path        = local.state.foundation_libvirt_resources.foundation_vault_path.kv_paths["vault-downstream"]["frontend"].init
     platform_vault_operator_wrapper    = local.terraform_operator.wrapper_name
     platform_vault_operator_role       = local.terraform_operator.role_name
     platform_vault_operator_auth_mount = local.state.platform_spire_parent.spire_oidc_auth_backend_path
-    vault_server_cert_b64              = base64encode(vault_pki_secret_backend_cert.vault_listener.certificate)
-    vault_server_key_b64               = base64encode(vault_pki_secret_backend_cert.vault_listener.private_key)
-    vault_ca_cert_b64                  = base64encode(local.bastion_pki_chain_pem)
   }
+
+  ansible_extra_config = merge(local.ansible_unseal_vars, {
+    ansible_user          = module.context.sec_vm_credentials.username
+    vault_server_cert_b64 = base64encode(vault_pki_secret_backend_cert.vault_listener.certificate)
+    vault_server_key_b64  = base64encode(vault_pki_secret_backend_cert.vault_listener.private_key)
+    vault_ca_cert_b64     = base64encode(local.bastion_pki_chain_pem)
+  })
 }

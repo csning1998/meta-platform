@@ -23,6 +23,7 @@ packer/output
 ansible/group_vars/all.yaml
 ansible/logs
 ansible/inventory-*.yaml
+ansible/inventory-*-unseal-vars.json
 ansible/packer-provisioner-ansible*
 ansible/fetched/
 ansible-log*.log
