@@ -29,14 +29,6 @@ data "terraform_remote_state" "security_vault_downstream_tenants" {
   config  = { address = "${local._state_base_meta_platform}/security-vault-downstream-tenants" }
 }
 
-# security-vault-downstream-credentials replicates the guest credentials from the Bastion Vault into the Downstream Vault.
-data "vault_kv_secret_v2" "guest_vm" {
-  provider = vault.downstream
-
-  mount = "secret"
-  name  = local.state.foundation_libvirt_resources.foundation_vault_path.guest_vm_path
-}
-
 data "terraform_remote_state" "provision_spire_child" {
   backend = "http"
   config  = { address = "${local._state_base_meta_platform}/provision-spire-child" }

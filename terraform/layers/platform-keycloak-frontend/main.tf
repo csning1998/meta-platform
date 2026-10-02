@@ -2,7 +2,7 @@
 module "context" {
   source = "../../modules/kvm-provisioning/layer-context"
 
-  guest_vm_data            = data.vault_kv_secret_v2.guest_vm.data
+  guest_usernames          = local.state.foundation_libvirt_resources.foundation_ssh.usernames
   global_pki_map           = local.state.security_vault_downstream_tenants.foundation_pki.map
   global_topology_identity = local.state.platform_cilium_frontend.foundation_topology.identity
   global_topology_network  = local.state.platform_cilium_frontend.foundation_topology.network

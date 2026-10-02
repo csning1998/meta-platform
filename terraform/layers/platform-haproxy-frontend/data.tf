@@ -19,10 +19,6 @@ data "terraform_remote_state" "provision_spire_parent" {
   config  = { address = "${local._state_base_meta_platform}/provision-spire-parent-frontend" }
 }
 
-data "vault_generic_secret" "guest_vm" {
-  path = "secret/${local.state.foundation_libvirt_resources.foundation_vault_path.guest_vm_path}"
-}
-
 # Vault authentication MUST obtain ephemeral JWT-SVID credentials on every execution to prevent state file persistence.
 data "external" "spire_jwt" {
   program = ["/usr/local/bin/${local.terraform_operator.wrapper_name}"]

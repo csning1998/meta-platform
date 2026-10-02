@@ -7,7 +7,7 @@ module "context" {
   global_pki_map           = local.state.foundation_libvirt_resources.foundation_pki.map
   global_network_baseline  = local.state.foundation_libvirt_resources.foundation_global.network_baseline
   infrastructure_map       = local.state.platform_cilium_frontend.foundation_topology.infrastructure
-  guest_vm_data            = data.vault_kv_secret_v2.guest_vm.data
+  guest_usernames          = local.state.foundation_libvirt_resources.foundation_ssh.usernames
 
   target_clusters = var.target_clusters
   primary_role    = var.primary_role
