@@ -19,12 +19,6 @@ data "terraform_remote_state" "provision_spire_parent" {
   config  = { address = "${local._state_base_meta_platform}/provision-spire-parent-frontend" }
 }
 
-# Written by security-vault-bastion-credentials.
-data "vault_kv_secret_v2" "haproxy_credential" {
-  mount = "secret"
-  name  = local.state.foundation_libvirt_resources.foundation_vault_path.kv_paths["haproxy"]["frontend"].app
-}
-
 data "vault_generic_secret" "guest_vm" {
   path = "secret/${local.state.foundation_libvirt_resources.foundation_vault_path.guest_vm_path}"
 }

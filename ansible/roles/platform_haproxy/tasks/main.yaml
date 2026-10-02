@@ -3,7 +3,8 @@
   ansible.builtin.assert:
     that:
       - lb_service_segments is defined
-    fail_msg: "lb_service_segments must be supplied by the caller (Terraform extra_vars)."
+      - haproxy_credential_kv_path is defined
+    fail_msg: "lb_service_segments and haproxy_credential_kv_path must be supplied by the caller (Terraform extra_vars)."
 
 # extra-vars precedence outranks set_fact: a decoded value cannot reuse the lb_service_segments
 # name itself. Terraform sends that variable JSON-encoded (ansible-runner extra_vars requires
@@ -12,6 +13,23 @@
   ansible.builtin.set_fact:
     platform_haproxy_lb_service_segments: >-
       {{ (lb_service_segments is string) | ternary(lb_service_segments | from_json, lb_service_segments) }}
+
+# Read HAProxy credentials from Bastion Vault to keep secrets out of Terraform state.
+- name: "Section 0. Read the HAProxy credentials from the Bastion Vault"
+  ansible.builtin.include_role:
+    name: utils_vault_kv2_read
+  vars:
+    utils_vault_kv2_read_target: bastion
+    utils_vault_kv2_read_secrets:
+      - path: "{{ haproxy_credential_kv_path }}"
+        as: haproxy
+        fields: [keepalived_auth_pass, stats_password]
+
+- name: "Section 0. Expose the HAProxy credentials to the role"
+  ansible.builtin.set_fact:
+    platform_haproxy_keepalived_auth_pass: "{{ utils_vault_kv2_read_result.haproxy.keepalived_auth_pass }}"
+    platform_haproxy_stats_password: "{{ utils_vault_kv2_read_result.haproxy.stats_password }}"
+  no_log: true
 
 - name: "Section A. Install and Configure Base Environment"
   ansible.builtin.include_tasks: A-install.yaml
