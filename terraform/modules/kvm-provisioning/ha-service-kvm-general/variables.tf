@@ -116,11 +116,10 @@ variable "ansible_generic_config" {
 
 # System Credentials
 variable "credentials_system" {
-  description = "System level credentials (ssh user, password, keys)"
+  description = "System level credentials (ssh user and keys)"
   sensitive   = true
   type = object({
     username             = string
-    password             = string
     ssh_public_key_path  = string
     ssh_private_key_path = string
   })

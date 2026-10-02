@@ -174,8 +174,7 @@ resource "libvirt_cloudinit_disk" "cloud_init" {
     users = [
       {
         name                = var.credentials.username
-        passwd              = var.credentials.password
-        lock_passwd         = false
+        lock_passwd         = true
         sudo                = ["ALL=(ALL) NOPASSWD:ALL"]
         ssh_authorized_keys = [trimspace(data.local_file.ssh_public_key.content)]
       }

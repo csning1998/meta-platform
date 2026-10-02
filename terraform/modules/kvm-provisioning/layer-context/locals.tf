@@ -54,10 +54,7 @@ locals {
   prod_vault_endpoint = var.prod_vault_svc_vip != null ? "https://${var.prod_vault_svc_vip}:443" : null
 
   sec_vm_credentials = {
-    username             = var.guest_vm_data["guest_username"]
-    password             = var.guest_vm_data["guest_password"]
-    ssh_public_key_path  = var.guest_vm_data["ssh_public_key_path"]
-    ssh_private_key_path = var.guest_vm_data["ssh_private_key_path"]
+    username = var.guest_usernames[local.svc_identity.cluster_name]
   }
 }
 

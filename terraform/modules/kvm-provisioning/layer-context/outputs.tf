@@ -35,9 +35,8 @@ output "tier_network_map" {
 }
 
 output "sec_vm_credentials" {
-  description = "VM system credentials."
+  description = "Login account of the guest VMs. The guests accept SSH keys only."
   value       = local.sec_vm_credentials
-  sensitive   = true
 }
 
 output "prod_vault_endpoint" {
