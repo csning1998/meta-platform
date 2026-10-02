@@ -56,28 +56,24 @@
           Kind child MUST receive the KV path of the Child kubeconfig, the JWT command, the Vault role and the auth mount
           of the Terraform operator, and the endpoint and CA path of the Bastion Vault.
 
-    - name: "Step B1. Log in to the Bastion Vault as the Terraform operator"
+    - name: "Step B1. Read the kubeconfig of the Child cluster from the Bastion KV"
       ansible.builtin.include_role:
-        name: utils_vault_operator_login
+        name: utils_vault_kv2_read
       vars:
-        utils_vault_operator_login_wrapper: "{{ utils_spire_server_command_terraform_operator_jwt_command }}"
-        utils_vault_operator_login_role: "{{ utils_spire_server_command_terraform_operator_vault_role }}"
-        utils_vault_operator_login_auth_mount: "{{ utils_spire_server_command_terraform_operator_vault_auth_mount }}"
-        utils_vault_operator_login_endpoint: "{{ utils_spire_server_command_bastion_vault_endpoint }}"
-        utils_vault_operator_login_ca_cert_path: "{{ utils_spire_server_command_bastion_vault_ca_cert_path }}"
+        utils_vault_kv2_read_access:
+          endpoint: "{{ utils_spire_server_command_bastion_vault_endpoint }}"
+          ca_cert_path: "{{ utils_spire_server_command_bastion_vault_ca_cert_path }}"
+          auth_mount: "{{ utils_spire_server_command_terraform_operator_vault_auth_mount }}"
+          role: "{{ utils_spire_server_command_terraform_operator_vault_role }}"
+          wrapper: "{{ utils_spire_server_command_terraform_operator_jwt_command }}"
+        utils_vault_kv2_read_secrets:
+          - path: "{{ utils_spire_server_command_child_kubeconfig_kv_path }}"
+            as: child_kubeconfig
+            fields: [content_b64]
 
-    - name: "Step B2. Read the kubeconfig of the Child cluster from the Bastion KV"
-      community.hashi_vault.vault_kv2_get:
-        url: "{{ utils_spire_server_command_bastion_vault_endpoint }}"
-        engine_mount_point: "secret"
-        path: "{{ utils_spire_server_command_child_kubeconfig_kv_path }}"
-        auth_method: "token"
-        token: "{{ utils_vault_operator_login_token }}"
-        validate_certs: true
-        ca_cert: "{{ utils_spire_server_command_bastion_vault_ca_cert_path }}"
-      register: _utils_spire_server_command_kubeconfig
-      delegate_to: localhost
-      become: false
+    - name: "Step B2. Keep the kubeconfig of the Child cluster"
+      ansible.builtin.set_fact:
+        _utils_spire_server_command_kubeconfig_content_b64: "{{ utils_vault_kv2_read_result.child_kubeconfig.content_b64 }}"
       no_log: true
 
     - name: "Step B3. Write the kubeconfig to a private temporary file"
@@ -90,7 +86,7 @@
 
     - name: "Step B4. Restrict and fill the temporary kubeconfig"
       ansible.builtin.copy:
-        content: "{{ _utils_spire_server_command_kubeconfig.secret.content_b64 | b64decode }}"
+        content: "{{ _utils_spire_server_command_kubeconfig_content_b64 | b64decode }}"
         dest: "{{ _utils_spire_server_command_kubeconfig_file.path }}"
         mode: "0600"
       delegate_to: localhost
@@ -104,8 +100,9 @@
               '-n', utils_spire_server_command_child_namespace, 'exec', utils_spire_server_command_child_pod,
               '-c', utils_spire_server_command_child_container, '--',
               utils_spire_server_command_child_binary]
-             + (utils_spire_server_command_arguments | trim | regex_replace('\\s+', ' ') | split(' '))
-             + ['-socketPath', utils_spire_server_command_child_socket_path] }}
+              + (utils_spire_server_command_arguments | trim | regex_replace('\\s+', ' ') | split(' '))
+              + ['-socketPath', utils_spire_server_command_child_socket_path]
+          }}
       register: _utils_spire_server_command_child
       changed_when: false
       failed_when: false
