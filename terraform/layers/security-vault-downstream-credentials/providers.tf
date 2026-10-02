@@ -38,19 +38,3 @@ provider "vault" {
   }
   skip_child_token = true
 }
-
-# The Bastion Vault is read only. The operator of this component logs in through the JWT-SVID of the SPIRE Parent.
-provider "vault" {
-  alias        = "bastion"
-  address      = local.state.foundation_vault_bastion.bastion_vault.endpoint
-  ca_cert_file = local.state.foundation_vault_bastion.bastion_vault.listener_ca_cert_path
-
-  auth_login {
-    path = "auth/${local.state.platform_spire_parent.spire_oidc_auth_backend_path}/login"
-    parameters = {
-      role = local.terraform_operator.role_name
-      jwt  = data.external.spire_jwt_bastion.result.jwt
-    }
-  }
-  skip_child_token = true
-}
