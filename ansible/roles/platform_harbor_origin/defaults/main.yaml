@@ -17,8 +17,6 @@ platform_harbor_origin_harbor_ca_path: "{{ platform_harbor_origin_harbor_pki_dir
 # Internal Harbor Config PKI Paths (for Nginx)
 platform_harbor_origin_harbor_config_cert_dir: "{{ platform_harbor_origin_harbor_data_dir }}/secret/cert"
 
-platform_harbor_origin_admin_password: "{{ harbor_origin_admin_password }}"
-platform_harbor_origin_pg_db_password: "{{ harbor_origin_pg_db_password }}"
 platform_harbor_origin_external_hostname: "{{ harbor_origin_fqdn }}"
 
 # Helm Installation

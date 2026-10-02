@@ -41,12 +41,6 @@ data "vault_kv_secret_v2" "guest_vm" {
   name  = local.state.security_vault_downstream_tenants.foundation_vault_path.guest_vm_path
 }
 
-data "vault_kv_secret_v2" "creds" {
-  provider = vault.downstream
-  mount    = "secret"
-  name     = local.kv_paths["keycloak"]["frontend"].app
-}
-
 # Vault authentication MUST obtain ephemeral JWT-SVID credentials on every execution to prevent state file persistence.
 data "external" "spire_jwt" {
   program = ["/usr/local/bin/${local.terraform_operator.wrapper_name}"]
