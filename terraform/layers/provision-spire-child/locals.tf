@@ -2,21 +2,22 @@
 # GitLab HTTP backend base URL. Authentication credentials must be supplied via
 # `TF_HTTP_USERNAME` and `TF_HTTP_PASSWORD` environment variables.
 locals {
-  _state_base_meta_platform           = "https://gitlab.com/api/v4/projects/84608830/terraform/state"
-  _state_base_parent_group_governance = "https://gitlab.com/api/v4/projects/86417732/terraform/state"
+  _state_base_meta_platform = "https://gitlab.com/api/v4/projects/84608830/terraform/state"
 }
 
 locals {
   state = {
-    platform_spire_child     = data.terraform_remote_state.platform_spire_child.outputs
-    foundation_vault_bastion = data.terraform_remote_state.foundation_vault_bastion.outputs
-    platform_spire_parent    = data.terraform_remote_state.platform_spire_parent.outputs
-    provision_spire_parent   = data.terraform_remote_state.provision_spire_parent.outputs
+    platform_spire_child              = data.terraform_remote_state.platform_spire_child.outputs
+    platform_spire_parent             = data.terraform_remote_state.platform_spire_parent.outputs
+    security_vault_downstream_tenants = data.terraform_remote_state.security_vault_downstream_tenants.outputs
+    security_vault_downstream_pki     = data.terraform_remote_state.security_vault_downstream_pki.outputs
   }
 }
 
 locals {
-  terraform_operator = local.state.provision_spire_parent.terraform_operator["spire-child"]
+  # The operator of the SPIRE Child logs in to the Downstream Vault with the JWT-SVID of the SPIRE Parent.
+  downstream_operator = local.state.security_vault_downstream_tenants.component_operators["spire-child"]
+  child_jwt_auth      = local.state.security_vault_downstream_tenants.child_jwt_auth
 
   topology = local.state.platform_spire_child.foundation_topology
   identity = local.topology.identity["spire"]["child"]
@@ -85,9 +86,6 @@ locals {
   agent_vip  = cidrhost(local.network.cidr_block, local.state.platform_spire_child.foundation_global.network_baseline.host_vip_offset + 2)
   agent_port = 443
   jwt_issuer = "https://${local.oidc_vip}"
-
-  # Downstream Vault mounts dedicated JWT-SVID auth backend scoped strictly to child SPIRE workload tokens.
-  jwt_svid_auth_mount_path = "${local.cluster_name}-jwt-svid-provider"
 }
 
 locals {
@@ -100,9 +98,8 @@ locals {
 
   parent_cluster_name = local.topology.identity["spire"]["parent"].cluster_name
 
-  # Both runner modules of the layer write this inventory, the same configuration, and the same trigger, since the
-  # modules share one ansible.cfg. The plays select their hosts by group. The registration on the SPIRE Parent runs over
-  # SSH, and the agent of the operator workstation runs locally.
+  # The registration on the SPIRE Parent runs over SSH. The operators of the workstation hold JWT-SVIDs of the SPIRE Parent
+  # alone, hence the workstation does not run an agent of the SPIRE Child.
   inventory_data = {
     all = {
       children = {
@@ -114,26 +111,13 @@ locals {
           }
         }
       }
-      hosts = {
-        "host-terraform-operator-workstation" = {
-          ansible_connection         = "local"
-          ansible_python_interpreter = "/usr/bin/python3"
-          node_role                  = "host_terraform_operator"
-          spire_cluster_name         = "host-terraform-operator"
-          spire_trust_domain         = local.trust_domain
-        }
-      }
     }
   }
 
-  # The Terraform operator identities which the Child registers for the login to the Downstream Vault.
-  terraform_operators = local.state.provision_spire_parent.terraform_operator
-  downstream_audience = local.topology.identity["vault-downstream"]["frontend"].cluster_name
-
-  # Execution variables contain non-sensitive coordinates. The runner retrieves secrets directly from Vault.
+  # Execution variables contain non-sensitive coordinates. The runner retrieves secrets directly from the Downstream Vault.
   ansible_extra_vars = {
-    bastion_vault_ca_cert_path                     = local.state.foundation_vault_bastion.bastion_vault.listener_ca_cert_path
-    bastion_vault_endpoint                         = local.state.foundation_vault_bastion.bastion_vault.endpoint
+    operator_vault_ca_cert_path                    = local.state.security_vault_downstream_tenants.ca_cert_path
+    operator_vault_url                             = local.state.security_vault_downstream_tenants.endpoint
     provision_spire_child_cluster_name             = local.cluster_name
     provision_spire_child_kubeconfig_vault_path    = local.kv_path.parent_attestor
     provision_spire_child_upstream_agent_alias     = local.spiffe_id.upstream_agent_alias
@@ -142,21 +126,8 @@ locals {
     provision_spire_child_upstream_agent_sa        = local.chart.upstream_agent_sa
     provision_spire_child_server_namespace         = local.chart.server_namespace
     provision_spire_child_server_sa                = local.chart.internal_server_sa
-    provision_spire_child_operator_wrapper         = local.terraform_operator.wrapper_name
-    provision_spire_child_operator_role            = local.terraform_operator.role_name
-    provision_spire_child_operator_auth_mount      = local.state.platform_spire_parent.spire_oidc_auth_backend_path
-
-    # The plays of the operator workstation.
-    bastion_operator_wrapper                       = local.terraform_operator.wrapper_name
-    bastion_operator_role                          = local.terraform_operator.role_name
-    bastion_operator_auth_mount                    = local.state.platform_spire_parent.spire_oidc_auth_backend_path
-    spire_child_agent_address                      = local.agent_vip
-    spire_child_agent_port                         = tostring(local.agent_port)
-    spire_child_kubeconfig_kv_path                 = local.kv_path.registrar
-    spire_parent_join_token_kv_path                = local.state.platform_spire_child.foundation_vault_path.kv_paths["spire"]["parent"].join_token
-    spire_child_join_token_kv_path                 = local.state.platform_spire_child.foundation_vault_path.kv_paths["spire"]["child"].join_token
-    spire_child_jwt_audience                       = local.downstream_audience
-    utils_terraform_operator_identity_names        = jsonencode([for key, op in local.terraform_operators : op.role_name])
-    utils_terraform_operator_identity_spiffe_paths = jsonencode({ for key, op in local.terraform_operators : op.role_name => op.spiffe_path })
+    provision_spire_child_operator_wrapper         = local.downstream_operator.wrapper_name
+    provision_spire_child_operator_role            = local.downstream_operator.role_name
+    provision_spire_child_operator_auth_mount      = local.downstream_operator.auth_mount
   }
 }

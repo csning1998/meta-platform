@@ -19,7 +19,7 @@ locals {
   }
 
   kv_paths = {
-    for s_name, components in module.foundation_libvirt_resources.global_credential_paths : s_name => {
+    for s_name, components in module.foundation_libvirt_resources.vault_path.credential_paths : s_name => {
       for c_name, base in components : c_name => {
         for key, leaf in local.kv_leaf : key => "${base}/${leaf}"
       }

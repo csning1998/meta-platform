@@ -10,7 +10,7 @@ locals {
     security_vault_downstream_tenants = data.terraform_remote_state.security_vault_downstream_tenants.outputs
     security_vault_downstream_pki     = data.terraform_remote_state.security_vault_downstream_pki.outputs
     platform_keycloak_frontend        = data.terraform_remote_state.platform_keycloak_frontend.outputs
-    provision_spire_child             = data.terraform_remote_state.provision_spire_child.outputs
+    foundation_libvirt_resources      = data.terraform_remote_state.foundation_libvirt_resources.outputs
   }
 }
 
@@ -22,7 +22,6 @@ locals {
 }
 
 locals {
-  all_groups = distinct(flatten([for u in var.oidc_users : u.groups]))
   all_group_ids = merge(
     { for k, v in keycloak_group.root_groups : k => v.id },
     { for k, v in keycloak_group.subgroups : k => v.id }
@@ -66,4 +65,50 @@ locals {
 
 locals {
   kv_paths = local.state.security_vault_downstream_tenants.foundation_vault_path.kv_paths
+}
+
+# The Talos runtime of Keycloak carries an in-cluster cert-manager and External Secrets Operator, which log in to the Downstream Vault.
+locals {
+  is_runtime_talos = contains(
+    local.state.foundation_libvirt_resources.foundation_topology.kubernetes_native_runtimes,
+    local.state.platform_keycloak_frontend.runtime
+  )
+
+  cluster_issuer   = local.state.platform_keycloak_frontend.cluster_issuer
+  external_secrets = local.state.platform_keycloak_frontend.external_secrets
+
+  cluster_name = local.state.foundation_libvirt_resources.foundation_topology.identity["keycloak"]["frontend"].cluster_name
+  cluster_vip  = local.state.foundation_libvirt_resources.foundation_topology.infrastructure[local.cluster_name].lb_config.vip
+
+  downstream_vault = {
+    address = local.state.security_vault_downstream_tenants.endpoint
+    ca_cert = file(local.state.security_vault_downstream_tenants.ca_cert_path)
+  }
+}
+
+locals {
+  kubeconfig = local.is_runtime_talos ? yamldecode(base64decode(ephemeral.vault_kv_secret_v2.keycloak_cluster[0].data["content_b64"])) : null
+
+  api_server_connection = local.is_runtime_talos ? {
+    host               = local.kubeconfig.clusters[0].cluster.server
+    ca_cert            = base64decode(local.kubeconfig.clusters[0].cluster["certificate-authority-data"])
+    client_certificate = base64decode(local.kubeconfig.users[0].user["client-certificate-data"])
+    client_key         = base64decode(local.kubeconfig.users[0].user["client-key-data"])
+    } : {
+    host               = null
+    ca_cert            = null
+    client_certificate = null
+    client_key         = null
+  }
+
+  # The token reviewer authenticates to the API server on its own, with the VIP of the cluster and its root CA.
+  api_server_callback = local.is_runtime_talos ? {
+    host    = "https://${local.cluster_vip}:6443"
+    ca_cert = data.kubernetes_config_map_v1.root_ca[0].data["ca.crt"]
+  } : null
+}
+
+# The operator of this component logs in to the Downstream Vault with the JWT-SVID of the SPIRE Parent.
+locals {
+  downstream_operator = local.state.security_vault_downstream_tenants.component_operators["keycloak"]
 }

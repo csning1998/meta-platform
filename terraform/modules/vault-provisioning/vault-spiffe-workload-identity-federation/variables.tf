@@ -21,14 +21,14 @@ variable "audience" {
   default     = "vault"
 }
 
-variable "pki_role_name" {
-  description = "Name of the Vault PKI role defined for certificate issuance"
-  type        = string
-}
+variable "token_policies" {
+  description = "Names of the existing policies which the token carries besides default. The caller does not write the policies through this module."
+  type        = list(string)
 
-variable "pki_mount_path" {
-  description = "Mount path of the targeted PKI secrets engine"
-  type        = string
+  validation {
+    condition     = length(var.token_policies) > 0
+    error_message = "token_policies MUST name at least one policy."
+  }
 }
 
 variable "token_ttl" {
@@ -41,12 +41,4 @@ variable "token_max_ttl" {
   description = "Maximum TTL in seconds for tokens issued upon JWT authentication"
   type        = number
   default     = 86400
-}
-
-variable "extra_policy_paths" {
-  description = "Additional Vault ACL policy capabilities merged into the generated policy definition"
-  type = map(object({
-    capabilities = list(string)
-  }))
-  default = {}
 }

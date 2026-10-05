@@ -14,7 +14,7 @@ utils_spire_server_command_no_log: true
 utils_spire_server_command_parent_ssh_host: ""
 utils_spire_server_command_parent_socket_path: ""
 
-# Kind child. The kubeconfig of the Child cluster lives in the Bastion KV.
+# Kind child. The kubeconfig of the Child cluster lives in the KV of the operator Vault.
 # The role reads the kubeconfig with the JWT-SVID of the Terraform operator.
 utils_spire_server_command_child_kubeconfig_kv_path: ""
 utils_spire_server_command_child_namespace: "spire-server"
@@ -23,9 +23,9 @@ utils_spire_server_command_child_container: "internal-spire-server"
 utils_spire_server_command_child_binary: "/opt/spire/bin/spire-server"
 utils_spire_server_command_child_socket_path: "/tmp/spire-server/private/api.sock"
 
-# Bastion Vault login of the Terraform operator, required for kind child.
+# Operator Vault login of the Terraform operator, required for kind child.
 utils_spire_server_command_terraform_operator_jwt_command: ""
 utils_spire_server_command_terraform_operator_vault_role: ""
 utils_spire_server_command_terraform_operator_vault_auth_mount: ""
-utils_spire_server_command_bastion_vault_endpoint: ""
-utils_spire_server_command_bastion_vault_ca_cert_path: ""
+utils_spire_server_command_operator_vault_endpoint: ""
+utils_spire_server_command_operator_vault_ca_cert_path: ""

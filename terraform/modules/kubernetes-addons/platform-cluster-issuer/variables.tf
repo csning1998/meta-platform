@@ -9,19 +9,13 @@ variable "vault_config" {
 }
 
 variable "issuer_config" {
-  description = "ClusterIssuer naming and corresponding Vault PKI role mapping parameters."
+  description = "ClusterIssuer naming, the ServiceAccount whose token authenticates the issuer to Vault, and the corresponding Vault PKI role mapping."
   type = object({
     name            = string
+    namespace       = string
+    service_account = string
     vault_role_name = string
     pki_mount_path  = string
     issue_path      = string
-  })
-}
-
-variable "token_secret" {
-  description = "ServiceAccount secret coordinates providing Vault authentication credentials for the issuer."
-  type = object({
-    name      = string
-    namespace = string
   })
 }

@@ -28,3 +28,12 @@ output "helm_pusher_robot_username" {
   description = "Full name of the Harbor robot account used to push Helm charts."
   value       = harbor_robot_account.helm_pusher.full_name
 }
+
+output "registry_mirror" {
+  description = "Coordinates for the Talos registry mirrors and the Helm chart source: the Harbor host, the proxy cache project per upstream domain, and the OCI repository of the replicated charts."
+  value = {
+    host             = local.state.platform_harbor_origin_frontend.harbor_origin_fqdn
+    mirrors          = { for key, cache in local.proxy_caches : cache.upstream_domain => cache.project_name }
+    chart_repository = "oci://${local.state.platform_harbor_origin_frontend.harbor_origin_fqdn}/${local.proxy_oci["helm_charts"].name}"
+  }
+}

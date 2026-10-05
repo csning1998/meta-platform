@@ -1,17 +1,17 @@
 
 terraform {
   required_providers {
-    kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = "3.2.1"
-    }
     vault = {
       source  = "hashicorp/vault"
       version = "5.5.0"
     }
-    external = {
-      source  = "hashicorp/external"
-      version = "2.4.1"
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "0.9.7"
+    }
+    helm = {
+      source  = "hashicorp/helm"
+      version = "3.0.2"
     }
   }
   backend "http" {
@@ -24,23 +24,31 @@ terraform {
   }
 }
 
-provider "vault" {
-  address      = local.state.foundation_vault_bastion.bastion_vault.endpoint
-  ca_cert_file = local.state.foundation_vault_bastion.bastion_vault.listener_ca_cert_path
+provider "libvirt" {
+  uri = "qemu:///system?socket=/var/run/libvirt/virtqemud-sock"
+}
 
-  auth_login {
-    path = "auth/${local.state.platform_spire_parent.spire_oidc_auth_backend_path}/login"
-    parameters = {
-      role = local.terraform_operator.role_name
-      jwt  = data.external.spire_jwt.result.jwt
-    }
+# Authenticated as the local Terraform operator of this component through the SPIRE Parent JWT-SVID.
+provider "vault" {
+  alias        = "downstream"
+  address      = local.sys_vault_endpoint
+  ca_cert_file = local.vault_pki_cert_path
+
+  # The JWT-SVID arrives through TERRAFORM_VAULT_AUTH_JWT from tools/terraform-operator.sh and stays out of the state.
+  auth_login_jwt {
+    mount = local.downstream_operator.auth_mount
+    role  = local.downstream_operator.role_name
   }
   skip_child_token = true
 }
 
-provider "kubernetes" {
-  host                   = local.api_server_connection.host
-  cluster_ca_certificate = local.api_server_connection.ca_cert
-  client_certificate     = local.api_server_connection.client_certificate
-  client_key             = local.api_server_connection.client_key
+# The OCI registry client of the provider lacks a CA option. The operator host trust store MUST hold the Downstream PKI trust bundle.
+provider "helm" {
+  registries = [
+    {
+      url      = "oci://${local.registry_mirror.host}"
+      username = ephemeral.vault_kv_secret_v2.harbor_origin_robot.data["username_puller"]
+      password = ephemeral.vault_kv_secret_v2.harbor_origin_robot.data["password_puller"]
+    }
+  ]
 }

@@ -1,0 +1,17 @@
+machine:
+  network:
+    interfaces:
+      - deviceSelector: {hardwareAddr: "52:54:00:8b:17:45"}
+        dhcp: false
+        addresses: [172.16.129.10/24]
+        vip: {ip: 172.16.129.250}
+        routes:
+          - network: 0.0.0.0/0
+            gateway: 172.16.129.1
+            table: "100"
+---
+apiVersion: v1alpha1
+kind: RoutingRuleConfig
+name: "1000"
+src: 172.16.129.0/24
+table: "100"

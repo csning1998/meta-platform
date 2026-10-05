@@ -4,8 +4,8 @@
 - name: "Assert caller supplied required coordinates"
   ansible.builtin.assert:
     that:
-      - bastion_vault_endpoint | default('') | length > 0
-      - bastion_vault_ca_cert_path | default('') | length > 0
+      - operator_vault_url | default('') | length > 0
+      - operator_vault_ca_cert_path | default('') | length > 0
       - provision_spire_child_cluster_name | default('') | length > 0
       - provision_spire_child_kubeconfig_vault_path | default('') | length > 0
       - provision_spire_child_upstream_agent_alias | default('') | length > 0
@@ -18,18 +18,18 @@
       - provision_spire_child_operator_role | default('') | length > 0
       - provision_spire_child_operator_auth_mount | default('') | length > 0
     fail_msg: >-
-      provision-spire-child MUST supply the Bastion Vault coordinates, the Child cluster name,
+      provision-spire-child MUST supply the Downstream Vault coordinates, the Child cluster name,
       and every SPIFFE ID and selector.
 
 - name: "Deliver k8s_psat kubeconfig"
   block:
-    - name: "Read kubeconfig of Child cluster from Bastion Vault"
+    - name: "Read kubeconfig of Child cluster from the Downstream Vault"
       ansible.builtin.include_role:
         name: utils_vault_kv2_read
       vars:
         utils_vault_kv2_read_access:
-          endpoint: "{{ bastion_vault_endpoint }}"
-          ca_cert_path: "{{ bastion_vault_ca_cert_path }}"
+          endpoint: "{{ operator_vault_url }}"
+          ca_cert_path: "{{ operator_vault_ca_cert_path }}"
           auth_mount: "{{ provision_spire_child_operator_auth_mount }}"
           role: "{{ provision_spire_child_operator_role }}"
           wrapper: "{{ provision_spire_child_operator_wrapper }}"

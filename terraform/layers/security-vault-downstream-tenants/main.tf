@@ -6,17 +6,18 @@ resource "vault_mount" "kv" {
   type = "kv-v2"
 }
 
-# JWT auth backend establishes downstream tenant federation via SPIRE child OIDC discovery endpoint.
-resource "vault_jwt_auth_backend" "spire_child" {
+# The SPIRE Parent precedes the Downstream Vault, hence every workstation operator logs in through this mount.
+# The JWT-SVIDs of the SPIRE Parent carry the issuer which the server configuration of the SPIRE Parent sets.
+resource "vault_jwt_auth_backend" "spire_parent" {
   provider = vault.downstream
 
-  description = "Tenant workload JWT-SVID federation via the OIDC Discovery Provider of the SPIRE Child"
-  path        = local.state.provision_spire_child.spire_child.jwt_svid_auth_mount_path
+  description = "JWT-SVID federation via the OIDC Discovery Provider of the SPIRE Parent"
+  path        = local.state.platform_spire_parent.spire_oidc_auth_backend_path
   type        = "jwt"
 
-  oidc_discovery_url    = local.state.provision_spire_child.spire_child.jwt_issuer
-  oidc_discovery_ca_pem = local.bastion_pki_chain_pem
-  bound_issuer          = local.state.provision_spire_child.spire_child.jwt_issuer
+  oidc_discovery_url    = local.state.platform_spire_parent.spire_oidc_discovery_url
+  oidc_discovery_ca_pem = local.state.platform_spire_parent.spire_oidc_discovery_ca_pem
+  bound_issuer          = local.state.platform_spire_parent.spire_oidc_discovery_url
 
   tune {
     listing_visibility = "unauth"
@@ -62,14 +63,15 @@ resource "vault_policy" "tenant" {
   policy = jsonencode({ path = local.tenant_policy_paths[each.key] })
 }
 
+# The roles of Child tenants live on the Child mount, which provision-spire-child creates after the SPIRE Child exists.
 resource "vault_jwt_auth_backend_role" "tenant" {
   provider = vault.downstream
-  for_each = var.tenants
+  for_each = { for name, t in var.tenants : name => t if t.issuer == "parent" }
 
-  backend         = local.jwt_auth[each.value.issuer].mount_path
+  backend         = local.jwt_auth.parent.mount_path
   role_name       = each.key
   role_type       = "jwt"
-  bound_audiences = [local.jwt_auth[each.value.issuer].audience]
+  bound_audiences = [local.jwt_auth.parent.audience]
   bound_subject   = each.value.spiffe_id
   user_claim      = "sub"
   token_policies  = [vault_policy.tenant[each.key].name]
@@ -77,25 +79,7 @@ resource "vault_jwt_auth_backend_role" "tenant" {
   token_max_ttl   = 60 * 60
 }
 
-# The Parent mount stays until every downstream consumer logs in through the SPIRE Child, and then this mount and its role MUST be removed.
-resource "vault_jwt_auth_backend" "spire_parent" {
-  provider = vault.downstream
-
-  description = "Local Terraform operator JWT-SVID federation via the OIDC Discovery Provider of the SPIRE Parent"
-  path        = local.state.platform_spire_parent.spire_oidc_auth_backend_path
-  type        = "jwt"
-
-  oidc_discovery_url    = local.state.platform_spire_parent.spire_oidc_discovery_url
-  oidc_discovery_ca_pem = local.bastion_pki_chain_pem
-
-  tune {
-    listing_visibility = "unauth"
-    default_lease_ttl  = "15m"
-    max_lease_ttl      = "1h"
-  }
-}
-
-# Operator policy grants administrative CRUD permissions on tenant KV, PKI, OIDC, and identity endpoints.
+# The administrator policy grants CRUD on tenant KV, PKI, OIDC, Kubernetes auth mounts, identity, and policies.
 resource "vault_policy" "operator" {
   provider = vault.downstream
 
@@ -118,6 +102,12 @@ resource "vault_policy" "operator" {
       "sys/mounts/auth/oidc*" = { capabilities = ["create", "read", "update", "delete", "sudo"] }
       "auth/oidc/*"           = { capabilities = ["create", "read", "update", "delete", "list"] }
 
+      # Kubernetes auth mounts of the clusters of the tenant. Every mount name starts with the project code.
+      "sys/auth"                                = { capabilities = ["read"] }
+      "sys/auth/${local.project_code}-*"        = { capabilities = ["create", "read", "update", "delete", "sudo"] }
+      "sys/mounts/auth/${local.project_code}-*" = { capabilities = ["create", "read", "update"] }
+      "auth/${local.project_code}-*"            = { capabilities = ["create", "read", "update", "delete", "list"] }
+
       "identity/group"            = { capabilities = ["create", "update"] }
       "identity/group/id/*"       = { capabilities = ["create", "read", "update", "delete"] }
       "identity/group-alias"      = { capabilities = ["create", "update"] }
@@ -127,38 +117,18 @@ resource "vault_policy" "operator" {
   })
 }
 
-# Workstation Terraform operators authenticate against downstream Vault using SPIRE Child JWT-SVIDs.
 resource "vault_jwt_auth_backend_role" "operator" {
   provider = vault.downstream
 
-  backend         = vault_jwt_auth_backend.spire_child.path
-  role_name       = local.tenant_operator.role_name
-  role_type       = "jwt"
-  bound_audiences = [local.jwt_auth.child.audience]
-  user_claim      = "sub"
-
-  bound_claims_type = "glob"
-  bound_claims      = { sub = local.tenant_operator.spiffe_ids }
-
-  token_policies = [vault_policy.operator.name]
-  token_ttl      = 15 * 60
-  token_max_ttl  = 60 * 60
-}
-
-# Legacy binding of the SPIRE Parent, retained only until the Parent mount is removed.
-resource "vault_jwt_auth_backend_role" "operator_parent" {
-  provider = vault.downstream
-
-  backend         = vault_jwt_auth_backend.spire_parent.path
+  backend         = local.jwt_auth.parent.mount_path
   role_name       = local.tenant_operator.role_name
   role_type       = "jwt"
   bound_audiences = [local.jwt_auth.parent.audience]
+  bound_subject   = "spiffe://${local.trust_domain}${local.tenant_operator.spiffe_path}"
   user_claim      = "sub"
-
-  bound_claims_type = "glob"
-  bound_claims      = { sub = local.tenant_operator.spiffe_ids }
 
   token_policies = [vault_policy.operator.name]
   token_ttl      = 15 * 60
   token_max_ttl  = 60 * 60
 }
+

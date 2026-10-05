@@ -26,7 +26,7 @@ resource "kubernetes_namespace_v1" "spire_server" {
   }
 }
 
-# Upstream agent bootstrap trust bundle injects Bastion intermediate CA for initial gRPC connection establishment.
+# The upstream agent trusts pki-spire, the upstream root of the SPIRE trust bundle, for its first connection to the SPIRE Parent.
 resource "kubernetes_config_map_v1" "upstream_bundle" {
   metadata {
     name      = local.chart.upstream_bundle_cm
@@ -34,15 +34,15 @@ resource "kubernetes_config_map_v1" "upstream_bundle" {
   }
 
   data = {
-    (local.chart.upstream_bundle_field) = local.state.foundation_vault_bastion.bastion_vault_pki.intermediate_cert_pem
+    (local.chart.upstream_bundle_field) = local.state.platform_spire_parent.spire_upstream_ca_pem
   }
 }
 
-# Vault PKI issues TLS certificates for OIDC discovery provider endpoints verified by upstream Vault auth backends.
+# The Downstream PKI issues the listener certificate of the OIDC discovery provider, which the Child JWT backend verifies.
 resource "vault_pki_secret_backend_role" "oidc_discovery" {
-  provider = vault.bastion
+  provider = vault.downstream
 
-  backend = local.state.foundation_vault_bastion.bastion_vault_pki.intermediate_mount_path
+  backend = local.state.security_vault_downstream_pki.prod_pki_configuration.path
   name    = local.cluster_name
 
   allowed_domains    = local.state.platform_spire_child.foundation_pki.map["spire-child"].dns_san
@@ -54,7 +54,9 @@ resource "vault_pki_secret_backend_role" "oidc_discovery" {
   enforce_hostnames  = true
   allow_any_name     = false
 
-  key_usage   = ["DigitalSignature", "KeyEncipherment"]
+  key_type    = "ec"
+  key_bits    = 256
+  key_usage   = ["DigitalSignature"]
   server_flag = true
   client_flag = false
 
@@ -65,7 +67,7 @@ resource "vault_pki_secret_backend_role" "oidc_discovery" {
 }
 
 resource "vault_pki_secret_backend_cert" "oidc_discovery" {
-  provider = vault.bastion
+  provider = vault.downstream
 
   backend     = vault_pki_secret_backend_role.oidc_discovery.backend
   name        = vault_pki_secret_backend_role.oidc_discovery.name

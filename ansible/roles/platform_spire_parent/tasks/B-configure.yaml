@@ -51,20 +51,96 @@
       ansible.builtin.fail:
         msg: "{{ ansible_failed_result.msg | default('see task output above') }}"
 
-- name: "Block B2: Start SPIRE Server Service"
+# The workstation issues the secret ID with the tenant token, and the secret ID never enters a Terraform state.
+# A held secret ID stays while the operator Vault still knows the secret ID under the current role.
+- name: "Block B2: Upstream Authority Secret ID"
   become: true
   block:
-    - name: "B2a. Enable and start SPIRE Server"
+    - name: "B2a. Take the token of the tenant session"
+      ansible.builtin.include_role:
+        name: utils_vault_operator_login
+      vars:
+        utils_vault_operator_login_use_ambient: true
+
+    - name: "B2b. Read the secret ID which the host holds"
+      ansible.builtin.slurp:
+        src: "{{ platform_spire_parent_upstream_env_path }}"
+      register: _platform_spire_parent_upstream_env
+      failed_when: false
+      no_log: true
+
+    - name: "B2c. Look up the held secret ID on the operator Vault"
+      when: _platform_spire_parent_upstream_env.content is defined
+      ansible.builtin.uri:
+        url: >-
+          {{ operator_vault_url ~ '/v1/auth/' ~ spire_vault_upstream_approle_mount_path ~ '/role/'
+             ~ spire_vault_upstream_role_name ~ '/secret-id/lookup' }}
+        method: POST
+        headers:
+          X-Vault-Token: "{{ utils_vault_operator_login_token }}"
+        body_format: json
+        body:
+          secret_id: >-
+            {{ _platform_spire_parent_upstream_env.content | b64decode
+               | regex_replace('^VAULT_APPROLE_SECRET_ID=', '') | trim }}
+        ca_path: "{{ operator_vault_ca_cert_path }}"
+        validate_certs: true
+        # Vault answers 204 for a secret ID which the role does not know.
+        status_code: [200, 204]
+      register: _platform_spire_parent_upstream_lookup
+      changed_when: false
+      delegate_to: localhost
+      become: false
+      no_log: true
+
+    - name: "B2d. Issue a secret ID unless the operator Vault knows the secret ID of the host"
+      when: (_platform_spire_parent_upstream_lookup.status | default(0)) != 200
+      ansible.builtin.uri:
+        url: >-
+          {{ operator_vault_url ~ '/v1/auth/' ~ spire_vault_upstream_approle_mount_path ~ '/role/'
+             ~ spire_vault_upstream_role_name ~ '/secret-id' }}
+        method: POST
+        headers:
+          X-Vault-Token: "{{ utils_vault_operator_login_token }}"
+        ca_path: "{{ operator_vault_ca_cert_path }}"
+        validate_certs: true
+        status_code: 200
+        return_content: true
+      register: _platform_spire_parent_upstream_issue
+      delegate_to: localhost
+      become: false
+      no_log: true
+
+    - name: "B2e. Write the secret ID into the environment file of SPIRE Server"
+      when: _platform_spire_parent_upstream_issue.json is defined
+      ansible.builtin.copy:
+        content: "VAULT_APPROLE_SECRET_ID={{ _platform_spire_parent_upstream_issue.json.data.secret_id }}\n"
+        dest: "{{ platform_spire_parent_upstream_env_path }}"
+        owner: root
+        group: root
+        mode: "0600"
+      notify: Restart SPIRE Server Service
+      no_log: true
+
+  rescue:
+    - name: "Block B2: Upstream Authority Secret ID failed"
+      ansible.builtin.fail:
+        msg: "{{ ansible_failed_result.msg | default('see task output above') }}"
+
+- name: "Block B3: Start SPIRE Server Service"
+  become: true
+  block:
+    - name: "B3a. Enable and start SPIRE Server"
       ansible.builtin.systemd:
         name: spire-server
         enabled: true
         state: started
         daemon_reload: true
 
-    - name: "B2b. Flush handlers before validation"
+    - name: "B3b. Flush handlers before validation"
       ansible.builtin.meta: flush_handlers
 
   rescue:
-    - name: "Block B2: Start SPIRE Server Service failed"
+    - name: "Block B3: Start SPIRE Server Service failed"
       ansible.builtin.fail:
         msg: "{{ ansible_failed_result.msg | default('see task output above') }}"

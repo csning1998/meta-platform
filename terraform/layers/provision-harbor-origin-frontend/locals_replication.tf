@@ -45,6 +45,14 @@ locals {
       registry_key  = "quay_io"
       resource_name = "jetstack/charts/cert-manager"
     }
+    cilium = {
+      registry_key  = "quay_io"
+      resource_name = "cilium/charts/cilium"
+    }
+    external_secrets = {
+      registry_key  = "ghcr_io"
+      resource_name = "external-secrets/charts/external-secrets"
+    }
     harbor = {
       registry_key  = "docker_hub"
       resource_name = "bitnamicharts/harbor"

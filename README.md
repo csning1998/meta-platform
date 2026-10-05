@@ -15,11 +15,15 @@ This repository provides group-scoped governance through several Terraform layer
 
 | Usage (Service) | Component (Role)         | Network Segment (CIDR) | Service Tier | HA-able? | CoW-able? | VIP            |
 | --------------- | ------------------------ | ---------------------- | ------------ | -------- | --------- | -------------- |
-| Cilium          | Talos (etcd)             | 172.16.125.0/24        | Platform     | True     | No        | 172.16.125.250 |
-| SPIRE Parent    | SPIRE Server (baremetal) | 172.16.126.0/24        | Platform     | False    | Yes       | 172.16.126.250 |
-| Harbor Origin   | Harbor (Docker)          | 172.16.127.0/24        | Platform     | False    | Yes       | 172.16.127.250 |
-| Vault           | Vault (Raft)             | 172.16.128.0/24        | Platform     | True     | No        | 172.16.128.250 |
-| Keycloak        | Keycloak (Docker)        | 172.16.129.0/24        | Platform     | False    | Yes       | 172.16.129.250 |
+| SPIRE Parent    | SPIRE Server (baremetal) | 172.16.125.0/24        | Platform     | False    | Yes       | 172.16.125.250 |
+| SPIRE Child     | SPIRE Server (Talos)     | 172.16.126.0/24        | Platform     | True     | No        | 172.16.126.250 |
+| Vault           | Vault (Raft)             | 172.16.127.0/24        | Platform     | True     | No        | 172.16.127.250 |
+| Harbor Origin   | Harbor (Docker)          | 172.16.128.0/24        | Platform     | False    | Yes       | 172.16.128.250 |
+| Cilium Hubble   | Talos (etcd)             | 172.16.129.0/24        | Platform     | True     | No        | 172.16.129.250 |
+| Keycloak        | Keycloak (Talos)         | 172.16.130.0/24        | Platform     | False    | No        | 172.16.130.250 |
+| HAProxy         | HAProxy (baremetal)      | 172.16.131.0/24        | Platform     | False    | Yes       | 172.16.131.250 |
+
+The segment number follows the deployment order of `planning/architecture_meta-platform_deployment-chain.md`, which allocates the third octet from 125 upward.
 
 > [!NOTE]
 > CoW-able indicates role compatibility with copy-on-write host filesystems. Raft-family consensus engines (such as etcd and Vault Raft) enforce strict fsync latency and quorum-timeout budgets. Intermittent I/O stalls on copy-on-write filesystems risk consensus failures. Kubeadm Master and MicroK8s embed etcd and dqlite with liveness-probe tolerances sufficient to absorb transient I/O latency without hard failures. Copy-on-write storage for these two roles remains permissible subject to operational discretion rather than strict prohibition.

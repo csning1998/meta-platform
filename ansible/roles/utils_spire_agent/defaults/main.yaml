@@ -12,7 +12,7 @@ utils_spire_agent_unit_name: >-
   spire-agent{{ ('-' ~ utils_spire_agent_instance) if utils_spire_agent_instance | length > 0 else '' }}
 
 # The SPIRE server to which the agent attests. Kind parent runs the server commands on the Parent host over SSH.
-# Kind child runs the commands in the pod of the Child server, and the kubeconfig of the Child comes from the Bastion KV.
+# Kind child runs the commands in the pod of the Child server, and the kubeconfig of the Child comes from the KV of the operator Vault.
 utils_spire_agent_server_kind: "parent"
 utils_spire_agent_server_address: "{{ spire_parent_node_ip }}"
 utils_spire_agent_server_port: "{{ spire_server_port }}"
@@ -27,7 +27,7 @@ utils_spire_agent_dir_data: >-
 # Workload API Socket
 utils_spire_agent_socket_dir: "/run/{{ utils_spire_agent_unit_name }}/public"
 
-# Bastion Vault kv2 path which stores the generated join_token of this host, below the SPIRE server which issued the token.
+# Operator Vault kv2 path which stores the generated join_token of this host, below the SPIRE server which issued the token.
 # Terraform passes the join-token leaf of each server from foundation-libvirt-resources.
 utils_spire_agent_join_token_vault_path: >-
   {{ spire_child_join_token_kv_path if utils_spire_agent_server_kind == 'child' else spire_parent_join_token_kv_path }}/{{

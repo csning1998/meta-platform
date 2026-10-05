@@ -23,6 +23,19 @@
  * consumer requires no change here.
  */
 
+# Client key, then role, then the organization groups which receive the role. The Vault roles match the
+# group aliases of provision-vault-oidc, and the Harbor role admin matches oidc_admin_group.
+client_role_grants = {
+  "vault_frontend" = {
+    "admin"     = ["infra"]
+    "auditor"   = []
+    "developer" = ["dev-leads"]
+  }
+  "harbor-origin-frontend" = {
+    "admin" = ["infra"]
+  }
+}
+
 keycloak_groups = {
   "engineering" = {
     description = "Engineering Organization"

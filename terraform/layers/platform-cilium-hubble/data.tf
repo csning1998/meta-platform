@@ -1,35 +1,28 @@
 
-data "terraform_remote_state" "platform_cilium_frontend" {
+
+data "terraform_remote_state" "foundation_libvirt_resources" {
   backend = "http"
-  config  = { address = "${local._state_base_meta_platform}/platform-cilium-frontend" }
+  config  = { address = "${local._state_base_meta_platform}/foundation-libvirt-resources" }
 }
 
-data "terraform_remote_state" "provision_cilium_frontend" {
+data "terraform_remote_state" "security_vault_downstream_tenants" {
   backend = "http"
-  config  = { address = "${local._state_base_meta_platform}/provision-cilium-frontend" }
+  config  = { address = "${local._state_base_meta_platform}/security-vault-downstream-tenants" }
 }
 
-data "terraform_remote_state" "foundation_vault_bastion" {
+data "terraform_remote_state" "security_vault_downstream_pki" {
   backend = "http"
-  config  = { address = "${local._state_base_parent_group_governance}/foundation-vault-bastion" }
+  config  = { address = "${local._state_base_meta_platform}/security-pki" }
 }
 
-data "terraform_remote_state" "platform_spire_parent" {
+data "terraform_remote_state" "provision_harbor_origin_frontend" {
   backend = "http"
-  config  = { address = "${local._state_base_meta_platform}/platform-spire-parent-frontend" }
+  config  = { address = "${local._state_base_meta_platform}/provision-harbor-origin-frontend" }
 }
 
-data "terraform_remote_state" "provision_spire_parent" {
-  backend = "http"
-  config  = { address = "${local._state_base_meta_platform}/provision-spire-parent-frontend" }
-}
-
-# Vault authentication MUST obtain ephemeral JWT-SVID credentials on every execution to prevent state file persistence.
-data "external" "spire_jwt" {
-  program = ["/usr/local/bin/${local.terraform_operator.wrapper_name}"]
-}
-
-ephemeral "vault_kv_secret_v2" "cilium_frontend" {
-  mount = "secret"
-  name  = local.state.platform_cilium_frontend.foundation_vault_path.kv_paths["cilium"]["frontend"].cluster_config
+# The Harbor robot pulls the charts from the private OCI project. The ephemeral read keeps the robot secret out of the state.
+ephemeral "vault_kv_secret_v2" "harbor_origin_robot" {
+  provider = vault.downstream
+  mount    = "secret"
+  name     = local.harbor_robot_kv_path
 }

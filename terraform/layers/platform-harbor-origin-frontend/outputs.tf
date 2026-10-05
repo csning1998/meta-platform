@@ -1,7 +1,7 @@
 
 output "harbor_origin_fqdn" {
   description = "The FQDN of the Harbor Origin service."
-  value       = module.context.svc_fqdn
+  value       = module.terraform_layer_context.svc_fqdn
 }
 
 output "listen_ip" {
@@ -11,7 +11,7 @@ output "listen_ip" {
 
 output "service_vip" {
   description = "Catalog VIP reserved for Harbor Origin. Sequence 3 announces this address. Sequence 2 does not publish it."
-  value       = module.context.primary_net_config.lb_config.vip
+  value       = module.terraform_layer_context.primary_net_config.lb_config.vip
 }
 
 output "topology_node" {
@@ -21,7 +21,7 @@ output "topology_node" {
 
 output "pki_key" {
   description = "The physical SSoT PKI key associated with the Harbor Origin service."
-  value       = module.context.primary_context.pki_key
+  value       = module.terraform_layer_context.primary_context.pki_key
 }
 
 output "ansible_inventory" {
@@ -37,7 +37,7 @@ output "ssh_config_file_path" {
 output "node_exporter_targets" {
   description = "Node Exporter scrape target for the Harbor Origin node."
   value = {
-    ips  = module.context.svc_network.node_ips
-    port = module.context.node_exporter_port
+    ips  = module.terraform_layer_context.svc_network.node_ips
+    port = module.terraform_layer_context.node_exporter_port
   }
 }

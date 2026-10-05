@@ -23,5 +23,6 @@ vault_cluster_name: "vault-ha-cluster"
 
 vault_kv_namespace: "meta-platform"
 
-# Bastion Vault endpoint which the roles reach from the operator workstation.
-bastion_vault_url: "https://172.16.0.1:8200"
+# The operator Vault defaults to the Vault of the calling session. A layer which targets another Vault passes both values.
+operator_vault_url: "{{ lookup('ansible.builtin.env', 'VAULT_ADDR') }}"
+operator_vault_ca_cert_path: "{{ lookup('ansible.builtin.env', 'VAULT_CACERT') }}"

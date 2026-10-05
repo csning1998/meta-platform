@@ -13,10 +13,6 @@ terraform {
       source  = "hashicorp/http"
       version = "3.6.1"
     }
-    external = {
-      source  = "hashicorp/external"
-      version = "2.4.1"
-    }
   }
   backend "http" {
     address        = "https://gitlab.com/api/v4/projects/84608830/terraform/state/platform-harbor-origin-frontend"
@@ -38,12 +34,10 @@ provider "vault" {
   address      = local.state.security_vault_downstream_tenants.endpoint
   ca_cert_file = local.state.security_vault_downstream_tenants.ca_cert_path
 
-  auth_login {
-    path = "auth/${local.state.security_vault_downstream_tenants.tenant_operator.auth_mount}/login"
-    parameters = {
-      role = local.state.security_vault_downstream_tenants.tenant_operator.role_name
-      jwt  = data.external.spire_jwt_downstream.result.jwt
-    }
+  # The JWT-SVID arrives through TERRAFORM_VAULT_AUTH_JWT from tools/terraform-operator.sh and stays out of the state.
+  auth_login_jwt {
+    mount = local.downstream_operator.auth_mount
+    role  = local.downstream_operator.role_name
   }
   skip_child_token = true
 }

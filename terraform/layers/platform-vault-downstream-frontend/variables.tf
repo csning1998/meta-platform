@@ -9,14 +9,8 @@ variable "primary_role" {
   type        = string
 }
 
-variable "bastion_vault_endpoint" {
-  description = "The address of the Vault server."
-  type        = string
-  default     = "https://172.16.0.1:8200"
-}
-
 variable "service_config" {
-  description = "Compute topology per role for Vault Core service."
+  description = "Compute topology per role of the Downstream Vault. The VM runtime builds one VM per node, and the Talos runtime reads the identity and the network of the role."
   type = map(object({
     role            = string
     network_tier    = optional(string, "default")
@@ -41,4 +35,44 @@ variable "pki_identity" {
     condition     = can(regex("^[a-zA-Z0-9_-]+$", var.pki_identity.intermediate_mount_path))
     error_message = "The intermediate_mount_path value MUST contain only alphanumeric characters, underscores, and hyphens for Vault policy path interpolation."
   }
+}
+
+variable "node_config" {
+  description = "Hardware resources and IP offsets for Talos control plane nodes. Required on the Talos runtime."
+  type = map(object({
+    ip_suffix = number
+    vcpu      = number
+    ram       = number
+  }))
+  default = {}
+}
+
+variable "volume_config" {
+  description = "Talos user volume which formats the raft data disk at device and mounts the disk at /var/mnt/<name>."
+  type = object({
+    name   = string
+    device = optional(string, "/dev/vdb")
+  })
+  default = {
+    name = "vault-raft"
+  }
+}
+
+variable "talos_config" {
+  description = "Talos settings: the Talos release, which MUST match the boot ISO under packer/output/talos-<version>/, the Kubernetes version, and the KubePrism port. Required on the Talos runtime."
+  type = object({
+    talos_version      = string
+    kubernetes_version = string
+    kubeprism_port     = optional(number, 7445)
+  })
+  default = null
+}
+
+variable "helm_chart_version" {
+  description = "Helm chart versions rendered into cluster.inlineManifests. Required on the Talos runtime."
+  type = object({
+    cilium       = string
+    cert_manager = string
+  })
+  default = null
 }

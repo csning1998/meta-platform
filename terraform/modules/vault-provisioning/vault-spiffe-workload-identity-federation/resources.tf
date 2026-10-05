@@ -8,19 +8,8 @@ terraform {
   }
 }
 
-resource "vault_policy" "this" {
-  # Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 5 Item B.
-  name = var.auth_role_name
-  policy = jsonencode({
-    path = merge(
-      {
-        "${var.pki_mount_path}/issue/${var.pki_role_name}" = { capabilities = ["create", "update"] }
-      },
-      var.extra_policy_paths
-    )
-  })
-}
-
+# The policies exist already. On the Bastion Vault the policy broker of parent-group-governance writes them, since a
+# tenant which writes both a policy and a role mints a token of any policy.
 resource "vault_jwt_auth_backend_role" "this" {
   backend         = var.auth_backend_path
   role_name       = var.auth_role_name
@@ -28,7 +17,7 @@ resource "vault_jwt_auth_backend_role" "this" {
   bound_audiences = [var.audience]
   bound_subject   = var.spiffe_id
   user_claim      = "sub"
-  token_policies  = ["default", vault_policy.this.name]
+  token_policies  = concat(["default"], var.token_policies)
   token_ttl       = var.token_ttl
   token_max_ttl   = var.token_max_ttl
 }

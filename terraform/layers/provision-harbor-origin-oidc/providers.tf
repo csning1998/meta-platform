@@ -1,0 +1,41 @@
+
+terraform {
+  required_providers {
+    vault = {
+      source  = "hashicorp/vault"
+      version = "5.5.0"
+    }
+    harbor = {
+      source  = "goharbor/harbor"
+      version = "3.12.5"
+    }
+  }
+  backend "http" {
+    address        = "https://gitlab.com/api/v4/projects/84608830/terraform/state/provision-harbor-origin-oidc"
+    lock_address   = "https://gitlab.com/api/v4/projects/84608830/terraform/state/provision-harbor-origin-oidc/lock"
+    unlock_address = "https://gitlab.com/api/v4/projects/84608830/terraform/state/provision-harbor-origin-oidc/lock"
+    lock_method    = "POST"
+    unlock_method  = "DELETE"
+    retry_wait_min = 5
+  }
+}
+
+# Downstream Provider, authenticated as the local Terraform operator through its SPIRE JWT-SVID
+provider "vault" {
+  alias        = "downstream"
+  address      = local.sys_vault_endpoint
+  ca_cert_file = local.state.security_vault_downstream_tenants.ca_cert_path
+
+  # The JWT-SVID arrives through TERRAFORM_VAULT_AUTH_JWT from tools/terraform-operator.sh and stays out of the state.
+  auth_login_jwt {
+    mount = local.downstream_operator.auth_mount
+    role  = local.downstream_operator.role_name
+  }
+  skip_child_token = true
+}
+
+provider "harbor" {
+  url      = "https://${local.state.platform_harbor_origin_frontend.harbor_origin_fqdn}"
+  username = "admin"
+  password = ephemeral.vault_kv_secret_v2.harbor_origin.data["harbor_origin_admin_password"]
+}
