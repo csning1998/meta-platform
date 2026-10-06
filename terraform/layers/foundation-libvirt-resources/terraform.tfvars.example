@@ -11,27 +11,6 @@ network_baseline = {
 }
 
 service_catalog = {
-  "cilium" = {
-    owner        = "devops"
-    project_code = "meta-platform"
-    stage        = "production"
-    components = {
-      "frontend" = {
-        provider       = "kvm"
-        runtime        = "talos"
-        os_disk_format = "raw"
-        cidr_index     = 125
-        tags           = []
-        ip_range       = { start_ip = 200, end_ip = 202 }
-        ssh            = { enabled = false } # Talos Linux does not support SSH
-        ports = {
-          "apid"       = { frontend_port = 50000, backend_port = 50000 } # Talos apid, management network only
-          "kubernetes" = { frontend_port = 6443, backend_port = 6443 }
-        }
-        ingress = {}
-      }
-    }
-  },
   "spire" = {
     owner        = "secops"
     project_code = "meta-platform"
@@ -41,7 +20,7 @@ service_catalog = {
         provider       = "kvm"
         runtime        = "baremetal"
         os_disk_format = "qcow2"
-        cidr_index     = 126
+        cidr_index     = 125
         tags           = []
         ip_range       = { start_ip = 200, end_ip = 200 }
         ssh            = { enabled = true, username = "operator" }
@@ -66,7 +45,7 @@ service_catalog = {
         provider       = "kvm"
         runtime        = "talos"
         os_disk_format = "raw"
-        cidr_index     = 131
+        cidr_index     = 126
         tags           = ["self-managed-lb"]
         ip_range       = { start_ip = 200, end_ip = 202 }
         ssh            = { enabled = false } # Talos Linux does not support SSH
@@ -75,35 +54,6 @@ service_catalog = {
           "kubernetes" = { frontend_port = 6443, backend_port = 6443 }
         }
         ingress = {}
-      }
-    }
-  },
-  "harbor-origin" = {
-    owner        = "devops"
-    project_code = "meta-platform"
-    stage        = "production"
-    components = {
-      "frontend" = {
-        provider       = "kvm"
-        runtime        = "docker"
-        os_disk_format = "qcow2"
-        cidr_index     = 127
-        tags           = []
-        ip_range       = { start_ip = 200, end_ip = 200 }
-        ssh            = { enabled = true, username = "operator" }
-        ports = {
-          "http"    = { frontend_port = 80, backend_port = 80 }
-          "https"   = { frontend_port = 443, backend_port = 443 }
-          "metrics" = { frontend_port = 9090, backend_port = 9090 }
-        }
-        data_disks = [{ name_suffix = "data", capacity_gib = 50 }]
-        ingress = {
-          "frontend" = { subdomains = ["harbor-origin"] }
-        }
-        oidc_client = {
-          name          = "Harbor Origin"
-          redirect_path = "/c/oidc/callback"
-        }
       }
     }
   },
@@ -116,7 +66,7 @@ service_catalog = {
         provider       = "kvm"
         runtime        = "baremetal"
         os_disk_format = "raw"
-        cidr_index     = 128
+        cidr_index     = 127
         tags           = []
         ip_range       = { start_ip = 200, end_ip = 202 }
         ssh            = { enabled = true, username = "operator" }
@@ -137,6 +87,56 @@ service_catalog = {
       }
     }
   },
+  "harbor-origin" = {
+    owner        = "devops"
+    project_code = "meta-platform"
+    stage        = "production"
+    components = {
+      "frontend" = {
+        provider       = "kvm"
+        runtime        = "docker"
+        os_disk_format = "qcow2"
+        cidr_index     = 128
+        tags           = []
+        ip_range       = { start_ip = 200, end_ip = 200 }
+        ssh            = { enabled = true, username = "operator" }
+        ports = {
+          "http"    = { frontend_port = 80, backend_port = 80 }
+          "https"   = { frontend_port = 443, backend_port = 443 }
+          "metrics" = { frontend_port = 9090, backend_port = 9090 }
+        }
+        data_disks = [{ name_suffix = "data", capacity_gib = 50 }]
+        ingress = {
+          "frontend" = { subdomains = ["harbor-origin"] }
+        }
+        oidc_client = {
+          name          = "Harbor Origin"
+          redirect_path = "/c/oidc/callback"
+        }
+      }
+    }
+  },
+  "cilium" = {
+    owner        = "devops"
+    project_code = "meta-platform"
+    stage        = "production"
+    components = {
+      "hubble" = {
+        provider       = "kvm"
+        runtime        = "talos"
+        os_disk_format = "raw"
+        cidr_index     = 129
+        tags           = []
+        ip_range       = { start_ip = 200, end_ip = 202 }
+        ssh            = { enabled = false } # Talos Linux does not support SSH
+        ports = {
+          "apid"       = { frontend_port = 50000, backend_port = 50000 } # Talos apid, management network only
+          "kubernetes" = { frontend_port = 6443, backend_port = 6443 }
+        }
+        ingress = {}
+      }
+    }
+  },
   "keycloak" = {
     owner        = "secops"
     project_code = "meta-platform"
@@ -146,7 +146,7 @@ service_catalog = {
         provider       = "kvm"
         runtime        = "docker"
         os_disk_format = "qcow2"
-        cidr_index     = 129
+        cidr_index     = 130
         tags           = []
         ip_range       = { start_ip = 200, end_ip = 200 }
         ssh            = { enabled = true, username = "operator" }
@@ -182,7 +182,7 @@ service_catalog = {
         provider       = "kvm"
         runtime        = "baremetal"
         os_disk_format = "qcow2"
-        cidr_index     = 130
+        cidr_index     = 131
         tags           = []
         ip_range       = { start_ip = 200, end_ip = 200 }
         ssh            = { enabled = true, username = "operator" }
