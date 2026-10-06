@@ -85,8 +85,8 @@
                | regex_replace('^VAULT_APPROLE_SECRET_ID=', '') | trim }}
         ca_path: "{{ operator_vault_ca_cert_path }}"
         validate_certs: true
-        # Vault answers 204 for a secret ID which the role does not know.
-        status_code: [200, 204]
+        # Vault answers 204 for a secret ID which the role does not know, and 400 for an orphaned or empty secret ID.
+        status_code: [200, 204, 400]
       register: _platform_spire_parent_upstream_lookup
       changed_when: false
       delegate_to: localhost
