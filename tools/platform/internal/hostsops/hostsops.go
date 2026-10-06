@@ -174,6 +174,50 @@ func DiffHosts(ctx context.Context, path, candidate string) (string, bool, error
 	}
 }
 
+// SyncConfig holds the hosts file, the elevation, the project prefix, and the source of the network XML documents.
+type SyncConfig struct {
+	Config
+	Prefix         string
+	ListNetworkXML func() ([]string, error)
+}
+
+// SyncResult is the diff between the hosts file and its rewrite, and whether the two differ.
+type SyncResult struct {
+	Diff    string
+	Changed bool
+}
+
+// Sync rewrites the managed block of cfg.HostsFile from the DNS records of every network, and writes the rewrite
+// only when apply holds and the rewrite differs.
+func Sync(ctx context.Context, cfg SyncConfig, apply bool) (SyncResult, error) {
+	documents, err := cfg.ListNetworkXML()
+	if err != nil {
+		return SyncResult{}, err
+	}
+	sets := make([][]Record, 0, len(documents))
+	for _, document := range documents {
+		records, err := ParseDNSRecords(document, cfg.Prefix)
+		if err != nil {
+			return SyncResult{}, err
+		}
+		sets = append(sets, records)
+	}
+
+	current, err := os.ReadFile(cfg.HostsFile)
+	if err != nil {
+		return SyncResult{}, fmt.Errorf("hostsops: %w", err)
+	}
+	candidate, err := RewriteHostsBlock(string(current), MergeRecords(sets...))
+	if err != nil {
+		return SyncResult{}, err
+	}
+	diff, changed, err := DiffHosts(ctx, cfg.HostsFile, candidate)
+	if err != nil || !changed || !apply {
+		return SyncResult{Diff: diff, Changed: changed}, err
+	}
+	return SyncResult{Diff: diff, Changed: changed}, ApplyHosts(ctx, cfg.Config, candidate)
+}
+
 // ApplyHosts backs up cfg.HostsFile to cfg.HostsFile.bak and writes candidate in place through cfg.Elevate.
 // The write through tee keeps the inode, hence the SELinux label of the hosts file.
 func ApplyHosts(ctx context.Context, cfg Config, candidate string) error {

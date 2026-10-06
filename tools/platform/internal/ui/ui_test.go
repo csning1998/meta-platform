@@ -345,3 +345,13 @@ func TestNewRoundTripsWritersWithoutSwapping(t *testing.T) {
 		t.Errorf("New(out, errOut).Print(Info, ...) wrote to errOut: %q, want nothing", errOut.String())
 	}
 }
+
+func TestPrintTextWritesVerbatimToOut(t *testing.T) {
+	var out, errOut bytes.Buffer
+	p := New(&out, &errOut)
+	text := "--- /etc/hosts\n+++ /etc/hosts (candidate)\n-old\n+new\n"
+	p.PrintText(text)
+	if out.String() != text || errOut.Len() != 0 {
+		t.Errorf("PrintText wrote out %q, errOut %q, want the text on out alone", out.String(), errOut.String())
+	}
+}

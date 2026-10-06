@@ -17,90 +17,40 @@ import (
 	"platform/internal/ui"
 )
 
-// readClusterCredential reads the cluster-config of target from the Vault which the tenants output names. The
-// Downstream token stays inside this process, and the shell receives the files alone.
-func (a *app) readClusterCredential(ctx context.Context, coordinates clusterops.Coordinates, target operatorops.OperatorSubject) (clusterops.Credential, error) {
-	op, err := coordinates.ResolveOperator(target)
-	if err != nil {
-		return clusterops.Credential{}, err
+// newWorkstation returns the cluster workstation of the repository and of the process environment.
+func (a *app) newWorkstation() clusterops.Workstation {
+	return clusterops.Workstation{
+		TenantsLayerDir: filepath.Join(a.terraform, "layers", "security-vault-downstream-tenants"),
+		Operator:        operatorops.Config{WrapperDir: operatorops.DefaultWrapperDir, OwnerCode: libvirtops.ProjectCode},
+		Getenv:          os.Getenv,
 	}
-	if op.ClusterConfig.Vault == "bastion" {
-		client, err := clusterops.NewBastionClient(os.Getenv)
-		if err != nil {
-			return clusterops.Credential{}, err
-		}
-		return clusterops.ReadCredential(ctx, client, op.ClusterConfig)
-	}
-
-	wrapper := operatorops.ResolveWrapperPath(operatorops.Config{
-		WrapperDir: operatorops.DefaultWrapperDir,
-		OwnerCode:  libvirtops.ProjectCode,
-	}, target)
-	jwt, err := operatorops.FetchJWT(ctx, wrapper)
-	if err != nil {
-		return clusterops.Credential{}, err
-	}
-	client, err := clusterops.LoginDownstream(ctx, coordinates.Address, coordinates.CACertPath, op, jwt)
-	if err != nil {
-		return clusterops.Credential{}, err
-	}
-	return clusterops.ReadCredential(ctx, client, op.ClusterConfig)
 }
 
-// readTenantsCoordinates reads the output of security-vault-downstream-tenants.
-func (a *app) readTenantsCoordinates(ctx context.Context) (clusterops.Coordinates, error) {
-	return clusterops.ReadCoordinates(ctx, filepath.Join(a.terraform, "layers", "security-vault-downstream-tenants"))
+// reportSession prints the nodes of session, and warns when the talosconfig carries no endpoints.
+func (a *app) reportSession(session clusterops.Session) {
+	if session.NodesErr != nil {
+		a.out.Print(ui.Warn, "The talosconfig carries no endpoints, pass talosctl --endpoints: "+session.NodesErr.Error())
+	}
+	a.out.Print(ui.Info, fmt.Sprintf("Cluster %s/%s, nodes: %s", session.Target.Service, session.Target.Component,
+		cmp.Or(strings.Join(session.Nodes, " "), "unresolved")))
 }
 
-// writeSessionFiles writes the kubeconfig and the talosconfig of target into a new session directory, and removes
-// the directory when a write fails.
-func (a *app) writeSessionFiles(ctx context.Context, target operatorops.OperatorSubject, cred clusterops.Credential) (string, error) {
-	dir, err := clusterops.CreateSessionDir(clusterops.ResolveRuntimeDir(os.Getenv))
-	if err != nil {
-		return "", err
-	}
-	kubeconfig, err := clusterops.WriteSessionFile(dir, "kubeconfig", cred.Kubeconfig)
-	if err != nil {
-		return "", errors.Join(err, os.RemoveAll(dir))
-	}
-	nodes, err := clusterops.ListNodeAddresses(ctx, kubeconfig)
-	if err != nil {
-		a.out.Print(ui.Warn, "The talosconfig carries no endpoints, pass talosctl --endpoints: "+err.Error())
-	}
-	_, err = clusterops.WriteSessionFile(dir, "talosconfig", []byte(clusterops.RenderTalosconfig(target, nodes, cred)))
-	if err != nil {
-		return "", errors.Join(err, os.RemoveAll(dir))
-	}
-	a.out.Print(ui.Info, fmt.Sprintf("Cluster %s/%s, nodes: %s", target.Service, target.Component,
-		cmp.Or(strings.Join(nodes, " "), "unresolved")))
-	return dir, nil
-}
-
-// openClusterShell opens a shell whose KUBECONFIG and TALOSCONFIG point at the session files of target.
+// openClusterShell opens a shell whose KUBECONFIG and TALOSCONFIG point at the session files of the target of arg.
 func (a *app) openClusterShell(ctx context.Context, arg string) error {
-	target, err := clusterops.ParseTarget(arg)
+	session, err := a.newWorkstation().OpenSession(ctx, arg)
 	if err != nil {
 		return err
 	}
-	coordinates, err := a.readTenantsCoordinates(ctx)
-	if err != nil {
-		return err
-	}
-	cred, err := a.readClusterCredential(ctx, coordinates, target)
-	if err != nil {
-		return err
-	}
-	dir, err := a.writeSessionFiles(ctx, target, cred)
-	if err != nil {
-		return err
-	}
+	a.reportSession(session)
 	a.out.Print(ui.Info, "Exit the shell to remove the session files.")
-	return clusterops.RunSession(ctx, dir, clusterops.BuildShellEnv(os.Environ(), dir, target), a.runClusterShell)
+	env := clusterops.BuildShellEnv(os.Environ(), session.Dir, session.Target)
+	return clusterops.RunSession(ctx, session.Dir, env, a.runClusterShell)
 }
 
-// reportClusterStatus prints the nodes and the pods of target, or of every target for all.
+// reportClusterStatus prints the nodes and the pods of the target of arg, or of every target for all.
 func (a *app) reportClusterStatus(ctx context.Context, arg string) error {
-	coordinates, err := a.readTenantsCoordinates(ctx)
+	ws := a.newWorkstation()
+	coordinates, err := clusterops.ReadCoordinates(ctx, ws.TenantsLayerDir)
 	if err != nil {
 		return err
 	}
@@ -109,11 +59,11 @@ func (a *app) reportClusterStatus(ctx context.Context, arg string) error {
 		if err != nil {
 			return err
 		}
-		return a.printClusterStatus(ctx, coordinates, target)
+		return a.printClusterStatus(ctx, ws, coordinates, target)
 	}
 
 	for _, target := range coordinates.ListTargets() {
-		err := a.printClusterStatus(ctx, coordinates, target)
+		err := a.printClusterStatus(ctx, ws, coordinates, target)
 		switch {
 		case errors.Is(err, clusterops.ErrClusterConfigMissing):
 			a.out.Print(ui.Info, "No cluster-config, the component runs on the VM runtime.")
@@ -125,21 +75,21 @@ func (a *app) reportClusterStatus(ctx context.Context, arg string) error {
 }
 
 // printClusterStatus prints the nodes and the pods of target through temporary session files.
-func (a *app) printClusterStatus(ctx context.Context, coordinates clusterops.Coordinates, target operatorops.OperatorSubject) error {
+func (a *app) printClusterStatus(ctx context.Context, ws clusterops.Workstation, coordinates clusterops.Coordinates, target operatorops.OperatorSubject) error {
 	a.out.PrintDivider("=")
 	a.out.Print(ui.Step, fmt.Sprintf("Cluster %s/%s", target.Service, target.Component))
-	cred, err := a.readClusterCredential(ctx, coordinates, target)
+	cred, err := ws.ReadTargetCredential(ctx, coordinates, target)
 	if err != nil {
 		return err
 	}
-	dir, err := a.writeSessionFiles(ctx, target, cred)
+	session, err := ws.CreateSession(ctx, target, cred)
 	if err != nil {
 		return err
 	}
-	return clusterops.RunSession(ctx, dir, nil, func(ctx context.Context, _ []string) error {
-		kubeconfig := filepath.Join(dir, "kubeconfig")
+	a.reportSession(session)
+	return clusterops.RunSession(ctx, session.Dir, nil, func(ctx context.Context, _ []string) error {
 		for _, args := range [][]string{{"get", "nodes", "-o", "wide"}, {"get", "pods", "-A"}} {
-			cmd := exec.CommandContext(ctx, "kubectl", append([]string{"--kubeconfig", kubeconfig, "--request-timeout=10s"}, args...)...)
+			cmd := exec.CommandContext(ctx, "kubectl", append([]string{"--kubeconfig", session.KubeconfigPath(), "--request-timeout=10s"}, args...)...)
 			cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 			err := cmd.Run()
 			if err != nil {

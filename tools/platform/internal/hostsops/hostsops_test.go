@@ -323,3 +323,97 @@ func assertFileContent(t *testing.T, path, want string) {
 		t.Errorf("%s =\n%s\nwant\n%s", filepath.Base(path), got, want)
 	}
 }
+
+// syncConfig returns a SyncConfig of the hosts file at path whose networks return documents and listErr.
+func syncConfig(path string, documents []string, listErr error) SyncConfig {
+	return SyncConfig{
+		Config:         Config{HostsFile: path},
+		Prefix:         prefix,
+		ListNetworkXML: func() ([]string, error) { return documents, listErr },
+	}
+}
+
+// currentHostsFile returns a hosts file whose managed block already holds the records of networkXML.
+func currentHostsFile(t *testing.T) string {
+	t.Helper()
+	records, err := ParseDNSRecords(networkXML, prefix)
+	if err != nil {
+		t.Fatalf("ParseDNSRecords: %v", err)
+	}
+	return "127.0.0.1 localhost\n\n" + renderBlock(MergeRecords(records))
+}
+
+func TestSync(t *testing.T) {
+	stale := "127.0.0.1 localhost\n\n" + BeginMark + "\n172.16.1.1 meta-platform-stale.dev\n" + EndMark + "\n"
+	cases := []struct {
+		name        string
+		current     func(t *testing.T) string
+		apply       bool
+		wantChanged bool
+		wantWritten bool
+	}{
+		{"dry run", func(*testing.T) string { return stale }, false, true, false},
+		{"apply", func(*testing.T) string { return stale }, true, true, true},
+		{"already current", currentHostsFile, true, false, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			current := c.current(t)
+			path := writeHostsFile(t, current)
+
+			got, err := Sync(context.Background(), syncConfig(path, []string{networkXML, networkXML}, nil), c.apply)
+			if err != nil || got.Changed != c.wantChanged {
+				t.Fatalf("Sync = %+v, %v, want changed %v", got, err, c.wantChanged)
+			}
+			assertSyncOutcome(t, path, current, got, c.wantWritten)
+		})
+	}
+}
+
+// assertSyncOutcome fails unless the hosts file at path matches wantWritten and a change carries the stale line in its diff.
+func assertSyncOutcome(t *testing.T, path, current string, got SyncResult, wantWritten bool) {
+	t.Helper()
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read hosts file: %v", err)
+	}
+	isWritten := string(content) != current
+	if isWritten != wantWritten {
+		t.Errorf("hosts file written %v, want %v", isWritten, wantWritten)
+	}
+	if got.Changed && !strings.Contains(got.Diff, "-172.16.1.1 meta-platform-stale.dev") {
+		t.Errorf("Sync diff = %q, want the stale line removed", got.Diff)
+	}
+}
+
+func TestSyncFailsWithoutWrite(t *testing.T) {
+	listFailure := errors.New("libvirt: connect to qemu:///system")
+	cases := []struct {
+		name      string
+		documents []string
+		listErr   error
+		hostsFile string
+		want      string
+	}{
+		{"libvirt failure", nil, listFailure, "", "qemu:///system"},
+		{"malformed network", []string{"<network><dns>"}, nil, "", "parse network XML"},
+		{"no records", []string{`<network><name>default</name></network>`}, nil, "", "no DNS record"},
+		{"absent hosts file", []string{networkXML}, nil, "absent", "no such file"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			original := "127.0.0.1 localhost\n"
+			path := writeHostsFile(t, original)
+			if c.hostsFile != "" {
+				path = filepath.Join(filepath.Dir(path), c.hostsFile)
+			}
+			_, err := Sync(context.Background(), syncConfig(path, c.documents, c.listErr), true)
+			if err == nil || !strings.Contains(err.Error(), c.want) {
+				t.Errorf("Sync error = %v, want an error which contains %q", err, c.want)
+			}
+			if c.hostsFile == "" {
+				assertFileContent(t, path, original)
+			}
+		})
+	}
+}

@@ -118,7 +118,9 @@ func (a *app) hostsCmd() *cobra.Command {
 		Use:         "sync",
 		Short:       "Print the diff of the meta-platform block of /etc/hosts against the libvirt DNS records, and write it with --apply",
 		Annotations: map[string]string{annotationSkipBootstrap: "true"},
-		RunE:        func(cmd *cobra.Command, args []string) error { return a.syncHosts(cmd.Context(), apply) },
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return a.syncHosts(cmd.Context(), newHostsSyncConfig(), apply)
+		},
 	}
 	syncCmd.Flags().BoolVar(&apply, "apply", false, "back up /etc/hosts and write the block through sudo")
 	cmd.AddCommand(syncCmd)
