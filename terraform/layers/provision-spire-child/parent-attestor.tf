@@ -58,7 +58,7 @@ resource "kubernetes_secret_v1" "parent_attestor_token" {
 
 # Kubeconfig is persisted to Vault KV to prevent plaintext credential exposure in Ansible execution variables.
 resource "vault_kv_secret_v2" "parent_attestor" {
-  provider = vault.bastion
+  provider = vault.downstream
 
   mount = "secret"
   name  = local.kv_path.parent_attestor
@@ -89,7 +89,7 @@ resource "vault_kv_secret_v2" "parent_attestor" {
 
 # Executes remote registration of child server identity and upstream agent node aliases on the SPIRE parent.
 module "parent_registration" {
-  source = "../../modules/kvm-provisioning/cluster-provision/ansible-runner"
+  source = "../../modules/kvm-provisioning/configure/ansible-runner"
 
   depends_on = [
     vault_kv_secret_v2.parent_attestor,
@@ -107,34 +107,11 @@ module "parent_registration" {
 }
 
 locals {
-  # Both runner modules take this value, and the value stays identical for both modules because the modules share one inventory file.
+  # A change of the attestor token, the kubeconfig version, or the SPIFFE IDs reruns the registration on the SPIRE Parent.
   ansible_status_trigger = {
     attestor_token_uid = kubernetes_secret_v1.parent_attestor_token.metadata[0].uid
     kv_version         = vault_kv_secret_v2.parent_attestor.metadata["version"]
     spiffe_ids         = local.spiffe_id
     agent_endpoint     = "${local.agent_vip}:${local.agent_port}"
-    operator_identity  = { for key, op in local.terraform_operators : key => op.spiffe_path }
   }
-}
-
-# The operator workstation runs a second agent which attests to the child server. The Terraform operator identities
-# register with the child, and the layers of the Downstream Vault log in with the JWT-SVID of the child.
-module "operator_registration" {
-  source = "../../modules/kvm-provisioning/cluster-provision/ansible-runner"
-
-  depends_on = [
-    helm_release.spire_nested,
-    vault_kv_secret_v2.registrar,
-    kubernetes_manifest.agent_ip_pool,
-    kubernetes_manifest.agent_l2_announcement,
-  ]
-
-  status_trigger = local.ansible_status_trigger
-  ansible_config = local.ansible_config
-  inventory_data = local.inventory_data
-  extra_vars     = local.ansible_extra_vars
-  playbook_paths = [
-    "${local.ansible_config.root_path}/playbooks/playbook_host_terraform_operator_child.yaml"
-  ]
-  ansible_tags = ["always", "spire_agent", "terraform_operator_identity", "terraform_operator_verify"]
 }
