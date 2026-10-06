@@ -8,7 +8,6 @@ locals {
 locals {
   state = {
     security_vault_downstream_tenants = data.terraform_remote_state.security_vault_downstream_tenants.outputs
-    provision_spire_child             = data.terraform_remote_state.provision_spire_child.outputs
   }
 }
 
@@ -16,6 +15,9 @@ locals {
 locals {
   project_code = local.state.security_vault_downstream_tenants.foundation_vault_path.project_code
   kv_paths     = local.state.security_vault_downstream_tenants.foundation_vault_path.kv_paths
+
+  # The addon prefix completes as addon-<name>, the form which platform-cilium-hubble grants to External Secrets Operator.
+  kv_path_cilium_hubble_ui = "${local.kv_paths["cilium"]["hubble"].addon}-hubble-ui"
 
   downstream_vault = {
     endpoint     = local.state.security_vault_downstream_tenants.endpoint

@@ -40,3 +40,23 @@ module "credential_harbor_origin_frontend" {
     }
   }
 }
+
+# The Hubble UI login. External Secrets Operator derives the bcrypt htpasswd line inside the cluster. No hash enters a Terraform state.
+module "credential_cilium_hubble_ui" {
+  source  = "gitlab.com/csning1998-lab/provisioner-vault-credential/gitlab"
+  version = "0.1.1"
+
+  providers = {
+    vault = vault.downstream
+  }
+
+  vault_credential_context = {
+    kv_namespace = dirname(dirname(local.kv_path_cilium_hubble_ui))
+    domain       = basename(dirname(local.kv_path_cilium_hubble_ui))
+    component    = basename(local.kv_path_cilium_hubble_ui)
+    generate = {
+      password      = { length = 24 }
+      cookie_secret = { length = 32 }
+    }
+  }
+}
