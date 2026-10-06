@@ -20,10 +20,16 @@
         mode: "0644"
       notify: Restart HAProxy
 
-    # A certificate from a rebuilt pki-platform fails the chain check, and a certificate inside the renewal window fails checkend.
+    # A certificate from a rebuilt pki-platform fails the chain check,
+    # and a certificate inside the renewal window fails checkend.
     - name: "B1c. Verify the held stats certificate against the CA bundle"
       ansible.builtin.command:
-        argv: ["openssl", "verify", "-CAfile", "{{ platform_haproxy_haproxy_ca_path }}", "{{ platform_haproxy_stats_bundle_path }}"]
+        argv:
+          - openssl
+          - verify
+          - -CAfile
+          - "{{ platform_haproxy_haproxy_ca_path }}"
+          - "{{ platform_haproxy_stats_bundle_path }}"
       register: _platform_haproxy_stats_chain
       changed_when: false
       failed_when: false

@@ -14,7 +14,8 @@
     platform_haproxy_lb_service_segments: >-
       {{ (lb_service_segments is string) | ternary(lb_service_segments | from_json, lb_service_segments) }}
 
-# The play is the only owner of the HAProxy credentials, which outlive the VMs in the Bastion KV and never enter a Terraform state.
+# The play is the only owner of the HAProxy credentials, which outlive the VMs in the Bastion KV
+# and never enter a Terraform state.
 - name: "Section 0. Read or mint the HAProxy credentials"
   ansible.builtin.include_tasks: 0-credentials.yaml
 
