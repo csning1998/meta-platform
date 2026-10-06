@@ -2,14 +2,14 @@
 # ServiceAccount grants k8s:psat node attestation permissions (TokenReview, Pod/Node inspection) for SPIRE parent.
 resource "kubernetes_service_account_v1" "parent_attestor" {
   metadata {
-    name      = local.chart.parent_attestor_sa
+    name      = local.spire_child_chart.parent_attestor_sa
     namespace = kubernetes_namespace_v1.spire_system.metadata[0].name
   }
 }
 
 resource "kubernetes_cluster_role_v1" "parent_attestor" {
   metadata {
-    name = local.chart.parent_attestor_rbac
+    name = local.spire_child_chart.parent_attestor_rbac
   }
 
   rule {
@@ -27,7 +27,7 @@ resource "kubernetes_cluster_role_v1" "parent_attestor" {
 
 resource "kubernetes_cluster_role_binding_v1" "parent_attestor" {
   metadata {
-    name = local.chart.parent_attestor_rbac
+    name = local.spire_child_chart.parent_attestor_rbac
   }
 
   role_ref {
@@ -46,7 +46,7 @@ resource "kubernetes_cluster_role_binding_v1" "parent_attestor" {
 # External SPIRE parent requires a long-lived service account token for non-projected cluster API authentication.
 resource "kubernetes_secret_v1" "parent_attestor_token" {
   metadata {
-    name      = local.chart.parent_attestor_sa
+    name      = local.spire_child_chart.parent_attestor_sa
     namespace = kubernetes_service_account_v1.parent_attestor.metadata[0].namespace
     annotations = {
       "kubernetes.io/service-account.name" = kubernetes_service_account_v1.parent_attestor.metadata[0].name
@@ -61,34 +61,34 @@ resource "vault_kv_secret_v2" "parent_attestor" {
   provider = vault.downstream
 
   mount = "secret"
-  name  = local.kv_path.parent_attestor
+  name  = local.spire_child_kv_paths.parent_attestor
 
   data_json = jsonencode({
     kubeconfig_b64 = base64encode(yamlencode({
       apiVersion        = "v1"
       kind              = "Config"
-      "current-context" = local.cluster_name
+      "current-context" = local.spire_child_cluster_name
       clusters = [{
-        name = local.cluster_name
+        name = local.spire_child_cluster_name
         cluster = {
-          server                       = local.api_server_vip_url
+          server                       = local.spire_child_api_server_vip_url
           "certificate-authority-data" = base64encode(data.kubernetes_config_map_v1.root_ca.data["ca.crt"])
         }
       }]
       users = [{
-        name = local.chart.parent_attestor_sa
+        name = local.spire_child_chart.parent_attestor_sa
         user = { token = kubernetes_secret_v1.parent_attestor_token.data["token"] }
       }]
       contexts = [{
-        name    = local.cluster_name
-        context = { cluster = local.cluster_name, user = local.chart.parent_attestor_sa }
+        name    = local.spire_child_cluster_name
+        context = { cluster = local.spire_child_cluster_name, user = local.spire_child_chart.parent_attestor_sa }
       }]
     }))
   })
 }
 
 # Executes remote registration of child server identity and upstream agent node aliases on the SPIRE parent.
-module "parent_registration" {
+module "spire_parent_registration" {
   source = "../../modules/kvm-provisioning/configure/ansible-runner"
 
   depends_on = [
@@ -111,7 +111,7 @@ locals {
   ansible_status_trigger = {
     attestor_token_uid = kubernetes_secret_v1.parent_attestor_token.metadata[0].uid
     kv_version         = vault_kv_secret_v2.parent_attestor.metadata["version"]
-    spiffe_ids         = local.spiffe_id
-    agent_endpoint     = "${local.agent_vip}:${local.agent_port}"
+    spiffe_ids         = local.spiffe_workload_id
+    agent_endpoint     = "${local.spire_child_agent_vip}:${local.spire_child_agent_port}"
   }
 }

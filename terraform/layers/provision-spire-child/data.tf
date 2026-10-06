@@ -23,7 +23,7 @@ ephemeral "vault_kv_secret_v2" "spire_child" {
   provider = vault.downstream
 
   mount = "secret"
-  name  = local.kv_path.cluster
+  name  = local.spire_child_kv_paths.cluster
 }
 
 # Cluster readiness checks MUST re-validate quorum convergence during apply operations
@@ -34,8 +34,8 @@ ephemeral "talos_cluster_health" "this" {
     client_certificate = ephemeral.vault_kv_secret_v2.spire_child.data["talos_client_certificate_b64"]
     client_key         = ephemeral.vault_kv_secret_v2.spire_child.data["talos_client_key_b64"]
   }
-  control_plane_nodes = values(local.state.platform_spire_child.hostonly_addresses)
-  endpoints           = values(local.state.platform_spire_child.hostonly_addresses)
+  control_plane_nodes = values(local.state.platform_spire_child.talos_cluster.hostonly_addresses)
+  endpoints           = values(local.state.platform_spire_child.talos_cluster.hostonly_addresses)
 
   timeout = "10m"
 }

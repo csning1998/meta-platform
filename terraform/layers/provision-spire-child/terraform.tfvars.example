@@ -3,4 +3,4 @@
 spire_crds_chart_version   = "0.6.1"
 spire_nested_chart_version = "0.30.2"
 
-ca_subject_country = "TW"
+spire_child_ca_subject_country = "TW"

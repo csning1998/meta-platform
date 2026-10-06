@@ -14,14 +14,14 @@ locals {
 
 locals {
   # The operator of the SPIRE Child logs in to the Downstream Vault with the JWT-SVID of the SPIRE Parent.
-  downstream_operator = local.state.security_vault_downstream_tenants.component_operators["spire-child"]
+  spire_child_operator = local.state.security_vault_downstream_tenants.downstream_vault_component_operators["spire-child"]
 
-  svc_identity     = local.state.foundation_libvirt_resources.foundation_topology.identity["spire"]["child"]
-  svc_network      = local.state.foundation_libvirt_resources.foundation_topology.network["spire"]["child"]
-  svc_cluster_name = local.svc_identity.cluster_name
+  spire_child_cluster_identity = local.state.foundation_libvirt_resources.foundation_topology.identity["spire"]["child"]
+  spire_child_cluster_network  = local.state.foundation_libvirt_resources.foundation_topology.network["spire"]["child"]
+  spire_child_cluster_name     = local.spire_child_cluster_identity.cluster_name
 }
 
 # The SPIRE Child precedes Harbor Origin, hence the chart and the images of this cluster come from the upstream registries.
 locals {
-  chart_repository = "oci://quay.io/cilium/charts"
+  spire_child_chart_repository = "oci://quay.io/cilium/charts"
 }

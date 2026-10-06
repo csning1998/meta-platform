@@ -9,7 +9,7 @@ variable "spire_nested_chart_version" {
   type        = string
 }
 
-variable "ca_subject_country" {
+variable "spire_child_ca_subject_country" {
   description = "Country code for child SPIRE server intermediate CA certificate subject."
   type        = string
 }
