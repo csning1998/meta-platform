@@ -1,10 +1,7 @@
 
+# The layer does not declare a Vault provider. The plays write the join tokens to the Bastion KV with the token of the tenant session.
 terraform {
   required_providers {
-    vault = {
-      source  = "hashicorp/vault"
-      version = "5.5.0"
-    }
     ansible = {
       source  = "ansible/ansible"
       version = "~> 1.5.0"
@@ -18,11 +15,4 @@ terraform {
     unlock_method  = "DELETE"
     retry_wait_min = 5
   }
-}
-
-# Provider authentication MUST utilize the VAULT_TOKEN environment variable to prevent sensitive credential persistence
-# within Terraform state files. This layer provisions JWT authentication roles required for downstream layer bootstrapping.
-provider "vault" {
-  address      = local.state.foundation_vault_bastion.bastion_vault.endpoint
-  ca_cert_file = local.state.foundation_vault_bastion.bastion_vault.listener_ca_cert_path
 }
