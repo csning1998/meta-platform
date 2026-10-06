@@ -133,45 +133,65 @@ func readOperatorTargets(t *testing.T) map[OperatorSubject]bool {
 	return targets
 }
 
+// layerFacts holds what the drift rules inspect of one layer of the repository.
+type layerFacts struct {
+	name    string
+	source  string
+	subject OperatorSubject
+	found   bool
+	err     error
+}
+
+func (f layerFacts) isJWTLayer() bool { return strings.Contains(f.source, "auth_login_jwt") }
+
+// readLayerFacts reads every .tf file of the layer at dir and its terraform_operator_subject.
+func readLayerFacts(t *testing.T, dir string) layerFacts {
+	t.Helper()
+	files, err := filepath.Glob(filepath.Join(dir, "*.tf"))
+	if err != nil {
+		t.Fatalf("glob %s: %v", dir, err)
+	}
+	var source strings.Builder
+	for _, file := range files {
+		content, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatalf("read %s: %v", file, err)
+		}
+		source.Write(content)
+	}
+	f := layerFacts{name: filepath.Base(dir), source: source.String()}
+	f.subject, f.found, f.err = ReadOperatorSubject(dir)
+	return f
+}
+
 // TestReadOperatorSubjectMatchesTheLayers enforces the Day 0 declaration of every layer of the repository.
 func TestReadOperatorSubjectMatchesTheLayers(t *testing.T) {
 	targets := readOperatorTargets(t)
+	rules := []struct {
+		isViolated func(f layerFacts) bool
+		message    string
+	}{
+		{func(f layerFacts) bool { return f.err != nil }, "reads with an error"},
+		{func(f layerFacts) bool { return f.isJWTLayer() && !f.found }, "declares auth_login_jwt without " + SubjectLocal},
+		{func(f layerFacts) bool { return !f.isJWTLayer() && f.found }, "declares " + SubjectLocal + " without auth_login_jwt"},
+		{func(f layerFacts) bool { return f.found && !targets[f.subject] }, "declares a subject which provision-spire-parent registers as no operator"},
+		{func(f layerFacts) bool {
+			return f.isJWTLayer() && !strings.Contains(f.source, "local.terraform_operator.auth_mount")
+		}, "logs in without local.terraform_operator.auth_mount"},
+		{func(f layerFacts) bool {
+			return f.isJWTLayer() && !strings.Contains(f.source, "local.terraform_operator.role_name")
+		}, "logs in without local.terraform_operator.role_name"},
+	}
+
 	dirs, err := filepath.Glob(filepath.Join(layersDir, "*"))
 	if err != nil || len(dirs) == 0 {
 		t.Fatalf("glob %s: %d layers, %v", layersDir, len(dirs), err)
 	}
 	for _, dir := range dirs {
-		files, err := filepath.Glob(filepath.Join(dir, "*.tf"))
-		if err != nil {
-			t.Fatalf("glob %s: %v", dir, err)
-		}
-		var source strings.Builder
-		for _, file := range files {
-			content, err := os.ReadFile(file)
-			if err != nil {
-				t.Fatalf("read %s: %v", file, err)
-			}
-			source.Write(content)
-		}
-		isJWTLayer := strings.Contains(source.String(), "auth_login_jwt")
-
-		layer := filepath.Base(dir)
-		subject, found, err := ReadOperatorSubject(dir)
-		switch {
-		case err != nil:
-			t.Errorf("layer %s: %v", layer, err)
-		case isJWTLayer && !found:
-			t.Errorf("layer %s declares auth_login_jwt without %s", layer, SubjectLocal)
-		case !isJWTLayer && found:
-			t.Errorf("layer %s declares %s without auth_login_jwt", layer, SubjectLocal)
-		case found && !targets[subject]:
-			t.Errorf("layer %s declares %+v, which provision-spire-parent registers as no operator", layer, subject)
-		}
-		if isJWTLayer {
-			for _, ref := range []string{"local.terraform_operator.auth_mount", "local.terraform_operator.role_name"} {
-				if !strings.Contains(source.String(), ref) {
-					t.Errorf("layer %s logs in without %s", layer, ref)
-				}
+		f := readLayerFacts(t, dir)
+		for _, rule := range rules {
+			if rule.isViolated(f) {
+				t.Errorf("layer %s %s: subject %+v, error %v", f.name, rule.message, f.subject, f.err)
 			}
 		}
 	}

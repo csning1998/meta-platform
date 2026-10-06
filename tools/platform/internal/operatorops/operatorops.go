@@ -57,6 +57,12 @@ type Invocation struct {
 	Env  []string
 }
 
+// subjectDeclaration is one terraform_operator_subject attribute and the file which declares it.
+type subjectDeclaration struct {
+	file string
+	expr hclsyntax.Expression
+}
+
 // ReadOperatorSubject returns the terraform_operator_subject of the layer at layerDir, and false when the layer
 // declares none. The parse stays static, since an evaluation would need the remote state of the layer.
 func ReadOperatorSubject(layerDir string) (OperatorSubject, bool, error) {
@@ -66,33 +72,47 @@ func ReadOperatorSubject(layerDir string) (OperatorSubject, bool, error) {
 	}
 
 	parser := hclparse.NewParser()
-	var subject OperatorSubject
-	found := false
+	var declarations []subjectDeclaration
 	for _, file := range files {
-		parsed, diags := parser.ParseHCLFile(file)
-		if diags.HasErrors() {
-			return OperatorSubject{}, false, fmt.Errorf("operatorops: parse %s: %w", file, diags)
+		found, err := findSubjectDeclarations(parser, file)
+		if err != nil {
+			return OperatorSubject{}, false, err
 		}
-		body, ok := parsed.Body.(*hclsyntax.Body)
-		if !ok {
-			return OperatorSubject{}, false, fmt.Errorf("operatorops: %s is not native HCL syntax", file)
+		declarations = append(declarations, found...)
+	}
+
+	switch len(declarations) {
+	case 0:
+		return OperatorSubject{}, false, nil
+	case 1:
+		subject, err := decodeOperatorSubject(declarations[0].expr)
+		if err != nil {
+			return OperatorSubject{}, false, fmt.Errorf("%w: %s: %s", ErrInvalidOperatorSubject, declarations[0].file, err)
 		}
-		for _, block := range body.Blocks {
-			attr, ok := block.Body.Attributes[SubjectLocal]
-			if block.Type != "locals" || !ok {
-				continue
-			}
-			if found {
-				return OperatorSubject{}, false, fmt.Errorf("%w: %s declares it again", ErrInvalidOperatorSubject, file)
-			}
-			subject, err = decodeOperatorSubject(attr.Expr)
-			if err != nil {
-				return OperatorSubject{}, false, fmt.Errorf("%w: %s: %s", ErrInvalidOperatorSubject, file, err)
-			}
-			found = true
+		return subject, true, nil
+	default:
+		return OperatorSubject{}, false, fmt.Errorf("%w: %s declares it again", ErrInvalidOperatorSubject, declarations[1].file)
+	}
+}
+
+// findSubjectDeclarations returns every terraform_operator_subject which a locals block of file declares.
+func findSubjectDeclarations(parser *hclparse.Parser, file string) ([]subjectDeclaration, error) {
+	parsed, diags := parser.ParseHCLFile(file)
+	if diags.HasErrors() {
+		return nil, fmt.Errorf("operatorops: parse %s: %w", file, diags)
+	}
+	body, ok := parsed.Body.(*hclsyntax.Body)
+	if !ok {
+		return nil, fmt.Errorf("operatorops: %s is not native HCL syntax", file)
+	}
+	var declarations []subjectDeclaration
+	for _, block := range body.Blocks {
+		attr, ok := block.Body.Attributes[SubjectLocal]
+		if block.Type == "locals" && ok {
+			declarations = append(declarations, subjectDeclaration{file: file, expr: attr.Expr})
 		}
 	}
-	return subject, found, nil
+	return declarations, nil
 }
 
 // decodeOperatorSubject returns the subject of expr, which MUST be an object of exactly two non-empty string literals.

@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -89,30 +90,35 @@ type operatorOutput struct {
 	} `json:"cluster_config"`
 }
 
+// terraformOutputs maps each output name of terraform output -json to its raw value.
+type terraformOutputs map[string]struct {
+	Value json.RawMessage `json:"value"`
+}
+
+// decode unmarshals the value of output name into target, and rejects an absent or null output.
+func (o terraformOutputs) decode(name string, target any) error {
+	output, ok := o[name]
+	if !ok || len(output.Value) == 0 || string(output.Value) == "null" {
+		return fmt.Errorf("clusterops: terraform output lacks %s, apply security-vault-downstream-tenants first", name)
+	}
+	err := json.Unmarshal(output.Value, target)
+	if err != nil {
+		return fmt.Errorf("clusterops: parse terraform output %s: %w", name, err)
+	}
+	return nil
+}
+
 // DecodeCoordinates returns the coordinates of the output of terraform output -json of security-vault-downstream-tenants.
 func DecodeCoordinates(outputJSON []byte) (Coordinates, error) {
-	var outputs map[string]struct {
-		Value json.RawMessage `json:"value"`
-	}
+	var outputs terraformOutputs
 	err := json.Unmarshal(outputJSON, &outputs)
 	if err != nil {
 		return Coordinates{}, fmt.Errorf("clusterops: parse terraform output: %w", err)
 	}
-	decodeOutput := func(name string, target any) error {
-		output, ok := outputs[name]
-		if !ok || len(output.Value) == 0 || string(output.Value) == "null" {
-			return fmt.Errorf("clusterops: terraform output lacks %s, apply security-vault-downstream-tenants first", name)
-		}
-		err := json.Unmarshal(output.Value, target)
-		if err != nil {
-			return fmt.Errorf("clusterops: parse terraform output %s: %w", name, err)
-		}
-		return nil
-	}
 
 	var c Coordinates
 	var operators map[string]map[string]operatorOutput
-	for _, decode := range []struct {
+	for _, output := range []struct {
 		name   string
 		target any
 	}{
@@ -120,47 +126,43 @@ func DecodeCoordinates(outputJSON []byte) (Coordinates, error) {
 		{"downstream_vault_ca_cert_path", &c.CACertPath},
 		{"downstream_vault_operators", &operators},
 	} {
-		err := decodeOutput(decode.name, decode.target)
+		err := outputs.decode(output.name, output.target)
 		if err != nil {
 			return Coordinates{}, err
 		}
 	}
 
 	c.Operators = map[string]map[string]Operator{}
-	for _, service := range slices.Sorted(mapKeys(operators)) {
+	for _, service := range slices.Sorted(maps.Keys(operators)) {
 		c.Operators[service] = map[string]Operator{}
-		for _, component := range slices.Sorted(mapKeys(operators[service])) {
-			target := service + "/" + component
-			op := operators[service][component]
-			if op.AuthMount == "" || op.RoleName == "" {
-				return Coordinates{}, fmt.Errorf("clusterops: operator %s lacks its auth mount or role", target)
+		for _, component := range slices.Sorted(maps.Keys(operators[service])) {
+			op, err := convertOperator(service+"/"+component, operators[service][component])
+			if err != nil {
+				return Coordinates{}, err
 			}
-			cc := op.ClusterConfig
-			if cc == nil || cc.KVMount == "" || cc.KVPath == "" {
-				return Coordinates{}, fmt.Errorf("clusterops: operator %s lacks the KV mount or path of its cluster-config", target)
-			}
-			if cc.Vault != "bastion" && cc.Vault != "downstream" {
-				return Coordinates{}, fmt.Errorf("clusterops: operator %s names Vault %q, want bastion or downstream", target, cc.Vault)
-			}
-			c.Operators[service][component] = Operator{
-				AuthMount:     op.AuthMount,
-				RoleName:      op.RoleName,
-				ClusterConfig: ClusterConfig{Vault: cc.Vault, KVMount: cc.KVMount, KVPath: cc.KVPath},
-			}
+			c.Operators[service][component] = op
 		}
 	}
 	return c, nil
 }
 
-// mapKeys returns an iterator over the keys of m.
-func mapKeys[V any](m map[string]V) func(yield func(string) bool) {
-	return func(yield func(string) bool) {
-		for key := range m {
-			if !yield(key) {
-				return
-			}
-		}
+// convertOperator returns the operator of one output entry, rejecting an entry without its login or its leaf.
+func convertOperator(target string, op operatorOutput) (Operator, error) {
+	if op.AuthMount == "" || op.RoleName == "" {
+		return Operator{}, fmt.Errorf("clusterops: operator %s lacks its auth mount or role", target)
 	}
+	cc := op.ClusterConfig
+	if cc == nil || cc.KVMount == "" || cc.KVPath == "" {
+		return Operator{}, fmt.Errorf("clusterops: operator %s lacks the KV mount or path of its cluster-config", target)
+	}
+	if cc.Vault != "bastion" && cc.Vault != "downstream" {
+		return Operator{}, fmt.Errorf("clusterops: operator %s names Vault %q, want bastion or downstream", target, cc.Vault)
+	}
+	return Operator{
+		AuthMount:     op.AuthMount,
+		RoleName:      op.RoleName,
+		ClusterConfig: ClusterConfig{Vault: cc.Vault, KVMount: cc.KVMount, KVPath: cc.KVPath},
+	}, nil
 }
 
 // ReadCoordinates runs terraform output -json in tenantsLayerDir and returns the coordinates of the output.
@@ -192,8 +194,8 @@ func (c Coordinates) ResolveOperator(target operatorops.OperatorSubject) (Operat
 // ListTargets returns every target of the coordinates, ordered by service and component.
 func (c Coordinates) ListTargets() []operatorops.OperatorSubject {
 	var targets []operatorops.OperatorSubject
-	for _, service := range slices.Sorted(mapKeys(c.Operators)) {
-		for _, component := range slices.Sorted(mapKeys(c.Operators[service])) {
+	for _, service := range slices.Sorted(maps.Keys(c.Operators)) {
+		for _, component := range slices.Sorted(maps.Keys(c.Operators[service])) {
 			targets = append(targets, operatorops.OperatorSubject{Service: service, Component: component})
 		}
 	}
@@ -362,8 +364,8 @@ func BuildShellEnv(base []string, dir string, target operatorops.OperatorSubject
 		return strings.HasPrefix(kv, "KUBECONFIG=") || strings.HasPrefix(kv, "TALOSCONFIG=") || strings.HasPrefix(kv, "PLATFORM_CLUSTER=")
 	})
 	return append(env,
-		"KUBECONFIG="+filepath.Join(dir, "kubeconfig"),
-		"TALOSCONFIG="+filepath.Join(dir, "talosconfig"),
+		"KUBECONFIG="+filepath.Join(dir, kubeconfigName),
+		"TALOSCONFIG="+filepath.Join(dir, talosconfigName),
 		"PLATFORM_CLUSTER="+formatTarget(target),
 	)
 }

@@ -584,33 +584,42 @@ func TestBuildShellEnv(t *testing.T) {
 	}
 }
 
+// newSessionWithFile returns a session directory which holds one kubeconfig.
+func newSessionWithFile(t *testing.T) string {
+	t.Helper()
+	dir, err := CreateSessionDir(t.TempDir())
+	if err != nil {
+		t.Fatalf("CreateSessionDir: %v", err)
+	}
+	_, err = WriteSessionFile(dir, "kubeconfig", []byte("x"))
+	if err != nil {
+		t.Fatalf("WriteSessionFile: %v", err)
+	}
+	return dir
+}
+
+func assertPathRemoved(t *testing.T, path string) {
+	t.Helper()
+	_, err := os.Stat(path)
+	if !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("%s after the session: %v, want removed", path, err)
+	}
+}
+
 func TestRunSessionRemovesTheDirectory(t *testing.T) {
 	failure := errors.New("shell failed")
 	for name, runErr := range map[string]error{"success": nil, "failure": failure} {
 		t.Run(name, func(t *testing.T) {
-			dir, err := CreateSessionDir(t.TempDir())
-			if err != nil {
-				t.Fatalf("CreateSessionDir: %v", err)
-			}
-			_, err = WriteSessionFile(dir, "kubeconfig", []byte("x"))
-			if err != nil {
-				t.Fatalf("WriteSessionFile: %v", err)
-			}
+			dir := newSessionWithFile(t)
 			var gotEnv []string
-			err = RunSession(context.Background(), dir, []string{"A=1"}, func(_ context.Context, env []string) error {
+			err := RunSession(context.Background(), dir, []string{"A=1"}, func(_ context.Context, env []string) error {
 				gotEnv = env
 				return runErr
 			})
-			if !errors.Is(err, runErr) {
-				t.Errorf("RunSession error = %v, want %v", err, runErr)
+			if !errors.Is(err, runErr) || !slices.Equal(gotEnv, []string{"A=1"}) {
+				t.Errorf("RunSession = %v with env %q, want %v with env [A=1]", err, gotEnv, runErr)
 			}
-			if !slices.Equal(gotEnv, []string{"A=1"}) {
-				t.Errorf("run env = %q, want [A=1]", gotEnv)
-			}
-			_, statErr := os.Stat(dir)
-			if !errors.Is(statErr, os.ErrNotExist) {
-				t.Errorf("session directory after RunSession: %v, want removed", statErr)
-			}
+			assertPathRemoved(t, dir)
 		})
 	}
 }
