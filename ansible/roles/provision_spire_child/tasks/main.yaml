@@ -101,7 +101,9 @@
     - name: "Classify existing entries as current or stale"
       ansible.builtin.set_fact:
         _provision_spire_child_classified: >-
-          {{ _provision_spire_child_classified | default([]) + [{
+          {{
+            _provision_spire_child_classified | default([]) +
+            [{
               'entry': item.item,
               'current_ids': _current_ids | from_json,
               'stale_ids': _all_ids | difference(_current_ids | from_json)
