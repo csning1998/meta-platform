@@ -18,6 +18,12 @@ platform_haproxy_haproxy_health_check_fall: "5"
 platform_haproxy_haproxy_health_check_rise: "3"
 platform_haproxy_haproxy_ca_path: "/etc/haproxy/certs/ca.crt"
 
+# The stats listener certificate. The PKI role caps the lifetime at 90 days,
+# and a run within the last 30 days issues a new one.
+platform_haproxy_stats_bundle_path: "/etc/haproxy/certs/vault.pem"
+platform_haproxy_stats_cert_ttl: "2160h"
+platform_haproxy_stats_renew_before_seconds: 2592000
+
 # The stats listener and its metrics path require this login.
-# The password is read from Bastion KV into platform_haproxy_stats_password.
+# The play reads the password from the Bastion KV of the tenant, or mints the password on the first run.
 platform_haproxy_stats_user: "stats"

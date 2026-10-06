@@ -9,10 +9,6 @@ terraform {
       source  = "dmacvicar/libvirt"
       version = "0.9.7"
     }
-    external = {
-      source  = "hashicorp/external"
-      version = "2.4.1"
-    }
   }
   backend "http" {
     address        = "https://gitlab.com/api/v4/projects/84608830/terraform/state/platform-haproxy-frontend"
@@ -28,16 +24,8 @@ provider "libvirt" {
   uri = "qemu:///system?socket=/var/run/libvirt/virtqemud-sock"
 }
 
+# The tenant session supplies VAULT_ADDR, VAULT_CACERT, and VAULT_TOKEN, hence the layer does not hold any Bastion credential.
+# The tenant token cannot create a child token, since the tenant ACL does not grant any auth/token path.
 provider "vault" {
-  address      = local.state.foundation_vault_bastion.bastion_vault.endpoint
-  ca_cert_file = local.state.foundation_vault_bastion.bastion_vault.listener_ca_cert_path
-
-  auth_login {
-    path = "auth/${local.state.platform_spire_parent.spire_oidc_auth_backend_path}/login"
-    parameters = {
-      role = local.terraform_operator.role_name
-      jwt  = data.external.spire_jwt.result.jwt
-    }
-  }
   skip_child_token = true
 }

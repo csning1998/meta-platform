@@ -10,25 +10,88 @@
         group: haproxy
         mode: "0700"
 
-    - name: "B1b. Deploy Vault HAProxy Bundle (Cert + Key)"
+    # The backends present certificates of pki-platform or of the Downstream issuer below pki-downstream.
+    - name: "B1b. Deploy the CA bundle for backend verification"
       ansible.builtin.copy:
-        content: "{{ vault_haproxy_bundle_b64 | b64decode }}"
-        dest: /etc/haproxy/certs/vault.pem
-        owner: haproxy
-        group: haproxy
-        mode: "0600"
-      when: vault_haproxy_bundle_b64 is defined
-      notify: Restart HAProxy
-
-    - name: "B1c. Deploy Root CA (For Backend Verification)"
-      ansible.builtin.copy:
-        content: "{{ vault_ca_cert_b64 | b64decode }}"
+        content: "{{ platform_haproxy_ca_bundle_b64 | b64decode }}"
         dest: "{{ platform_haproxy_haproxy_ca_path }}"
         owner: haproxy
         group: haproxy
         mode: "0644"
-      when: vault_ca_cert_b64 is defined
       notify: Restart HAProxy
+
+    # A certificate from a rebuilt pki-platform fails the chain check,
+    # and a certificate inside the renewal window fails checkend.
+    - name: "B1c. Verify the held stats certificate against the CA bundle"
+      ansible.builtin.command:
+        argv:
+          - openssl
+          - verify
+          - -CAfile
+          - "{{ platform_haproxy_haproxy_ca_path }}"
+          - "{{ platform_haproxy_stats_bundle_path }}"
+      register: _platform_haproxy_stats_chain
+      changed_when: false
+      failed_when: false
+
+    - name: "B1d. Check that the held stats certificate outlives the renewal window"
+      ansible.builtin.command:
+        argv:
+          - openssl
+          - x509
+          - -checkend
+          - "{{ platform_haproxy_stats_renew_before_seconds }}"
+          - -noout
+          - -in
+          - "{{ platform_haproxy_stats_bundle_path }}"
+      register: _platform_haproxy_stats_expiry
+      changed_when: false
+      failed_when: false
+
+    # The workstation issues the certificate with the tenant token, and the private key never enters a Terraform state.
+    - name: "B1e. Issue the stats certificate from pki-platform"
+      when: _platform_haproxy_stats_chain.rc != 0 or _platform_haproxy_stats_expiry.rc != 0
+      block:
+        - name: "B1e-i. Take the token of the tenant session"
+          ansible.builtin.include_role:
+            name: utils_vault_operator_login
+          vars:
+            utils_vault_operator_login_use_ambient: true
+
+        - name: "B1e-ii. Issue the certificate and the private key"
+          ansible.builtin.uri:
+            url: "{{ operator_vault_url ~ '/v1/' ~ platform_haproxy_pki_mount ~ '/issue/' ~ platform_haproxy_pki_role }}"
+            method: POST
+            headers:
+              X-Vault-Token: "{{ utils_vault_operator_login_token }}"
+            body_format: json
+            body:
+              common_name: "{{ platform_haproxy_common_name }}"
+              alt_names: "{{ platform_haproxy_alt_names }}"
+              ip_sans: "{{ platform_haproxy_ip_sans }}"
+              ttl: "{{ platform_haproxy_stats_cert_ttl }}"
+            ca_path: "{{ operator_vault_ca_cert_path }}"
+            validate_certs: true
+            status_code: 200
+            return_content: true
+          register: _platform_haproxy_stats_issue
+          delegate_to: localhost
+          become: false
+          no_log: true
+
+        # HAProxy reads the leaf, the issuing intermediate, and the key from one PEM file.
+        - name: "B1e-iii. Write the stats bundle"
+          vars:
+            _issued: "{{ _platform_haproxy_stats_issue.json.data }}"
+          ansible.builtin.copy:
+            # The double-quoted scalar turns each \n into a line break, which a folded scalar would keep as two characters.
+            content: "{{ [_issued.certificate, _issued.issuing_ca, _issued.private_key] | join('\n') ~ '\n' }}"
+            dest: "{{ platform_haproxy_stats_bundle_path }}"
+            owner: haproxy
+            group: haproxy
+            mode: "0600"
+          notify: Restart HAProxy
+          no_log: true
 
   rescue:
     - name: "Block B1: Deploy SSL Certificates failed"
