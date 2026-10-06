@@ -20,7 +20,7 @@ locals {
         addresses = []
       }],
 
-      # Interface 2: HostOnly (Internal, carries the LB static IP)
+      # Interface 2: HostOnly (Internal, carries the node static IP)
       [{
         network_name = var.network_infra.hostonly.name
         mac = format("%s:%s:%s:%s:%s:%02x",
@@ -61,12 +61,8 @@ locals {
       [
         for net in sort(keys(node_spec.extra_networks)) : {
           network_name = net
-          mac = format("52:54:00:%s:%s:%s",
-            substr(md5("${node_spec.extra_networks[net]}-${net}"), 0, 2),
-            substr(md5("${node_spec.extra_networks[net]}-${net}"), 2, 2),
-            substr(md5("${node_spec.extra_networks[net]}-${net}"), 4, 2)
-          )
-          addresses = [node_spec.extra_networks[net]]
+          mac          = module.deterministic_mac.macs["${node_name}/${net}"]
+          addresses    = [node_spec.extra_networks[net]]
         }
       ]
     )
@@ -74,13 +70,12 @@ locals {
 }
 
 locals {
-  lb_cluster_vm_config = {
+  cluster_vm_config = {
     storage_pool_name = var.storage_pool_name
     nodes = {
       for node_name, node_spec in var.node_config : node_name => {
         vcpu                 = node_spec.vcpu
         ram                  = node_spec.ram
-        base_image_path      = node_spec.base_image_path
         os_disk_capacity_gib = node_spec.os_disk_capacity_gib
         interfaces           = local.node_interfaces[node_name]
       }
@@ -88,40 +83,13 @@ locals {
   }
 }
 
-locals {
-  lb_cluster_network_config = {
-    network = {
-      nat = {
-        name_network = var.network_infra.nat.name
-        name_bridge  = var.network_infra.nat.bridge_name
-        mode         = "nat"
-        ips = {
-          address = var.network_infra.nat.gateway
-          prefix  = var.network_infra.nat.prefix
-          dhcp    = var.network_infra.nat.dhcp
-        }
-        mtu = var.network_infra.nat.mtu
-      }
-      hostonly = {
-        name_network = var.network_infra.hostonly.name
-        name_bridge  = var.network_infra.hostonly.bridge_name
-        mode         = "route"
-        ips = {
-          address = var.network_infra.hostonly.gateway
-          prefix  = var.network_infra.hostonly.prefix
-          dhcp    = null
-        }
-        mtu = var.network_infra.hostonly.mtu
-      }
-    }
-  }
-}
 
-locals {
-  nodes_list_for_ssh = [
-    for key, node in local.lb_cluster_vm_config.nodes : {
-      key = key
-      ip  = split("/", node.interfaces[1].addresses[0])[0]
+module "deterministic_mac" {
+  source = "../deterministic-mac"
+
+  seeds = merge([
+    for node_name, node_spec in var.node_config : {
+      for net, cidr in node_spec.extra_networks : "${node_name}/${net}" => "${cidr}-${net}"
     }
-  ]
+  ]...)
 }

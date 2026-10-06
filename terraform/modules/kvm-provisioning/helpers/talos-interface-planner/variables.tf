@@ -1,18 +1,17 @@
 
 variable "node_config" {
-  description = "Load balancer node specifications keyed by node key."
+  description = "Talos node specifications keyed by node key."
   type = map(object({
     ip_suffix            = number
     vcpu                 = number
     ram                  = number
-    base_image_path      = string
     os_disk_capacity_gib = optional(number, 40)
     extra_networks       = optional(map(string), {}) # Map of network names to static CIDR addresses appended after service segments.
   }))
 
   validation {
     condition     = length(var.node_config) > 0
-    error_message = "At least one LB node must be defined."
+    error_message = "At least one node must be defined."
   }
 }
 
@@ -22,7 +21,7 @@ variable "storage_pool_name" {
 }
 
 variable "svc_network" {
-  description = "CLB own segment network attributes from SSoT (mac_address, cidr_block)."
+  description = "Network attributes of the own segment of the cluster from SSoT (mac_address, cidr_block)."
   type = object({
     mac_address = string
     cidr_block  = string
@@ -30,7 +29,7 @@ variable "svc_network" {
 }
 
 variable "network_infra" {
-  description = "Physical NAT and HostOnly network config for the CLB own segment."
+  description = "Physical NAT and HostOnly network config for the own segment of the cluster."
   type = object({
     nat = object({
       name        = string
@@ -60,7 +59,7 @@ variable "svc_network_map" {
 }
 
 variable "service_segment_names" {
-  description = "Ordered list of service segment names (non-CLB) that become additional interfaces on each LB node."
+  description = "Ordered list of service segment names which become additional interfaces on each node."
   type        = list(string)
   default     = []
 }

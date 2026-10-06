@@ -82,22 +82,6 @@ resource "libvirt_volume" "os_disk" {
   }
 }
 
-data "libvirt_node_info" "host" {}
-
-# CPU pinning MUST allocate the topmost cores of the Libvirt hypervisor to Talos control
-# plane nodes because unpinned domains migrate toward lower-numbered cores, creating contention
-# across the lower index range. Each node offset MUST equal the cumulative vCPU count of preceding nodes in sorted order.
-locals {
-  talos_node_keys_sorted = sort(keys(var.talos_cluster_vm_config.nodes))
-  talos_total_vcpus      = sum([for k in local.talos_node_keys_sorted : var.talos_cluster_vm_config.nodes[k].vcpu])
-  talos_core_base        = data.libvirt_node_info.host.cpu_cores_total - local.talos_total_vcpus
-  talos_node_core_offset = {
-    for idx, key in local.talos_node_keys_sorted : key => local.talos_core_base + sum(concat([0], [
-      for k in slice(local.talos_node_keys_sorted, 0, idx) : var.talos_cluster_vm_config.nodes[k].vcpu
-    ]))
-  }
-}
-
 check "talos_cpu_pinning_capacity" {
   assert {
     condition     = local.talos_core_base >= 0
@@ -137,7 +121,7 @@ resource "libvirt_domain" "nodes" {
   }
 
   devices = {
-    disks = [
+    disks = concat([
       # Primary boot device. Unpartitioned volumes lack bootable sectors, causing firmware boot
       # sequence fallthrough to secondary ISO media prior to OS installation.
       {
@@ -165,7 +149,21 @@ resource "libvirt_domain" "nodes" {
           }
         }
       }
-    ]
+      ],
+      # Data disks follow the OS disk in declaration order. The guest names the devices vdb, vdc, and the following letters.
+      [
+        for idx, vol in each.value.attached_volumes : {
+          device = "disk"
+          target = { dev = "vd${substr("bcdefghijklmnopqrstuvwxyz", idx, 1)}", bus = "virtio" }
+          driver = { type = vol.os_disk_format }
+          source = {
+            volume = {
+              pool   = vol.pool
+              volume = vol.volume
+            }
+          }
+        }
+    ])
 
     interfaces = [
       for idx, iface in each.value.interfaces : {
@@ -210,26 +208,5 @@ resource "libvirt_domain" "nodes" {
   # because the Libvirt provider computes false difference states following initial guest bootstrap.
   lifecycle {
     ignore_changes = [devices]
-  }
-}
-
-data "libvirt_domain_interface_addresses" "nodes" {
-  for_each = var.talos_cluster_vm_config.nodes
-
-  # Domain interface address queries require domain UUIDs. Numeric domain runtime IDs (`id`) are rejected.
-  domain = libvirt_domain.nodes[each.key].uuid
-  source = "lease"
-
-  # Postcondition checks MUST validate lease list boundaries to provide diagnostic node identification upon failure.
-  lifecycle {
-    postcondition {
-      condition = length([
-        for addr in flatten([
-          for iface in self.interfaces :
-          iface.addrs if lower(iface.hwaddr) == lower(var.talos_cluster_vm_config.nodes[each.key].interfaces[0].mac)
-        ]) : addr.addr if addr.type == "ipv4"
-      ]) == 1
-      error_message = "Expected exactly one IPv4 DHCP lease on the NAT interface (MAC ${var.talos_cluster_vm_config.nodes[each.key].interfaces[0].mac}) for node '${each.key}'; the maintenance-mode address is not yet stable."
-    }
   }
 }

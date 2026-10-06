@@ -30,6 +30,13 @@ variable "talos_cluster_vm_config" {
       ram                  = number
       os_disk_capacity_gib = optional(number, 40)
 
+      # Pre-provisioned volumes, which foundation-libvirt-resources creates. The volumes attach after the OS disk in list order.
+      attached_volumes = optional(list(object({
+        pool           = string
+        volume         = string
+        os_disk_format = string
+      })), [])
+
       interfaces = list(object({
         network_name = string
         mac          = string
@@ -74,7 +81,7 @@ variable "network_infrastructure" {
 }
 
 variable "talos_cluster_service_segments" {
-  description = "Service segment network definitions for infrastructure creation, matching the network_service_segments schema consumed by lb-interface-planner."
+  description = "Service segment network definitions for infrastructure creation, matching the network_service_segments schema consumed by talos-interface-planner."
   type = list(object({
     name        = string
     bridge_name = string

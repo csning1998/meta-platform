@@ -1,92 +1,33 @@
 
-module "interface_planner" {
-  source = "../cluster-provision/lb-interface-planner"
+module "talos_interface_planner" {
+  source = "../../helpers/talos-interface-planner"
 
-  node_config           = local.interface_planner_node_config
-  storage_pool_name     = var.topology_cluster.storage_pool_name
+  node_config           = local.nodes
+  storage_pool_name     = var.svc_identity.storage_pool_name
   svc_network           = local.svc_net
   network_infra         = local.infra
   svc_network_map       = var.svc_network_map
-  service_segment_names = [for seg in var.network_service_segments : seg.name]
+  service_segment_names = [for seg in local.net_service_segments : seg.name]
 }
 
-module "hypervisor_kvm_talos" {
-  source = "../cluster-provision/hypervisor-kvm-talos"
+module "linux_talos_domain" {
+  source = "../../configure/linux-talos-domain"
 
   talos_iso_path                 = var.talos_iso_path
-  os_disk_format                 = var.os_disk_format
+  os_disk_format                 = var.talos_config.os_disk_format
   talos_cluster_vm_config        = local.talos_cluster_vm_config
   network_infrastructure         = var.network_infrastructure_map
-  talos_cluster_service_segments = var.network_service_segments
+  talos_cluster_service_segments = local.net_service_segments
   create_networks                = false
 }
 
 resource "talos_machine_secrets" "this" {
-  talos_version = var.talos_version
-}
-
-# Configure all nodes as control plane members. Small fixed node counts run combined control plane
-# and workload tasks to optimize resource utilization within etcd quorum limits.
-data "talos_machine_configuration" "this" {
-  for_each = local.talos_cluster_vm_config.nodes
-
-  cluster_name       = var.svc_identity.cluster_name
-  machine_type       = "controlplane"
-  cluster_endpoint   = local.cluster_endpoint
-  machine_secrets    = talos_machine_secrets.this.machine_secrets
-  kubernetes_version = var.talos_kubernetes_version
-  talos_version      = var.talos_version
-
-  config_patches = [
-    yamlencode({
-      machine = {
-        # Explicitly set installer image URI to align installed image release with running ISO media version.
-        install = {
-          disk  = "/dev/vda"
-          image = "ghcr.io/siderolabs/installer:${var.talos_version}"
-        }
-        # Interface configuration MUST retain DHCP on primary interfaces while binding the floating control plane VIP
-        # to host-only interfaces to ensure high availability.
-        network = {
-          interfaces = [
-            for idx, iface in slice(each.value.interfaces, 1, length(each.value.interfaces)) : merge(
-              {
-                deviceSelector = { hardwareAddr = iface.mac }
-                dhcp           = false
-                addresses      = iface.addresses
-              },
-              idx == 0 ? { vip = { ip = local.svc_net.vip } } : {}
-            )
-          ]
-        }
-        # Pin kubelet node IP binding explicitly to the service subnet CIDR block.
-        kubelet = { nodeIP = { validSubnets = [local.svc_net.cidr_block] } }
-      }
-      cluster = {
-        network                        = { cni = { name = "none" } }
-        proxy                          = { disabled = true }
-        allowSchedulingOnControlPlanes = var.allow_scheduling_on_control_planes
-        etcd = {
-          advertisedSubnets = [local.svc_net.cidr_block]
-          # Heartbeat intervals MUST be increased beyond baseline defaults
-          # because hypervisor scheduling jitter triggers spurious etcd leader elections.
-          extraArgs = {
-            "election-timeout"   = "2500"
-            "heartbeat-interval" = "250"
-          }
-        }
-        inlineManifests = concat(
-          [{ name = "cilium", contents = var.cilium_inline_manifest }],
-          [for name in sort(keys(var.extra_inline_manifests)) : { name = name, contents = var.extra_inline_manifests[name] }]
-        )
-      }
-    })
-  ]
+  talos_version = var.talos_config.talos_version
 }
 
 # Target pre-configuration node maintenance IP addresses resolved from libvirt DHCP leases.
 resource "talos_machine_configuration_apply" "this" {
-  depends_on = [module.hypervisor_kvm_talos]
+  depends_on = [module.linux_talos_domain]
   for_each   = local.talos_cluster_vm_config.nodes
 
   # Configuration patch applications MUST trigger a full node reboot
@@ -95,8 +36,8 @@ resource "talos_machine_configuration_apply" "this" {
 
   client_configuration        = talos_machine_secrets.this.client_configuration
   machine_configuration_input = data.talos_machine_configuration.this[each.key].machine_configuration
-  node                        = module.hypervisor_kvm_talos.maintenance_addresses[each.key]
-  endpoint                    = module.hypervisor_kvm_talos.maintenance_addresses[each.key]
+  node                        = module.linux_talos_domain.maintenance_addresses[each.key]
+  endpoint                    = module.linux_talos_domain.maintenance_addresses[each.key]
 }
 
 resource "talos_machine_bootstrap" "this" {
@@ -106,19 +47,7 @@ resource "talos_machine_bootstrap" "this" {
   client_configuration = talos_machine_secrets.this.client_configuration
 
   timeouts = {
-    create = var.bootstrap_timeout
-  }
-}
-
-data "talos_cluster_health" "this" {
-  depends_on = [talos_machine_bootstrap.this]
-
-  client_configuration = talos_machine_secrets.this.client_configuration
-  control_plane_nodes  = values(local.hostonly_addresses)
-  endpoints            = values(local.hostonly_addresses)
-
-  timeouts = {
-    read = var.health_timeout
+    create = var.talos_config.bootstrap_timeout
   }
 }
 

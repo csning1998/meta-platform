@@ -1,47 +1,15 @@
 
 variable "svc_identity" {
-  description = "The SSoT identity object for this load balancer cluster."
+  description = "The SSoT identity object of the cluster."
   type = object({
-    service_name      = string
     cluster_name      = string
     node_name_prefix  = string
-    ansible_inventory = string
-    ssh_config        = string
-    domain_suffix     = string
-  })
-}
-
-variable "topology_cluster" {
-  description = "Standardized compute topology configuration for the Talos load balancer cluster. Cluster naming comes from svc_identity.cluster_name; this object carries no separate name field."
-  type = object({
     storage_pool_name = string
-
-    load_balancer_config = object({
-      nodes = map(object({
-        vcpu           = number
-        ram            = number
-        ip_suffix      = number
-        extra_networks = optional(map(string), {})
-      }))
-    })
   })
-
-  validation {
-    condition     = length(var.topology_cluster.load_balancer_config.nodes) > 0
-    error_message = "High Availability architecture requires at least one Talos node."
-  }
-
-  validation {
-    condition = alltrue([
-      for k, node in var.topology_cluster.load_balancer_config.nodes :
-      node.vcpu >= 2 && node.ram >= 2048
-    ])
-    error_message = "Talos control-plane nodes require at least 2 vCPUs and 2048 MiB RAM."
-  }
 }
 
 variable "svc_network_map" {
-  description = "Pure MECE mapping of calculated network attributes (from foundation-libvirt-resources)."
+  description = "Pure MECE mapping of calculated network attributes (from foundation-libvirt-resources), keyed by cluster_name. The map MUST contain the entry of this cluster and the entry of every service segment."
   type = map(object({
     segment_key     = string
     cidr_block      = string
@@ -76,15 +44,15 @@ variable "svc_network_map" {
   }))
 }
 
-variable "network_service_segments" {
-  description = "List of network segments (infrastructure creation only)."
-  type = list(object({
-    name        = string
-    bridge_name = string
-    tags        = optional(list(string))
-    cidr        = string
-    node_ips    = map(string)
-  }))
+variable "platform_route_cidrs" {
+  description = "Platform networks which every node reaches through the hostonly gateway, matching the route which linux-generic-domain writes into the VM network configuration."
+  type        = list(string)
+  default     = ["172.16.0.0/16"]
+
+  validation {
+    condition     = alltrue([for cidr in var.platform_route_cidrs : can(cidrnetmask(cidr))])
+    error_message = "Every platform_route_cidrs entry MUST be an IPv4 CIDR."
+  }
 }
 
 variable "network_infrastructure_map" {
@@ -112,62 +80,94 @@ variable "network_infrastructure_map" {
   }))
 }
 
+variable "network_service_segments" {
+  description = "Service segments which the nodes join. Every node takes the host address at its ip_suffix in each segment."
+  type = list(object({
+    name        = string
+    bridge_name = string
+    tags        = optional(list(string))
+    cidr        = string
+  }))
+  default = []
+}
+
+variable "storage_infrastructure_map" {
+  description = "Volumes of the foundation storage map, keyed by volume key. A volume named <node prefix>-<ip suffix>-<name> attaches to the matching node."
+  type = map(object({
+    pool_name      = string
+    volume_name    = string
+    os_disk_format = string
+  }))
+  default = {}
+}
+
 variable "talos_iso_path" {
-  description = "Absolute path to the Talos metal ISO used to bootstrap every node in this cluster."
+  description = "Absolute path to the Talos metal ISO which boots every node."
   type        = string
 }
 
-variable "os_disk_format" {
-  description = "OS disk volume format passed through to hypervisor-kvm-talos. Defaults to raw for etcd's write pattern; set qcow2 to opt into thin provisioning and snapshots."
-  type        = string
-  default     = "raw"
+variable "node_config" {
+  description = "Hardware resources and IP offsets of the control plane nodes, keyed by short keys such as 00. The module names each node <node prefix>-NN in sorted key order."
+  type = map(object({
+    ip_suffix      = number
+    vcpu           = number
+    ram            = number
+    extra_networks = optional(map(string), {})
+  }))
 
   validation {
-    condition     = contains(["raw", "qcow2"], var.os_disk_format)
-    error_message = "os_disk_format must be 'raw' or 'qcow2'."
+    condition     = length(var.node_config) > 0
+    error_message = "The cluster requires at least one Talos node."
+  }
+
+  validation {
+    condition     = alltrue([for key, node in var.node_config : node.vcpu >= 2 && node.ram >= 2048])
+    error_message = "Talos control-plane nodes require at least 2 vCPUs and 2048 MiB RAM."
   }
 }
 
-variable "talos_kubernetes_version" {
-  description = "Kubernetes version deployed by this Talos cluster, e.g. v1.32.0."
-  type        = string
+variable "talos_config" {
+  description = "Talos settings. The talos_version drives the config schema and the installer image, and MUST match the release of the boot ISO. The os_disk_format defaults to raw for the write pattern of etcd. Every node is a control plane member, and allow_scheduling_on_control_planes lets the workloads run on the nodes. The bootstrap_timeout absorbs the install-to-disk and reboot cycle, and the health_timeout covers the Cilium image pull on which kubelet readiness depends."
+  type = object({
+    talos_version                      = string
+    kubernetes_version                 = string
+    os_disk_format                     = optional(string, "raw")
+    allow_scheduling_on_control_planes = optional(bool, true)
+    bootstrap_timeout                  = optional(string, "10m")
+    health_timeout                     = optional(string, "15m")
+  })
+
+  validation {
+    condition     = contains(["raw", "qcow2"], var.talos_config.os_disk_format)
+    error_message = "talos_config.os_disk_format must be 'raw' or 'qcow2'."
+  }
 }
 
-variable "cilium_inline_manifest" {
-  description = "Rendered Cilium installation manifest, injected via cluster.inlineManifests so Cilium becomes active during bootstrap, before kubectl is reachable and before Harbor exists to serve the chart."
-  type        = string
-}
-
-variable "extra_inline_manifests" {
-  description = "Additional manifests injected via cluster.inlineManifests, keyed by manifest name, with 'cilium' reserved."
+variable "inline_manifests" {
+  description = "Manifests applied through cluster.inlineManifests, keyed by manifest name. The cilium entry MUST exist, since the cluster has no CNI before the first boot completes."
   type        = map(string)
-  default     = {}
 
   validation {
-    condition     = !contains(keys(var.extra_inline_manifests), "cilium")
-    error_message = "The manifest name cilium is reserved for cilium_inline_manifest."
+    condition     = contains(keys(var.inline_manifests), "cilium")
+    error_message = "inline_manifests MUST carry the cilium entry."
   }
 }
 
-variable "allow_scheduling_on_control_planes" {
-  description = "Removes the control plane NoSchedule taint, so that workloads run on the control plane nodes. Every node of this module is a control plane member, and a cluster without workers schedules nothing otherwise."
-  type        = bool
-  default     = false
+variable "volume_config" {
+  description = "Talos user volume which formats the data disk at device and mounts the disk at /var/mnt/<name>. Null leaves the data disk unformatted."
+  type = object({
+    name   = string
+    device = optional(string, "/dev/vdb")
+  })
+  default = null
 }
 
-variable "bootstrap_timeout" {
-  description = "Retry window for the etcd bootstrap RPC. The provider retries internally for this duration, which absorbs the install-to-disk and reboot cycle following configuration delivery. Matches the provider default of 10 minutes."
-  type        = string
-  default     = "10m"
-}
-
-variable "health_timeout" {
-  description = "Timeout for talos_cluster_health to observe etcd, Kubernetes, and kubelet convergence, including the Cilium CNI image pull and startup on which kubelet readiness depends."
-  type        = string
-  default     = "15m"
-}
-
-variable "talos_version" {
-  description = "Talos release deployed by this cluster, e.g. v1.13.8. Drives the config schema contract and the installer image, and MUST match the release the boot ISO carries."
-  type        = string
+variable "registry_mirror_config" {
+  description = "Pull-through cache which every node uses in place of the upstream registries. The host is the registry host name, the CA is the PEM bundle which verifies the registry certificate, and each mirror maps an upstream domain to a project on the host. Null keeps the upstream registries."
+  type = object({
+    host    = string
+    ca_pem  = string
+    mirrors = map(string)
+  })
+  default = null
 }

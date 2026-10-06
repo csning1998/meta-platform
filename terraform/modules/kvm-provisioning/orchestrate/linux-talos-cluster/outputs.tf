@@ -20,3 +20,8 @@ output "bootstrap_node_key" {
   description = "Target node identifier for etcd cluster bootstrap and Kubernetes API endpoint initialization."
   value       = local.bootstrap_node_key
 }
+
+output "volume_mount_path" {
+  description = "Mount path of the Talos user volume on every node. Null without a user volume."
+  value       = var.volume_config == null ? null : "/var/mnt/${var.volume_config.name}"
+}
