@@ -43,7 +43,8 @@
         msg: "{{ ansible_failed_result.msg | default('see task output above') }}"
 
 # The workstation issues the certificate with the tenant token, and the private key never enters a Terraform state.
-# A certificate from a rebuilt pki-platform fails the chain check, and a certificate inside the renewal window fails checkend.
+# A certificate from a rebuilt pki-platform fails the chain check,
+# and a certificate inside the renewal window fails checkend.
 - name: "Block A2: Issue the Listener Certificate from pki-platform"
   become: true
   block:
@@ -89,7 +90,11 @@
         # The raft peers join through the node addresses, hence each node carries its own address and the VIP.
         - name: "A2d-ii. Issue the certificate and the private key"
           ansible.builtin.uri:
-            url: "{{ operator_vault_url ~ '/v1/' ~ platform_vault_pki_mount_path ~ '/issue/' ~ platform_vault_pki_role_name }}"
+            url: >-
+              {{
+                operator_vault_url ~ '/v1/' ~ platform_vault_pki_mount_path
+                ~ '/issue/' ~ platform_vault_pki_role_name
+              }}
             method: POST
             headers:
               X-Vault-Token: "{{ utils_vault_operator_login_token }}"
@@ -110,7 +115,11 @@
 
         - name: "A2d-iii. Write the server certificate followed by the issuing intermediate"
           ansible.builtin.copy:
-            content: "{{ _platform_vault_listener_issue.json.data.certificate ~ '\n' ~ _platform_vault_listener_issue.json.data.issuing_ca ~ '\n' }}"
+            content: >-
+              {{
+                _platform_vault_listener_issue.json.data.certificate ~ '\n'
+                ~ _platform_vault_listener_issue.json.data.issuing_ca ~ '\n'
+              }}
             dest: "{{ vault_dir_tls }}/vault.crt"
             owner: "{{ vault_owner }}"
             group: "{{ vault_group }}"

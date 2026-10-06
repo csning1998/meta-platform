@@ -1,5 +1,6 @@
 ---
-# Section A: Listener certificate. The PKI role caps the lifetime at 90 days, and a run within the last 30 days issues a new one.
+# Section A: Listener certificate. The PKI role caps the lifetime at 90 days,
+# and a run within the last 30 days issues a new one.
 platform_vault_listener_cert_ttl: "2160h"
 platform_vault_listener_renew_before_seconds: 2592000
 

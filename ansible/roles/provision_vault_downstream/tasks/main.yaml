@@ -79,7 +79,8 @@
     - name: "A6. Read the status of the first server"
       ansible.builtin.command:
         argv: >-
-          {{ _provision_vault_downstream_kubectl +
+          {{
+            _provision_vault_downstream_kubectl +
             [
               'exec', _provision_vault_downstream_pods[0], '-c', provision_vault_downstream_container, '--',
               'vault', 'status', '-format=json'
@@ -92,11 +93,14 @@
     - name: "A7. Initialize the first server"
       when: not (_provision_vault_downstream_first_status.stdout | from_json).initialized
       vars:
-        _share_flag: "{{ '-recovery-shares=' if provision_vault_downstream_seal == 'transit' else '-key-shares=' }}"
-        _threshold_flag: "{{ '-recovery-threshold=' if provision_vault_downstream_seal == 'transit' else '-key-threshold=' }}"
+        _share_flag: >-
+          {{ '-recovery-shares=' if provision_vault_downstream_seal == 'transit' else '-key-shares=' }}
+        _threshold_flag: >-
+          {{ '-recovery-threshold=' if provision_vault_downstream_seal == 'transit' else '-key-threshold=' }}
       ansible.builtin.command:
         argv: >-
-          {{ _provision_vault_downstream_kubectl +
+          {{
+            _provision_vault_downstream_kubectl +
             [
               'exec', _provision_vault_downstream_pods[0], '-c', provision_vault_downstream_container, '--',
               'vault', 'operator', 'init',
