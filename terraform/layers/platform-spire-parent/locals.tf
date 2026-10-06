@@ -2,36 +2,39 @@
 # GitLab HTTP backend base URL. Authentication credentials must be supplied via
 # `TF_HTTP_USERNAME` and `TF_HTTP_PASSWORD` environment variables.
 locals {
-  _state_base_meta_platform           = "https://gitlab.com/api/v4/projects/84608830/terraform/state"
-  _state_base_parent_group_governance = "https://gitlab.com/api/v4/projects/86417732/terraform/state"
+  _state_base_meta_platform = "https://gitlab.com/api/v4/projects/84608830/terraform/state"
 }
 
 locals {
   state = {
     foundation_libvirt_resources = data.terraform_remote_state.foundation_libvirt_resources.outputs
-    foundation_vault_bastion     = data.terraform_remote_state.foundation_vault_bastion.outputs
   }
 }
 
+# Each registry field holds one category in JSON. The facts are not secret, while the provider marks every KV value as sensitive.
 locals {
-  project_code = local.state.foundation_libvirt_resources.foundation_vault_path.project_code
+  registry_bastion = {
+    for field, value in nonsensitive(data.vault_generic_secret.registry_bastion.data) : field => jsondecode(value)
+  }
+  registry_spire_trust_domains = jsondecode(nonsensitive(data.vault_generic_secret.registry_platform_trust.data["spire_trust_domains"]))
 
-  # Extracts the SPIRE trust domain ("<stage>.<domain_suffix>") from module.context.svc_fqdn.
+  bastion_pki_spire    = local.registry_bastion.pki.constrained_intermediates["pki-spire"]
+  bastion_pki_platform = local.registry_bastion.pki.constrained_intermediates["pki-platform"]
+}
+
+locals {
+  foundation_project_code = local.state.foundation_libvirt_resources.foundation_vault_path.project_code
+
+  # Extracts the SPIRE trust domain ("<stage>.<domain_suffix>") from module.terraform_layer_context.cluster_fqdn.
   # Asserts structural alignment with "<service_name>.<stage>.<domain_suffix>".
   # Pattern mismatches MUST trigger plan-time evaluation failure to prevent invalid trust domain propagation.
-  spire_trust_domain   = regex("^[^.]+\\.(${module.context.svc_identity.stage}\\..+)$", module.context.svc_fqdn)[0]
-  spire_server_port    = module.context.primary_net_config.lb_config.ports.api.frontend_port
-  spire_oidc_port      = module.context.primary_net_config.lb_config.ports.oidc.frontend_port
-  spire_parent_node_ip = one(module.context.svc_network.node_ips)
+  spiffe_trust_domain  = regex("^[^.]+\\.(${module.terraform_layer_context.cluster_identity.stage}\\..+)$", module.terraform_layer_context.cluster_fqdn)[0]
+  spire_server_port    = module.terraform_layer_context.primary_network_config.lb_config.ports.api.frontend_port
+  spire_oidc_port      = module.terraform_layer_context.primary_network_config.lb_config.ports.oidc.frontend_port
+  spire_parent_node_ip = one(module.terraform_layer_context.cluster_network.node_ips)
 
   # Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 1 Item C.
-  bastion_pki_chain_pem = "${local.state.foundation_vault_bastion.bastion_vault_pki.root_cert_pem}\n${local.state.foundation_vault_bastion.bastion_vault_pki.intermediate_cert_pem}"
-
-  oidc_listener_bundle = {
-    server_cert_b64 = base64encode(vault_pki_secret_backend_cert.oidc_discovery.certificate)
-    server_key_b64  = base64encode(vault_pki_secret_backend_cert.oidc_discovery.private_key)
-    ca_cert_b64     = base64encode(local.bastion_pki_chain_pem)
-  }
+  oidc_ca_chain_pem = "${trimspace(local.registry_bastion.pki.root_cert_pem)}\n${trimspace(local.bastion_pki_platform.cert_pem)}\n"
 
   # k8s:psat node attestation configures trusted ServiceAccount allowlists for downstream SPIRE child clusters.
   spire_child_k8s_psat_clusters = [
@@ -43,29 +46,34 @@ locals {
   ]
 
   ansible_template_config = {
-    global_mss                = module.context.global_mss
-    spire_parent_vip          = module.context.primary_net_config.lb_config.vip
-    spire_parent_cluster_name = module.context.svc_identity.cluster_name
+    global_mss                = module.terraform_layer_context.global_mss
+    spire_parent_vip          = module.terraform_layer_context.primary_network_config.lb_config.vip
+    spire_parent_cluster_name = module.terraform_layer_context.cluster_identity.cluster_name
     spire_parent_node_ip      = local.spire_parent_node_ip
-    spire_trust_domain        = local.spire_trust_domain
+    spire_trust_domain        = local.spiffe_trust_domain
     spire_server_port         = local.spire_server_port
     spire_oidc_discovery_port = local.spire_oidc_port
+    spire_k8s_psat_clusters   = jsonencode(local.spire_child_k8s_psat_clusters)
 
     # Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 4 Item B.
     spire_oidc_domain = local.spire_parent_node_ip
-
-    spire_k8s_psat_clusters = jsonencode(local.spire_child_k8s_psat_clusters)
   }
 
+  # Every value is public. Ansible issues the secret ID and the listener key with the tenant token, outside the state.
   ansible_extra_config = {
-    ansible_user = module.context.sec_vm_credentials.username
+    ansible_user = module.terraform_layer_context.security_vm_credentials.username
 
-    spire_vault_upstream_addr                  = local.state.foundation_vault_bastion.bastion_vault.endpoint
-    spire_vault_upstream_pki_mount_path        = local.state.foundation_vault_bastion.bastion_vault_pki.intermediate_mount_path
-    spire_vault_upstream_approle_mount_path    = local.state.foundation_vault_bastion.bastion_vault_auth.approle_mount_path
-    spire_vault_upstream_role_id               = vault_approle_auth_backend_role.spire_upstream_authority.role_id
-    spire_vault_upstream_secret_id             = vault_approle_auth_backend_role_secret_id.spire_upstream_authority.secret_id
-    spire_vault_upstream_ca_cert_b64           = filebase64(local.state.foundation_vault_bastion.bastion_vault.listener_ca_cert_path)
+    spire_vault_upstream_addr                  = local.registry_bastion.vault.endpoint
+    spire_vault_upstream_pki_mount_path        = local.bastion_pki_spire.mount_path
+    spire_vault_upstream_approle_mount_path    = local.registry_bastion.vault.approle_mount_path
+    spire_vault_upstream_role_name             = vault_approle_auth_backend_role.spire_parent_upstream_authority.role_name
+    spire_vault_upstream_role_id               = vault_approle_auth_backend_role.spire_parent_upstream_authority.role_id
+    spire_vault_upstream_ca_cert_b64           = base64encode(local.registry_bastion.vault.listener_ca_cert_pem)
+    spire_oidc_pki_mount_path                  = vault_pki_secret_backend_role.oidc_discovery.backend
+    spire_oidc_pki_role_name                   = vault_pki_secret_backend_role.oidc_discovery.name
+    spire_oidc_common_name                     = module.terraform_layer_context.cluster_fqdn
+    spire_oidc_ip_sans                         = join(",", module.terraform_layer_context.cluster_network.node_ips)
+    spire_oidc_ca_chain_b64                    = base64encode(local.oidc_ca_chain_pem)
     spire_parent_trust_domain_reinitialization = var.spire_trust_domain_reinitialization
   }
 }

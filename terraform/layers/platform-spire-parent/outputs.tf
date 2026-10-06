@@ -1,33 +1,35 @@
 
-output "service_vip" {
-  description = "The virtual IP assigned to the SPIRE Parent service from Cilium topology."
-  value       = module.context.primary_net_config.lb_config.vip
-}
-
-output "node_exporter_targets" {
-  description = "Node Exporter scrape targets (per-node IPs and port) for the SPIRE Parent VM fleet."
+output "generic_cluster" {
+  description = "Facts of the SPIRE Parent VM cluster."
   value = {
-    ips  = module.context.svc_network.node_ips
-    port = module.context.node_exporter_port
+    service_vip = module.terraform_layer_context.primary_network_config.lb_config.vip
+    node_exporter_targets = {
+      ips  = module.terraform_layer_context.cluster_network.node_ips
+      port = module.terraform_layer_context.node_exporter_port
+    }
   }
 }
 
 output "spire_agent_bootstrap" {
   description = "Values a SPIRE Agent consumer needs to reach and trust this SPIRE Parent."
   value = {
-    node_ip      = one(module.context.svc_network.node_ips)
-    ssh_host     = "${module.context.svc_identity.cluster_name}-node-00"
-    trust_domain = local.spire_trust_domain
+    node_ip      = one(module.terraform_layer_context.cluster_network.node_ips)
+    ssh_host     = "${module.terraform_layer_context.cluster_identity.cluster_name}-node-00"
+    trust_domain = local.spiffe_trust_domain
     server_port  = local.spire_server_port
   }
 }
 
-output "spire_oidc_auth_backend_path" {
-  description = "Mount path of the SPIRE Parent workload JWT-SVID federation backend, for role provisioning by workload-identity-federation module callers."
-  value       = vault_jwt_auth_backend.spire_oidc.path
+output "spire_oidc" {
+  description = "OIDC Discovery Provider coordinates and CA certificate of the SPIRE Parent."
+  value = {
+    auth_backend_path = "${module.terraform_layer_context.cluster_identity.cluster_name}-jwt-svid-provider"
+    discovery_url     = "https://${local.spire_parent_node_ip}:${local.spire_oidc_port}"
+    discovery_ca_pem  = local.oidc_ca_chain_pem
+  }
 }
 
-output "spire_oidc_discovery_url" {
-  description = "Issuer URL of the OIDC Discovery Provider of the SPIRE Parent, which a Vault instance trusts to validate the JWT-SVIDs of the local Terraform operators."
-  value       = "https://${local.spire_parent_node_ip}:${local.spire_oidc_port}"
+output "spire_upstream_ca_pem" {
+  description = "Certificate of pki-spire, the upstream root of the SPIRE trust bundle, which an upstream agent of the SPIRE Child trusts before its first attestation."
+  value       = local.bastion_pki_spire.cert_pem
 }

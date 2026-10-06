@@ -33,8 +33,8 @@
     url: "{{ utils_vault_kv2_read_access.endpoint }}"
     engine_mount_point: "{{ item.mount | default(utils_vault_kv2_read_engine_mount) }}"
     path: "{{ item.path }}"
-    auth_method: "{{ 'token' if utils_vault_operator_login_token | length > 0 else omit }}"
-    token: "{{ utils_vault_operator_login_token if utils_vault_operator_login_token | length > 0 else omit }}"
+    auth_method: token
+    token: "{{ utils_vault_operator_login_token }}"
     validate_certs: true
     ca_cert: "{{ utils_vault_kv2_read_access.ca_cert_path }}"
   loop: "{{ utils_vault_kv2_read_secrets }}"

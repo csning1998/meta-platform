@@ -1,5 +1,6 @@
 ---
 # Executed via ansible-runner or manual tag selection, using ANSIBLE_BECOME_PASS for privilege escalation.
+# The plays run inside a tenant session, whose VAULT_TOKEN writes the join tokens to the Bastion KV.
 - name: "Play [Setup]: Dynamic Grouping based on node_role"
   hosts: all
   gather_facts: false
@@ -30,15 +31,24 @@
     # Normalizes input formats by accepting JSON-encoded strings from automation runners or native YAML lists.
     _utils_terraform_operator_identity_names_raw: "{{ utils_terraform_operator_identity_names | default([]) }}"
     _utils_terraform_operator_identity_names: >-
-      {{ (_utils_terraform_operator_identity_names_raw is string)
-        | ternary(_utils_terraform_operator_identity_names_raw | from_json, _utils_terraform_operator_identity_names_raw) }}
+      {{
+        (_utils_terraform_operator_identity_names_raw is string) |
+        ternary(
+          _utils_terraform_operator_identity_names_raw | from_json,
+          _utils_terraform_operator_identity_names_raw
+        )
+      }}
     # Resolves identity names to absolute SPIFFE ID paths across string or native list inputs.
     _utils_terraform_operator_identity_spiffe_paths_raw: >-
       {{ utils_terraform_operator_identity_spiffe_paths | default({}) }}
     _utils_terraform_operator_identity_spiffe_paths: >-
-      {{ (_utils_terraform_operator_identity_spiffe_paths_raw is string)
-        | ternary(_utils_terraform_operator_identity_spiffe_paths_raw | from_json,
-        _utils_terraform_operator_identity_spiffe_paths_raw) }}
+      {{
+        (_utils_terraform_operator_identity_spiffe_paths_raw is string) |
+        ternary(
+          _utils_terraform_operator_identity_spiffe_paths_raw | from_json,
+          _utils_terraform_operator_identity_spiffe_paths_raw
+        )
+      }}
   tasks:
     - name: "Register workload identity"
       ansible.builtin.include_role:
@@ -48,8 +58,10 @@
         utils_terraform_operator_identity_spiffe_path: "{{ _utils_terraform_operator_identity_spiffe_paths[item] }}"
       loop: "{{ _utils_terraform_operator_identity_names }}"
 
-# Validates operator identities e2e without privilege escalation to verify drop-in sudoers permissions.
-- name: "Play [Terraform Operator Verify]: Log in to the Bastion Vault as each operator identity"
+# Validates the wrappers without privilege escalation to verify drop-in sudoers permissions.
+# The Vault login with each JWT-SVID belongs to security-vault-downstream-tenants.
+# The login succeeds after the Downstream Vault trusts the SPIRE Parent.
+- name: "Play [Terraform Operator Verify]: Fetch a JWT-SVID as each operator identity"
   hosts: "{{ 'host_terraform_operator' if 'host_terraform_operator' in groups else [] }}"
   become: false
   gather_facts: false
@@ -58,49 +70,36 @@
   vars:
     _terraform_operator_verify_names_raw: "{{ utils_terraform_operator_identity_names | default([]) }}"
     _terraform_operator_verify_names: >-
-      {{ (_terraform_operator_verify_names_raw is string)
-        | ternary(_terraform_operator_verify_names_raw | from_json, _terraform_operator_verify_names_raw) }}
+      {{
+        (_terraform_operator_verify_names_raw is string) |
+        ternary(
+          _terraform_operator_verify_names_raw | from_json,
+          _terraform_operator_verify_names_raw
+        )
+      }}
   tasks:
     # Retries JWT retrieval until the agent sync cycle completes new registration entry propagation.
     - name: "Step V1. Fetch a JWT-SVID through the wrapper of each identity"
       ansible.builtin.command:
         cmd: "/usr/local/bin/spire-fetch-{{ item }}"
+      loop: "{{ _terraform_operator_verify_names }}"
       register: _terraform_operator_verify_jwt
-      changed_when: false
       until: _terraform_operator_verify_jwt.rc == 0
       retries: 12
       delay: 5
-      no_log: true
-      loop: "{{ _terraform_operator_verify_names }}"
-
-    - name: "Step V2. Log in to the Bastion Vault with each JWT-SVID"
-      ansible.builtin.uri:
-        url: "{{ bastion_vault_endpoint }}/v1/auth/{{ spire_oidc_auth_path }}/login"
-        method: POST
-        body_format: json
-        body:
-          role: "{{ item.item }}"
-          jwt: "{{ (item.stdout | from_json).jwt }}"
-        ca_path: "{{ bastion_vault_ca_cert_path }}"
-        validate_certs: true
-        return_content: true
-      register: _terraform_operator_verify_login
       changed_when: false
       no_log: true
-      loop: "{{ _terraform_operator_verify_jwt.results }}"
 
-    - name: "Step V3. Reduce the logins to the policies which they granted"
-      ansible.builtin.set_fact:
-        _terraform_operator_verify_policies: >-
-          {{ _terraform_operator_verify_policies | default({})
-            | combine({item.item.item: item.json.auth.policies}) }}
-      no_log: true
-      loop: "{{ _terraform_operator_verify_login.results }}"
-
-    - name: "Step V4. Assert that each login granted the policy named after its identity"
+    # The JWT payload is base64url without padding, and the filter takes standard base64 with padding.
+    - name: "Step V2. Assert that each JWT-SVID carries the issuer which the Downstream Vault binds"
+      vars:
+        _payload: "{{ (item.stdout | from_json).jwt.split('.')[1] | replace('-', '+') | replace('_', '/') }}"
+        _claims: "{{ (_payload ~ ('=' * ((4 - (_payload | length) % 4) % 4))) | b64decode | from_json }}"
       ansible.builtin.assert:
         that:
-          - item in _terraform_operator_verify_policies[item]
-        success_msg: "{{ item }} logged in and holds its own policy"
-        fail_msg: "{{ item }} did not receive the policy of the same name"
-      loop: "{{ _terraform_operator_verify_names }}"
+          - _claims.iss | default('') == spire_jwt_issuer
+        success_msg: "{{ item.item }} fetched a JWT-SVID of issuer {{ spire_jwt_issuer }}"
+        fail_msg: "{{ item.item }} fetched a JWT-SVID whose issuer differs from {{ spire_jwt_issuer }}"
+      loop: "{{ _terraform_operator_verify_jwt.results }}"
+      loop_control:
+        label: "{{ item.item }}"

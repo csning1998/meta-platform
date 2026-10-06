@@ -2,27 +2,27 @@
 - name: "Block A: Resolve inventory_hostname's Current Agent SPIFFE ID"
   become: false
   block:
-    - name: "Step A0. Assert that the caller supplies the Bastion Vault CA path"
+    - name: "Step A0. Assert that the caller supplies the operator Vault coordinates"
       ansible.builtin.assert:
         that:
-          - bastion_vault_ca_cert_path is defined
-          - bastion_vault_ca_cert_path | length > 0
+          - operator_vault_url | default('') | length > 0
+          - operator_vault_ca_cert_path | default('') | length > 0
         fail_msg: >-
-          bastion_vault_ca_cert_path MUST name the CA file which verifies the Bastion Vault listener.
-          Terraform supplies it from the foundation-vault-bastion state, and a manual run passes it with -e.
+          operator_vault_url and operator_vault_ca_cert_path MUST name the operator Vault and the CA file of its listener.
+          A tenant session exports both values, and a layer which targets another Vault passes both values.
 
     # Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 8 Item A.
-    - name: "Step A1. Read inventory_hostname's join_token from Bastion Vault"
+    - name: "Step A1. Read inventory_hostname's join_token from the operator Vault"
       ansible.builtin.include_role:
         name: utils_vault_kv2_read
       vars:
         utils_vault_kv2_read_access:
-          endpoint: "{{ bastion_vault_url }}"
-          ca_cert_path: "{{ bastion_vault_ca_cert_path }}"
-          auth_mount: "{{ bastion_operator_auth_mount | default('') }}"
-          role: "{{ bastion_operator_role | default('') }}"
-          wrapper: "{{ bastion_operator_wrapper | default('') }}"
-        utils_vault_kv2_read_use_ambient: "{{ bastion_vault_use_ambient_token | default(false) | bool }}"
+          endpoint: "{{ operator_vault_url }}"
+          ca_cert_path: "{{ operator_vault_ca_cert_path }}"
+          auth_mount: "{{ operator_vault_auth_mount | default('') }}"
+          role: "{{ operator_vault_role | default('') }}"
+          wrapper: "{{ operator_vault_wrapper | default('') }}"
+        utils_vault_kv2_read_use_ambient: "{{ operator_vault_use_ambient_token | default(false) | bool }}"
         utils_vault_kv2_read_secrets:
           - path: "{{ utils_spire_workload_entry_join_token_vault_path }}"
             as: join_token
@@ -53,11 +53,11 @@
           utils_spire_server_command_parent_ssh_host: "{{ spire_parent_ssh_host | default('') }}"
           utils_spire_server_command_parent_socket_path: "{{ spire_dir_data }}/private/api.sock"
           utils_spire_server_command_child_kubeconfig_kv_path: "{{ utils_spire_workload_entry_child_kubeconfig_kv_path }}"
-          utils_spire_server_command_terraform_operator_jwt_command: "{{ bastion_operator_wrapper | default('') }}"
-          utils_spire_server_command_terraform_operator_vault_role: "{{ bastion_operator_role | default('') }}"
-          utils_spire_server_command_terraform_operator_vault_auth_mount: "{{ bastion_operator_auth_mount | default('') }}"
-          utils_spire_server_command_bastion_vault_endpoint: "{{ bastion_vault_url | default('') }}"
-          utils_spire_server_command_bastion_vault_ca_cert_path: "{{ bastion_vault_ca_cert_path | default('') }}"
+          utils_spire_server_command_terraform_operator_jwt_command: "{{ operator_vault_wrapper | default('') }}"
+          utils_spire_server_command_terraform_operator_vault_role: "{{ operator_vault_role | default('') }}"
+          utils_spire_server_command_terraform_operator_vault_auth_mount: "{{ operator_vault_auth_mount | default('') }}"
+          utils_spire_server_command_operator_vault_endpoint: "{{ operator_vault_url | default('') }}"
+          utils_spire_server_command_operator_vault_ca_cert_path: "{{ operator_vault_ca_cert_path | default('') }}"
         utils_spire_server_command_arguments: >-
           entry show -spiffeID {{ utils_spire_workload_entry_spiffe_id }} -output json
 

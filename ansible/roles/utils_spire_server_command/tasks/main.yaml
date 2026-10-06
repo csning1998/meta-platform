@@ -50,19 +50,19 @@
           - utils_spire_server_command_terraform_operator_jwt_command | length > 0
           - utils_spire_server_command_terraform_operator_vault_role | length > 0
           - utils_spire_server_command_terraform_operator_vault_auth_mount | length > 0
-          - utils_spire_server_command_bastion_vault_endpoint | length > 0
-          - utils_spire_server_command_bastion_vault_ca_cert_path | length > 0
+          - utils_spire_server_command_operator_vault_endpoint | length > 0
+          - utils_spire_server_command_operator_vault_ca_cert_path | length > 0
         fail_msg: >-
           Kind child MUST receive the KV path of the Child kubeconfig, the JWT command, the Vault role and the auth mount
-          of the Terraform operator, and the endpoint and CA path of the Bastion Vault.
+          of the Terraform operator, and the endpoint and CA path of the operator Vault.
 
-    - name: "Step B1. Read the kubeconfig of the Child cluster from the Bastion KV"
+    - name: "Step B1. Read the kubeconfig of the Child cluster from the operator Vault KV"
       ansible.builtin.include_role:
         name: utils_vault_kv2_read
       vars:
         utils_vault_kv2_read_access:
-          endpoint: "{{ utils_spire_server_command_bastion_vault_endpoint }}"
-          ca_cert_path: "{{ utils_spire_server_command_bastion_vault_ca_cert_path }}"
+          endpoint: "{{ utils_spire_server_command_operator_vault_endpoint }}"
+          ca_cert_path: "{{ utils_spire_server_command_operator_vault_ca_cert_path }}"
           auth_mount: "{{ utils_spire_server_command_terraform_operator_vault_auth_mount }}"
           role: "{{ utils_spire_server_command_terraform_operator_vault_role }}"
           wrapper: "{{ utils_spire_server_command_terraform_operator_jwt_command }}"
