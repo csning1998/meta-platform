@@ -2,6 +2,8 @@ server {
   bind_address = "{{ spire_parent_node_ip }}"
   bind_port    = "{{ spire_server_port }}"
   trust_domain = "{{ spire_trust_domain }}"
+  # The issuer equals the discovery URL, which the JWT backend of the Downstream Vault binds as bound_issuer.
+  jwt_issuer   = "https://{{ spire_parent_node_ip }}:{{ spire_oidc_discovery_port }}"
   data_dir     = "{{ spire_dir_data }}"
   log_level    = "{{ platform_spire_parent_log_level }}"
 
@@ -19,7 +21,7 @@ plugins {
     }
   }
 
-  # Attests this host only; other consumers register with their own entries.
+  # Attests this host only. Other consumers register with their own entries.
   NodeAttestor "join_token" {
     plugin_data {}
   }
@@ -53,10 +55,10 @@ plugins {
       vault_addr       = "{{ spire_vault_upstream_addr }}"
       pki_mount_point  = "{{ spire_vault_upstream_pki_mount_path }}"
       ca_cert_path     = "{{ platform_spire_parent_upstream_ca_cert_path }}"
+      # The plugin reads the secret ID from VAULT_APPROLE_SECRET_ID, which the unit loads from a root-only file.
       approle_auth {
         approle_auth_mount_point = "{{ platform_spire_parent_upstream_approle_auth_mount_point }}"
         approle_id               = "{{ spire_vault_upstream_role_id }}"
-        approle_secret_id        = "{{ spire_vault_upstream_secret_id }}"
       }
     }
   }
