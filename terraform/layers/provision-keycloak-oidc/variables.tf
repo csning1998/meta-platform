@@ -13,15 +13,29 @@ variable "oidc_users" {
 }
 
 variable "talos_workload_config" {
-  description = "Keycloak workload of the Talos runtime. The images match the VM runtime, and the nodes pull them through the Harbor Origin mirrors. The local-path chart comes from its upstream OCI repository, as on the Downstream Vault."
+  description = "Keycloak workload of the Talos runtime. The images match the VM runtime by tag and carry the digest of the tag, and the nodes pull them through the Harbor Origin mirrors. The local-path chart comes from its upstream OCI repository, as on the Downstream Vault."
   type = object({
-    keycloak_image                          = optional(string, "quay.io/keycloak/keycloak:26.6.1")
-    postgres_image                          = optional(string, "docker.io/library/postgres:18-alpine")
-    database_storage_size                   = optional(string, "10Gi")
-    local_path_provisioner_chart_repository = optional(string, "oci://ghcr.io/rancher/local-path-provisioner/charts")
-    local_path_provisioner_chart_version    = optional(string, "0.0.37")
+    keycloak_image                          = string
+    postgres_image                          = string
+    database_storage_size                   = string
+    local_path_provisioner_chart_repository = string
+    local_path_provisioner_chart_version    = string
   })
-  default = {}
+  default = {
+    keycloak_image                          = "quay.io/keycloak/keycloak:26.6.1@sha256:dea26401d06341095cc4ea9d66896200b55de5ca1daa1d2fcbe58493afa6e0ad"
+    postgres_image                          = "docker.io/library/postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873"
+    database_storage_size                   = "10Gi"
+    local_path_provisioner_chart_repository = "oci://ghcr.io/rancher/local-path-provisioner/charts"
+    local_path_provisioner_chart_version    = "0.0.37"
+  }
+
+  validation {
+    condition = alltrue([
+      for image in [var.talos_workload_config.keycloak_image, var.talos_workload_config.postgres_image] :
+      can(regex("@sha256:[0-9a-f]{64}$", image))
+    ])
+    error_message = "keycloak_image and postgres_image MUST carry a sha256 digest."
+  }
 }
 
 variable "client_role_grants" {
