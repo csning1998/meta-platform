@@ -1,10 +1,6 @@
 
 terraform {
   required_providers {
-    external = {
-      source  = "hashicorp/external"
-      version = "2.4.1"
-    }
     vault = {
       source  = "hashicorp/vault"
       version = "5.5.0"
@@ -23,14 +19,12 @@ terraform {
 provider "vault" {
   alias        = "downstream"
   address      = local.downstream_vault.endpoint
-  ca_cert_file = local.state.security_vault_downstream_pki.bastion_pki_chain_b64.path
+  ca_cert_file = local.state.security_vault_downstream_tenants.downstream_vault_ca_cert_path
 
-  auth_login {
-    path = "auth/${local.state.security_vault_downstream_tenants.tenant_operator.auth_mount}/login"
-    parameters = {
-      role = local.state.security_vault_downstream_tenants.tenant_operator.role_name
-      jwt  = data.external.spire_jwt_downstream.result.jwt
-    }
+  # The JWT-SVID arrives through TERRAFORM_VAULT_AUTH_JWT from tools/terraform-operator.sh and stays out of the state.
+  auth_login_jwt {
+    mount = local.vault_downstream_operator.auth_mount
+    role  = local.vault_downstream_operator.role_name
   }
   skip_child_token = true
 }

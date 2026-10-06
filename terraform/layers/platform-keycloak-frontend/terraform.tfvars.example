@@ -12,3 +12,19 @@ service_config = {
     }
   }
 }
+
+# Read when the runtime of keycloak/frontend in the service catalog is a Kubernetes native runtime.
+node_config = {
+  "00" = { ip_suffix = 200, vcpu = 2, ram = 4096 }
+}
+
+talos_config = {
+  talos_version      = "v1.13.8"
+  kubernetes_version = "v1.36.5"
+}
+
+helm_chart_version = {
+  cilium           = "1.20.2"
+  cert_manager     = "v1.21.2"
+  external_secrets = "2.11.0"
+}
