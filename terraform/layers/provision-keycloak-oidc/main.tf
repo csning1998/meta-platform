@@ -1,5 +1,8 @@
 
+# On the Talos runtime the realm waits for the Keycloak rollout of runtime-talos.tf, and the module is absent on the VM runtime.
 resource "keycloak_realm" "infra_realm" {
+  depends_on = [module.manifest_keycloak]
+
   realm             = local.realm_id
   enabled           = true
   display_name      = "Infrastructure Centralized Identity"
@@ -27,23 +30,11 @@ locals {
   }, local.downstream_oidc_clients_resolved)
 }
 
-module "oidc_clients" {
-  source = "../../modules/identity-provisioning/keycloak-oidc-client"
-  providers = {
-    keycloak = keycloak
-    vault    = vault.downstream
-  }
-
-  realm_id           = keycloak_realm.infra_realm.id
-  oidc_clients       = local.oidc_clients_all
-  vault_kv_namespace = local.state.security_vault_downstream_tenants.foundation_vault_path.project_code
-  issuer_url         = "${local.keycloak_frontend_url}/realms/${local.realm_id}"
-}
 
 # Injects the target audience claim required by Vault OIDC backend token verification.
 resource "keycloak_openid_audience_protocol_mapper" "vault_audience" {
   realm_id  = keycloak_realm.infra_realm.id
-  client_id = module.oidc_clients.clients["vault_frontend"].id
+  client_id = keycloak_openid_client.clients["vault_frontend"].id
   name      = "audience-mapper"
 
   included_custom_audience = "vault-infra"

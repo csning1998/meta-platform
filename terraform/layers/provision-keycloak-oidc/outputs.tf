@@ -33,7 +33,7 @@ output "groups_metadata" {
 }
 
 output "oidc_clients" {
-  value     = module.oidc_clients.clients
+  value     = keycloak_openid_client.clients
   sensitive = true
 }
 
