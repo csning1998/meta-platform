@@ -111,7 +111,7 @@ locals {
   }
 
   # Credential storage paths MUST conform to the hierarchical namespace convention established across platform services.
-  ssh_credential_paths = { for key, data in local.segments : key => data.credential_path }
+  ssh_credential_paths = { for key, data in local.segments : key => data.credential_path if data.ssh.enabled }
 }
 
 # Global Infrastructure DNS SSoT (Requires Libvirt Provider >= 0.9.7)

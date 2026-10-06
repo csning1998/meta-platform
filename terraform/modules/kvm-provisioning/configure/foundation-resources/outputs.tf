@@ -1,94 +1,77 @@
 
-output "infrastructure_map" {
-  description = "Physical realization bridging foundation-metadata Math and service VIPs, mapped perfectly to O(1) SSoT Identity keys. Consumed by all platform-*-frontend and provision-* layers."
-
+output "topology" {
+  description = "Topology of every service segment: identity, network, service segments, and the physical realization that bridges identity and service VIPs, all keyed by the SSoT identity."
   value = {
-    for seg in local.net_service_segments : seg.name => {
-      # 1. Physical Infrastructure (Libvirt bridges, IPs)
-      network = local.net_infrastructure[seg.name]
+    identity = module.service_catalog.topology_identity
+    network  = module.service_catalog.topology_network
+    segments = local.net_service_segments
 
-      lb_config = {
-        vip   = seg.vip
-        ports = seg.ports
-        tags  = seg.tags
+    infrastructure = {
+      for seg in local.net_service_segments : seg.name => {
+        # 1. Physical Infrastructure (Libvirt bridges, IPs)
+        network = local.net_infrastructure[seg.name]
+
+        lb_config = {
+          vip   = seg.vip
+          ports = seg.ports
+          tags  = seg.tags
+        }
+
+        # Runtime enum from service_catalog (baremetal, docker, podman, microk8s, kubeadm, minikube, talos, external).
+        # provision-cilium-hubble and platform-haproxy-frontend read the runtime to decide which of the two owns a segment VIP.
+        runtime = seg.runtime
+
+        # 3. Available Node IP slots for downstream consumption
+        backend_servers = seg.backend_servers
       }
-
-      # Runtime enum from service_catalog (baremetal, docker, podman, microk8s, kubeadm, minikube, talos, external),
-      # This is read by provision-cilium-frontend and platform-haproxy-frontend to decide which of the two owns a segment VIP.
-      runtime = seg.runtime
-
-      # 3. Available Node IP slots for downstream consumption
-      backend_servers = seg.backend_servers
     }
+
+    # Runtimes which run Kubernetes. The consumers split the Kubernetes backends from the external backends by this list.
+    kubernetes_native_runtimes = ["talos", "kubeadm", "microk8s", "minikube"]
   }
 }
 
-output "service_segments" {
-  description = "Stable map of service segments, consumed by platform-cilium-frontend for network identity outputs."
-  value       = local.net_service_segments
+output "global" {
+  description = "Global facts shared by every consumer: the network baseline with CIDR, VIP offsets, and MTU and MSS, the root domain suffix, and the hostname to VIP records grouped by IP."
+  value = {
+    network_baseline = var.network_baseline
+    domain_suffix    = var.domain_suffix
+    dns_records      = module.service_catalog.dns_records
+    dns_mapping = [
+      for ip in sort(distinct([for r in local.metadata.global_dns_records : r.ip])) : {
+        ip        = ip
+        hostnames = sort(distinct([for r in local.metadata.global_dns_records : r.hostname if r.ip == ip]))
+      }
+    ]
+  }
 }
 
-output "dns_mapping" {
-  description = "SSoT DNS mapping for verification of Grouping and Sorting logic."
-  value = [
-    for ip in sort(distinct([for r in local.metadata.global_dns_records : r.ip])) : {
-      ip        = ip
-      hostnames = sort(distinct([for r in local.metadata.global_dns_records : r.hostname if r.ip == ip]))
-    }
-  ]
+output "pki" {
+  description = "PKI facts derived from the service catalog: the DNS SANs and organizational context per certificate."
+  value = {
+    map = module.service_catalog.pki_map
+  }
 }
 
-output "storage_infrastructure_map" {
-  description = "Physical realization of the global volume map. Ready to be plugged into KVM instances."
-  value       = local.global_volume_map
+output "storage" {
+  description = "Physical realization of the storage layout, ready for KVM instances, and the calculated volume attributes of the pools and data disks."
+  value = {
+    infrastructure = local.global_volume_map
+    volume_map     = module.service_catalog.volume_map
+  }
 }
 
-output "global_domain_suffix" {
-  description = "The root domain suffix (e.g., iac.local) for all downstream consumer projects."
-  value       = var.domain_suffix
+output "vault_path" {
+  description = "Mount-relative Vault KV paths: the credential folder of every service component, nested by service and component, and the SSH identity folder per cluster_name, under which foundation-vault-bastion writes ssh_private_key and ssh_public_key."
+  value = {
+    credential_paths     = module.service_catalog.credential_paths
+    ssh_credential_paths = local.ssh_credential_paths
+  }
 }
 
-output "global_network_baseline" {
-  description = "Base network configuration including CIDR, VIP offsets, and global MTU/MSS settings."
-  value       = var.network_baseline
-}
-
-output "global_topology_network" {
-  description = "Granular network attributes for all services/components (IPs, MACs, VIPs)."
-  value       = module.service_catalog.topology_network
-}
-
-output "global_topology_identity" {
-  description = "Granular cluster/node/storage identity and naming attributes."
-  value       = module.service_catalog.topology_identity
-}
-
-output "global_volume_map" {
-  description = "Pure MECE mapping of calculated storage volume attributes (Pools and physical Data Disks)."
-  value       = module.service_catalog.volume_map
-}
-
-output "global_pki_map" {
-  description = "Pure mapping of DNS SANs and organizational context for certificate generation."
-  value       = module.service_catalog.pki_map
-}
-
-output "global_dns_records" {
-  description = "SSoT mapping of all infrastructure hostnames to their respective VIPs."
-  value       = module.service_catalog.dns_records
-}
-
-output "ssh_hosts" {
-  description = "sshclient_identity_key/sshclient_host_config input map, keyed by cluster_name. Passed directly as the hosts variable of the ssh-identity-bootstrap module."
-  value       = local.ssh_hosts
-}
-
-output "ssh_credential_paths" {
-  description = "Vault KV path per cluster_name for the generated SSH identity key material. foundation-vault-bastion writes ssh_private_key/ssh_public_key under this path."
-  value       = local.ssh_credential_paths
-}
-
-output "global_credential_paths" {
-  description = "Mount-relative Vault KV paths for all service component credentials, nested by service and component."
-  value       = module.service_catalog.credential_paths
+output "ssh" {
+  description = "SSH identity inputs keyed by cluster_name. The hosts map is the identity_hosts input of the ssh-identity-bootstrap module."
+  value = {
+    hosts = local.ssh_hosts
+  }
 }
