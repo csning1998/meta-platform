@@ -29,3 +29,8 @@ output "management_policies" {
   description = "Map of human management identities (oidc-admin, oidc-auditor, oidc-developer) to their Vault ACL policy names, for OIDC group-to-policy mapping."
   value       = { for k in local.management_identities : k => vault_policy.management[k].name }
 }
+
+output "issuer_chain_pem" {
+  description = "Certificate chain which a leaf of the Downstream issuer appends: the Downstream issuer, pki-downstream, and the Bastion root."
+  value       = "${trimspace(base64decode(module.vault_pki_setup.prod_pki_issuer_cert_b64))}\n${trimspace(local.bastion_pki_downstream.cert_pem)}\n${trimspace(local.registry_bastion.pki.root_cert_pem)}\n"
+}
