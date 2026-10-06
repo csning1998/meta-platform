@@ -19,9 +19,9 @@ module "kubernetes_cilium_hubble" {
     namespace = "platform-hubble"
     gateway_vip = cidrhost(
       local.state.foundation_libvirt_resources.foundation_topology.network["cilium"]["hubble"].cidr_block,
-      local.state.foundation_libvirt_resources.foundation_global.network_baseline.host_vip_offset + 1
+      local.state.foundation_libvirt_resources.foundation_network_global.network_baseline.host_vip_offset + 1
     )
-    kv_path = one(local.external_secrets.kv_paths)
+    kv_path = one(local.cilium_hubble_external_secrets.kv_paths)
 
     # Subdomain matches the SAN policy of the Downstream PKI role of this cluster and requires external static DNS resolution.
     hostname = "hubble.${local.state.foundation_libvirt_resources.foundation_pki.map["cilium-hubble"].dns_san[0]}"
@@ -30,7 +30,7 @@ module "kubernetes_cilium_hubble" {
   gateway_config = {
     class_name        = kubernetes_manifest.gateway_class.manifest.metadata.name
     secret_store_name = kubernetes_manifest.downstream_vault_store.manifest.metadata.name
-    lb_policy_name    = "${local.project_code}-hubble-ui"
+    lb_policy_name    = "${local.foundation_project_code}-hubble-ui"
     issuer_ref        = module.platform_cluster_issuer.cluster_issuer
   }
 }

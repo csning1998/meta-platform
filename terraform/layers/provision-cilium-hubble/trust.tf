@@ -2,13 +2,13 @@
 # Bridges the Downstream Vault with the in-cluster cert-manager and External Secrets Operator of the Cilium cluster.
 locals {
   downstream_vault = {
-    address = local.state.security_vault_downstream_tenants.endpoint
-    ca_cert = file(local.state.security_vault_downstream_tenants.ca_cert_path)
+    address = local.state.security_vault_downstream_tenants.downstream_vault_endpoint
+    ca_cert = file(local.state.security_vault_downstream_tenants.downstream_vault_ca_cert_path)
   }
 
   # Derives unauthenticated VIP and cluster CA facts directly to bypass ephemeral kubeconfig limitations.
-  api_server_callback = {
-    host    = "https://${local.infrastructure_map[local.cilium_cluster_name].lb_config.vip}:6443"
+  cilium_hubble_api_server_callback = {
+    host    = "https://${local.foundation_infrastructure_map[local.cilium_cluster_name].lb_config.vip}:6443"
     ca_cert = data.kubernetes_config_map_v1.root_ca.data["ca.crt"]
   }
 }
@@ -32,7 +32,7 @@ data "kubernetes_resource" "cert_manager_webhook" {
 
   metadata {
     name      = "cert-manager-webhook"
-    namespace = local.cluster_issuer.namespace
+    namespace = local.cilium_hubble_cluster_issuer.namespace
   }
 
   lifecycle {
@@ -51,7 +51,7 @@ data "kubernetes_resource" "external_secrets_webhook" {
 
   metadata {
     name      = "external-secrets-webhook"
-    namespace = local.external_secrets.namespace
+    namespace = local.cilium_hubble_external_secrets.namespace
   }
 
   lifecycle {
@@ -68,9 +68,9 @@ module "vault_token_reviewer" {
   depends_on = [ephemeral.talos_cluster_health.this]
   providers  = { vault = vault.downstream }
 
-  api_server_connection    = local.api_server_callback
-  vault_auth_path          = local.cluster_issuer.auth_path
-  reviewer_service_account = { namespace = local.cluster_issuer.namespace }
+  api_server_connection    = local.cilium_hubble_api_server_callback
+  vault_auth_path          = local.cilium_hubble_cluster_issuer.auth_path
+  reviewer_service_account = { namespace = local.cilium_hubble_cluster_issuer.namespace }
 }
 
 module "platform_cluster_issuer" {
@@ -82,7 +82,7 @@ module "platform_cluster_issuer" {
     auth_path = module.vault_token_reviewer.vault_auth_path
     ca_cert   = local.downstream_vault.ca_cert
   }
-  issuer_config = local.cluster_issuer
+  issuer_config = local.cilium_hubble_cluster_issuer
 }
 
 # The Cilium chart mounts these Secrets, and the Hubble server and relay start serving mTLS once cert-manager writes the Secrets.
@@ -104,8 +104,8 @@ resource "kubernetes_service_account_v1" "external_secrets_vault" {
   depends_on = [ephemeral.talos_cluster_health.this]
 
   metadata {
-    name      = local.external_secrets.service_account
-    namespace = local.external_secrets.namespace
+    name      = local.cilium_hubble_external_secrets.service_account
+    namespace = local.cilium_hubble_external_secrets.namespace
   }
 }
 
@@ -120,13 +120,13 @@ resource "kubernetes_manifest" "downstream_vault_store" {
       provider = {
         vault = {
           server   = local.downstream_vault.address
-          path     = local.external_secrets.kv_mount_path
+          path     = local.cilium_hubble_external_secrets.kv_mount_path
           version  = "v2"
           caBundle = base64encode(local.downstream_vault.ca_cert)
           auth = {
             kubernetes = {
-              mountPath = local.cluster_issuer.auth_path
-              role      = local.external_secrets.role_name
+              mountPath = local.cilium_hubble_cluster_issuer.auth_path
+              role      = local.cilium_hubble_external_secrets.role_name
               serviceAccountRef = {
                 name      = kubernetes_service_account_v1.external_secrets_vault.metadata[0].name
                 namespace = kubernetes_service_account_v1.external_secrets_vault.metadata[0].namespace

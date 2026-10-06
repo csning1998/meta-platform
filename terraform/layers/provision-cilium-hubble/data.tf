@@ -33,8 +33,8 @@ ephemeral "talos_cluster_health" "this" {
     client_certificate = ephemeral.vault_kv_secret_v2.cilium_hubble.data["talos_client_certificate_b64"]
     client_key         = ephemeral.vault_kv_secret_v2.cilium_hubble.data["talos_client_key_b64"]
   }
-  control_plane_nodes = values(local.state.platform_cilium_hubble.hostonly_addresses)
-  endpoints           = values(local.state.platform_cilium_hubble.hostonly_addresses)
+  control_plane_nodes = values(local.state.platform_cilium_hubble.talos_cluster.hostonly_addresses)
+  endpoints           = values(local.state.platform_cilium_hubble.talos_cluster.hostonly_addresses)
 
   timeout = "10m"
 }

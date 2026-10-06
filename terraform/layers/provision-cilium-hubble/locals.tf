@@ -7,33 +7,30 @@ locals {
 
 locals {
   state = {
-    platform_cilium_hubble       = data.terraform_remote_state.platform_cilium_hubble.outputs
-    foundation_libvirt_resources = data.terraform_remote_state.foundation_libvirt_resources.outputs
-
+    platform_cilium_hubble            = data.terraform_remote_state.platform_cilium_hubble.outputs
+    foundation_libvirt_resources      = data.terraform_remote_state.foundation_libvirt_resources.outputs
     security_vault_downstream_tenants = data.terraform_remote_state.security_vault_downstream_tenants.outputs
     security_vault_downstream_pki     = data.terraform_remote_state.security_vault_downstream_pki.outputs
   }
 }
 
 locals {
-  cluster_issuer   = local.state.platform_cilium_hubble.cluster_issuer
-  external_secrets = local.state.platform_cilium_hubble.external_secrets
-
-
-  infrastructure_map = local.state.foundation_libvirt_resources.foundation_topology.infrastructure
-  project_code       = local.state.foundation_libvirt_resources.foundation_vault_path.project_code
+  cilium_hubble_cluster_issuer   = local.state.platform_cilium_hubble.talos_cluster.cluster_issuer
+  cilium_hubble_external_secrets = local.state.platform_cilium_hubble.talos_cluster.external_secrets
+  foundation_infrastructure_map  = local.state.foundation_libvirt_resources.foundation_topology.infrastructure
+  foundation_project_code        = local.state.foundation_libvirt_resources.foundation_vault_path.project_code
 }
 
 locals {
-  kubeconfig   = yamldecode(base64decode(ephemeral.vault_kv_secret_v2.cilium_hubble.data["content_b64"]))
-  cluster_info = local.kubeconfig.clusters[0].cluster
-  user_info    = local.kubeconfig.users[0].user
+  cilium_hubble_kubeconfig   = yamldecode(base64decode(ephemeral.vault_kv_secret_v2.cilium_hubble.data["content_b64"]))
+  cilium_hubble_cluster_info = local.cilium_hubble_kubeconfig.clusters[0].cluster
+  cilium_hubble_user_info    = local.cilium_hubble_kubeconfig.users[0].user
 
-  api_server_connection = {
-    host               = local.cluster_info.server
-    ca_cert            = base64decode(local.cluster_info["certificate-authority-data"])
-    client_certificate = base64decode(local.user_info["client-certificate-data"])
-    client_key         = base64decode(local.user_info["client-key-data"])
+  cilium_hubble_api_server_connection = {
+    host               = local.cilium_hubble_cluster_info.server
+    ca_cert            = base64decode(local.cilium_hubble_cluster_info["certificate-authority-data"])
+    client_certificate = base64decode(local.cilium_hubble_user_info["client-certificate-data"])
+    client_key         = base64decode(local.cilium_hubble_user_info["client-key-data"])
   }
 }
 
@@ -50,7 +47,7 @@ locals {
   # of which fail downstream against Cilium or the Kubernetes API.
   # A cluster tagged self-managed-lb holds its own VIP. An announcement of the VIP from this layer duplicates the holder.
   fronted_segments = {
-    for key, seg in local.infrastructure_map : key => seg
+    for key, seg in local.foundation_infrastructure_map : key => seg
     if key != local.cilium_cluster_name
     && !contains(seg.lb_config.tags, "self-managed-lb")
     && contains(local.kubernetes_native_runtimes, seg.runtime)
@@ -67,5 +64,5 @@ locals {
 
 # The operator of this component logs in to the Downstream Vault with the JWT-SVID of the SPIRE Parent.
 locals {
-  downstream_operator = local.state.security_vault_downstream_tenants.component_operators["cilium"]
+  cilium_hubble_operator = local.state.security_vault_downstream_tenants.downstream_vault_component_operators["cilium"]
 }

@@ -1,5 +1,5 @@
 
-output "fronted_service_vips" {
+output "cilium_hubble_fronted_service_vips" {
   description = "VIPs allocated via CiliumLoadBalancerIPPool for meta-platform's own catalog entries."
   value       = { for key, seg in local.fronted_segments : key => seg.lb_config.vip }
 }
@@ -10,6 +10,6 @@ output "hubble_ui" {
     hostname    = module.kubernetes_cilium_hubble.hubble_ui.hostname
     gateway_vip = module.kubernetes_cilium_hubble.hubble_ui.gateway_vip
     login_user  = module.kubernetes_cilium_hubble.hubble_ui.login_user
-    password_at = "${local.external_secrets.kv_mount_path}/${module.kubernetes_cilium_hubble.hubble_ui.kv_path}, field password"
+    password_at = "${local.cilium_hubble_external_secrets.kv_mount_path}/${module.kubernetes_cilium_hubble.hubble_ui.kv_path}, field password"
   }
 }

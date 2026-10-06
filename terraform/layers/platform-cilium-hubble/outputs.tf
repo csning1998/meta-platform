@@ -1,22 +1,12 @@
 
-output "hostonly_addresses" {
-  description = "Static HostOnly interface addresses per Talos node."
-  value       = module.platform_cilium_hubble.hostonly_addresses
-}
-
-output "bootstrap_node_key" {
-  description = "The node key used as the etcd bootstrap and Kubernetes API endpoint target."
-  value       = module.platform_cilium_hubble.bootstrap_node_key
-}
-
-output "cluster_issuer" {
-  description = "Coordinates of the cert-manager ClusterIssuer against the Downstream Vault."
-  value       = module.vault_auth_cilium_hubble.cluster_issuer
-}
-
-output "external_secrets" {
-  description = "Coordinates of the External Secrets Operator against the Downstream Vault."
-  value       = module.vault_auth_cilium_hubble.external_secrets
+output "talos_cluster" {
+  description = "Facts of the Cilium Hubble Talos cluster."
+  value = {
+    hostonly_addresses = module.establish_platform_cilium_hubble_talos_cluster.hostonly_addresses
+    bootstrap_node_key = module.establish_platform_cilium_hubble_talos_cluster.bootstrap_node_key
+    cluster_issuer     = module.vault_auth_cilium_hubble.cluster_issuer
+    external_secrets   = module.vault_auth_cilium_hubble.external_secrets
+  }
 }
 
 output "hubble_tls_certificates" {
