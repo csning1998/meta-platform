@@ -171,12 +171,12 @@
               utils_spire_server_command_parent_ssh_host: "{{ spire_parent_ssh_host | default('') }}"
               utils_spire_server_command_parent_socket_path: "{{ spire_dir_data }}/private/api.sock"
               utils_spire_server_command_child_kubeconfig_kv_path: "{{ utils_spire_agent_child_kubeconfig_kv_path }}"
-              utils_spire_server_command_terraform_operator_jwt_command: "{{ bastion_operator_wrapper | default('') }}"
-              utils_spire_server_command_terraform_operator_vault_role: "{{ bastion_operator_role | default('') }}"
+              utils_spire_server_command_terraform_operator_jwt_command: "{{ operator_vault_wrapper | default('') }}"
+              utils_spire_server_command_terraform_operator_vault_role: "{{ operator_vault_role | default('') }}"
               utils_spire_server_command_terraform_operator_vault_auth_mount: >-
-                {{ bastion_operator_auth_mount | default('') }}
-              utils_spire_server_command_bastion_vault_endpoint: "{{ bastion_vault_url | default('') }}"
-              utils_spire_server_command_bastion_vault_ca_cert_path: "{{ bastion_vault_ca_cert_path | default('') }}"
+                {{ operator_vault_auth_mount | default('') }}
+              utils_spire_server_command_operator_vault_endpoint: "{{ operator_vault_url | default('') }}"
+              utils_spire_server_command_operator_vault_ca_cert_path: "{{ operator_vault_ca_cert_path | default('') }}"
             utils_spire_server_command_arguments: "bundle show"
             utils_spire_server_command_tolerate_failure: true
 
@@ -231,25 +231,25 @@
 - name: "Block E: Provision join_token"
   when: not utils_spire_agent_already_attested
   block:
-    - name: "Step E0. Assert that the caller supplies the Bastion Vault CA path"
+    - name: "Step E0. Assert that the caller supplies the operator Vault coordinates"
       ansible.builtin.assert:
         that:
-          - bastion_vault_ca_cert_path is defined
-          - bastion_vault_ca_cert_path | length > 0
+          - operator_vault_url | default('') | length > 0
+          - operator_vault_ca_cert_path | default('') | length > 0
         fail_msg: >-
-          bastion_vault_ca_cert_path MUST name the CA file which verifies the Bastion Vault listener.
-          Terraform supplies it from the foundation-vault-bastion state, and a manual run passes it with -e.
+          operator_vault_url and operator_vault_ca_cert_path MUST name the operator Vault and the CA file of its listener.
+          A tenant session exports both values, and a layer which targets another Vault passes both values.
 
-    - name: "Step E0a. Log in to the Bastion Vault as the caller operator"
+    - name: "Step E0a. Log in to the operator Vault"
       ansible.builtin.include_role:
         name: utils_vault_operator_login
       vars:
-        utils_vault_operator_login_wrapper: "{{ bastion_operator_wrapper | default('') }}"
-        utils_vault_operator_login_role: "{{ bastion_operator_role | default('') }}"
-        utils_vault_operator_login_auth_mount: "{{ bastion_operator_auth_mount | default('') }}"
-        utils_vault_operator_login_endpoint: "{{ bastion_vault_url }}"
-        utils_vault_operator_login_ca_cert_path: "{{ bastion_vault_ca_cert_path }}"
-        utils_vault_operator_login_use_ambient: "{{ bastion_vault_use_ambient_token | default(false) | bool }}"
+        utils_vault_operator_login_wrapper: "{{ operator_vault_wrapper | default('') }}"
+        utils_vault_operator_login_role: "{{ operator_vault_role | default('') }}"
+        utils_vault_operator_login_auth_mount: "{{ operator_vault_auth_mount | default('') }}"
+        utils_vault_operator_login_endpoint: "{{ operator_vault_url }}"
+        utils_vault_operator_login_ca_cert_path: "{{ operator_vault_ca_cert_path }}"
+        utils_vault_operator_login_use_ambient: "{{ operator_vault_use_ambient_token | default(false) | bool }}"
 
     - name: "Step E1. Generate join_token on the SPIRE server"
       ansible.builtin.include_role:
@@ -264,17 +264,17 @@
         utils_spire_agent_join_token: "{{ (utils_spire_server_command_result.stdout | from_json).value }}"
       no_log: true
 
-    - name: "Step E3. Persist join_token to Bastion Vault for audit"
+    - name: "Step E3. Persist join_token to the operator Vault for audit"
       community.hashi_vault.vault_kv2_write:
-        url: "{{ bastion_vault_url }}"
+        url: "{{ operator_vault_url }}"
         engine_mount_point: "secret"
-        auth_method: "{{ 'token' if utils_vault_operator_login_token | length > 0 else omit }}"
-        token: "{{ utils_vault_operator_login_token if utils_vault_operator_login_token | length > 0 else omit }}"
+        auth_method: token
+        token: "{{ utils_vault_operator_login_token }}"
         path: "{{ utils_spire_agent_join_token_vault_path }}"
         data:
           join_token: "{{ utils_spire_agent_join_token }}"
         validate_certs: true
-        ca_cert: "{{ bastion_vault_ca_cert_path }}"
+        ca_cert: "{{ operator_vault_ca_cert_path }}"
       delegate_to: localhost
       become: false
       no_log: true
@@ -285,7 +285,7 @@
         msg: >-
           Unable to generate a join_token via `spire-server token generate`
           on the {{ utils_spire_agent_server_kind }} SPIRE server,
-          or unable to persist it to {{ utils_spire_agent_join_token_vault_path }} in Bastion Vault.
+          or unable to persist the token to {{ utils_spire_agent_join_token_vault_path }} in the operator Vault.
           Reason: {{ ansible_failed_result.msg | default('see task output above') }}
 
 - name: "Block F: Fetch Trust Bundle from the SPIRE server"

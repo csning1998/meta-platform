@@ -4,17 +4,17 @@
 # Privilege comes from Block D in main.yaml which includes this file.
 - name: "Step D2d-1. Read the recorded join_token of this host"
   block:
-    - name: "Step D2d-1a. Read the record from the Bastion Vault"
+    - name: "Step D2d-1a. Read the record from the operator Vault"
       ansible.builtin.include_role:
         name: utils_vault_kv2_read
       vars:
         utils_vault_kv2_read_access:
-          endpoint: "{{ bastion_vault_url }}"
-          ca_cert_path: "{{ bastion_vault_ca_cert_path }}"
-          auth_mount: "{{ bastion_operator_auth_mount | default('') }}"
-          role: "{{ bastion_operator_role | default('') }}"
-          wrapper: "{{ bastion_operator_wrapper | default('') }}"
-        utils_vault_kv2_read_use_ambient: "{{ bastion_vault_use_ambient_token | default(false) | bool }}"
+          endpoint: "{{ operator_vault_url }}"
+          ca_cert_path: "{{ operator_vault_ca_cert_path }}"
+          auth_mount: "{{ operator_vault_auth_mount | default('') }}"
+          role: "{{ operator_vault_role | default('') }}"
+          wrapper: "{{ operator_vault_wrapper | default('') }}"
+        utils_vault_kv2_read_use_ambient: "{{ operator_vault_use_ambient_token | default(false) | bool }}"
         utils_vault_kv2_read_secrets:
           - path: "{{ utils_spire_agent_join_token_vault_path }}"
             as: recorded
