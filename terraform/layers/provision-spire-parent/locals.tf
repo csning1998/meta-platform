@@ -13,9 +13,9 @@ locals {
 }
 
 locals {
-  project_code = local.state.foundation_libvirt_resources.foundation_vault_path.project_code
-  identity     = local.state.foundation_libvirt_resources.foundation_topology.identity
-  kv_paths     = local.state.foundation_libvirt_resources.foundation_vault_path.kv_paths
+  foundation_project_code = local.state.foundation_libvirt_resources.foundation_vault_path.project_code
+  spire_parent_identity   = local.state.foundation_libvirt_resources.foundation_topology.identity
+  foundation_kv_paths     = local.state.foundation_libvirt_resources.foundation_vault_path.kv_paths
 
   # The workstation agents register under this cluster name on both SPIRE servers.
   workstation_cluster_name = "host-terraform-operator"
@@ -37,19 +37,19 @@ locals {
   # instead of an opaque "Invalid index" crash in spire_terraform_operator_specs.
   _spire_operator_targets_missing = [
     for key, t in local._spire_operator_targets :
-    key if !contains(keys(lookup(local.identity, t.service, {})), t.component)
+    key if !contains(keys(lookup(local.spire_parent_identity, t.service, {})), t.component)
   ]
 
   # Keyed by the identity string of the operator, <owner>-terraform-operator-<service>-<component>, which also names
   # the role and the policy of the operator on the Downstream Vault.
   spire_terraform_operator_specs = {
     for key, t in local._spire_operator_targets :
-    "${local.project_code}-terraform-operator-${t.service}-${t.component}" => {
+    "${local.foundation_project_code}-terraform-operator-${t.service}-${t.component}" => {
       output_key   = key
       service      = t.service
       component    = t.component
-      spiffe_path  = "/${local.project_code}/terraform-operator/${t.service}/${t.component}"
-      cluster_name = local.identity[t.service][t.component].cluster_name
+      spiffe_path  = "/${local.foundation_project_code}/terraform-operator/${t.service}/${t.component}"
+      cluster_name = local.spire_parent_identity[t.service][t.component].cluster_name
     }
     if !contains(local._spire_operator_targets_missing, key)
   }
@@ -83,9 +83,9 @@ locals {
   # The plays take the Vault address, the CA path, and the token from the tenant session.
   ansible_extra_vars = {
     operator_vault_use_ambient_token               = true
-    spire_jwt_issuer                               = local.state.platform_spire_parent.spire_oidc_discovery_url
-    spire_parent_join_token_kv_path                = local.kv_paths["spire"]["parent"].join_token
-    spire_child_join_token_kv_path                 = local.kv_paths["spire"]["child"].join_token
+    spire_jwt_issuer                               = local.state.platform_spire_parent.spire_oidc.discovery_url
+    spire_parent_join_token_kv_path                = local.foundation_kv_paths["spire"]["parent"].join_token
+    spire_child_join_token_kv_path                 = local.foundation_kv_paths["spire"]["child"].join_token
     utils_terraform_operator_identity_names        = jsonencode(keys(local.spire_terraform_operator_specs))
     utils_terraform_operator_identity_spiffe_paths = jsonencode({ for name, spec in local.spire_terraform_operator_specs : name => spec.spiffe_path })
   }

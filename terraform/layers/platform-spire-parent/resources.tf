@@ -10,9 +10,9 @@ locals {
 }
 
 # Ansible issues the secret ID with the tenant token and writes the secret ID to the host, outside the state.
-resource "vault_approle_auth_backend_role" "spire_upstream_authority" {
+resource "vault_approle_auth_backend_role" "spire_parent_upstream_authority" {
   backend               = local.registry_bastion.vault.approle_mount_path
-  role_name             = "${module.terraform_layer_context.svc_identity.cluster_name}-upstream-authority"
+  role_name             = "${module.terraform_layer_context.cluster_identity.cluster_name}-upstream-authority"
   token_policies        = [local.bastion_pki_spire.assignable_policy]
   token_ttl             = 60 * 60     # 1 Hour
   token_max_ttl         = 60 * 60 * 4 # 4 Hours
@@ -21,25 +21,25 @@ resource "vault_approle_auth_backend_role" "spire_upstream_authority" {
 
   lifecycle {
     precondition {
-      condition     = contains(local.registry_spire_trust_domains, local.spire_trust_domain)
-      error_message = "The SPIRE trust domain ${local.spire_trust_domain} is absent from spire_trust_domains of registry/platform/trust, and pki-spire would reject every SPIRE CA of the trust domain."
+      condition     = contains(local.registry_spire_trust_domains, local.spiffe_trust_domain)
+      error_message = "The SPIRE trust domain ${local.spiffe_trust_domain} is absent from spire_trust_domains of registry/platform/trust, and pki-spire would reject every SPIRE CA of the trust domain."
     }
   }
 }
 
 # Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 1 Item D.
 # The role name equals the identity string of the service, which the tenant ACL scopes by the owner code prefix.
-resource "vault_pki_secret_backend_role" "leaf" {
+resource "vault_pki_secret_backend_role" "oidc_discovery" {
   backend = local.bastion_pki_platform.mount_path
-  name    = module.terraform_layer_context.svc_identity.cluster_name
+  name    = module.terraform_layer_context.cluster_identity.cluster_name
 
   allowed_domains    = local.state.foundation_libvirt_resources.foundation_pki.map[module.terraform_layer_context.primary_context.pki_key].dns_san
+  allow_bare_domains = true
   allow_subdomains   = false
   allow_glob_domains = false
-  allow_bare_domains = true
   allow_ip_sans      = true
-  require_cn         = true
   enforce_hostnames  = true
+  require_cn         = true
   allow_any_name     = false
 
   key_type    = "ec"

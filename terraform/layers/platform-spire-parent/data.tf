@@ -6,7 +6,7 @@ data "terraform_remote_state" "foundation_libvirt_resources" {
 
 # parent-group-governance publishes the Bastion facts of the tenant in the registry, in place of its Terraform state.
 data "vault_generic_secret" "registry_bastion" {
-  path = "registry/${local.project_code}/bastion"
+  path = "registry/${local.foundation_project_code}/bastion"
 }
 
 data "vault_generic_secret" "registry_platform_trust" {
