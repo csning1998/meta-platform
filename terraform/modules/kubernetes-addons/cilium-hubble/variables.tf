@@ -28,8 +28,11 @@ variable "gateway_config" {
 variable "oauth2_proxy_config" {
   description = "oauth2-proxy container parameters. The image MUST carry a digest."
   type = object({
-    image = optional(string, "quay.io/oauth2-proxy/oauth2-proxy:v7.15.4@sha256:b1b2021fe8f4004573e8d690dec6c7bb29cc44364572cf8510a05bf3a0ae2ded")
-    port  = optional(number, 4180)
+    image = string
+    port  = number
   })
-  default = {}
+  default = {
+    image = "quay.io/oauth2-proxy/oauth2-proxy:v7.15.4@sha256:b1b2021fe8f4004573e8d690dec6c7bb29cc44364572cf8510a05bf3a0ae2ded"
+    port  = 4180
+  }
 }
