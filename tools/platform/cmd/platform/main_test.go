@@ -224,7 +224,7 @@ func TestAppVaultPaths(t *testing.T) {
 	}
 }
 
-// TestRunMenu_Quit drives runMenu with "Quit" selected (option 11, the last entry) via an
+// TestRunMenu_Quit drives runMenu with "Quit" selected (option 10, the last entry) via an
 // in-memory reader, matching the one selection whose dispatch (chosen.run == nil) requires
 // no real infrastructure.
 func TestRunMenu_Quit(t *testing.T) {
@@ -240,7 +240,7 @@ func TestRunMenu_Quit(t *testing.T) {
 		terraform: filepath.Join(dir, "terraform"),
 		env:       env,
 		out:       ui.New(&buf, &buf),
-		in:        bufio.NewReader(strings.NewReader("11\n")),
+		in:        bufio.NewReader(strings.NewReader("10\n")),
 	}
 
 	if err := a.runMenu(context.Background()); err != nil {

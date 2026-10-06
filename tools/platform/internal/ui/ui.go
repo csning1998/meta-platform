@@ -111,6 +111,16 @@ func (p *Printer) Print(level Level, msg string) {
 	_, _ = fmt.Fprintf(dest, "%s[%s] %s%s\n", color, tag, msg, colorReset)
 }
 
+// PrintText writes text verbatim to standard output, for a payload such as a diff which a level tag would corrupt.
+func (p *Printer) PrintText(text string) {
+	_, _ = fmt.Fprint(p.out, text)
+}
+
+// Diagnostic returns a printer which writes every level to the error stream, keeping standard output for a payload.
+func (p *Printer) Diagnostic() *Printer {
+	return &Printer{out: p.errOut, errOut: p.errOut}
+}
+
 // PrintDivider outputs a 60-character horizontal line using char. Defaults to "-" if char is empty.
 func (p *Printer) PrintDivider(char string) {
 	if char == "" {

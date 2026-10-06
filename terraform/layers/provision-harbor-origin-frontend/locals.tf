@@ -14,9 +14,10 @@ locals {
 
 # The operator of this component logs in to the Downstream Vault with the JWT-SVID of the SPIRE Parent.
 locals {
-  harbor_origin_operator    = local.state.security_vault_downstream_tenants.downstream_vault_component_operators["harbor-origin"]
-  downstream_vault_endpoint = "https://${local.state.security_vault_downstream_tenants.downstream_vault_service_vip}:443"
-  downstream_kv_paths       = local.state.security_vault_downstream_tenants.foundation_vault_path.kv_paths
+  terraform_operator_subject = { service = "harbor-origin", component = "frontend" }
+  terraform_operator         = local.state.security_vault_downstream_tenants.downstream_vault_operators[local.terraform_operator_subject.service][local.terraform_operator_subject.component]
+  downstream_vault_endpoint  = "https://${local.state.security_vault_downstream_tenants.downstream_vault_service_vip}:443"
+  downstream_kv_paths        = local.state.security_vault_downstream_tenants.foundation_vault_path.kv_paths
 }
 
 locals {
@@ -79,9 +80,9 @@ locals {
     harbor_project         = local.proxy_oci["helm_charts"].name
     vault_endpoint         = local.downstream_vault_endpoint
     vault_ca_cert_path     = local.state.security_vault_downstream_tenants.downstream_vault_ca_cert_path
-    vault_operator_wrapper = local.harbor_origin_operator.wrapper_name
-    vault_operator_role    = local.harbor_origin_operator.role_name
-    vault_operator_mount   = local.harbor_origin_operator.auth_mount
+    vault_operator_wrapper = local.terraform_operator.wrapper_name
+    vault_operator_role    = local.terraform_operator.role_name
+    vault_operator_mount   = local.terraform_operator.auth_mount
     harbor_robot_kv_path   = local.downstream_kv_paths["harbor-origin"]["frontend"].robot
   }
 

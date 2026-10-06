@@ -9,11 +9,11 @@ module "vault_auth_cilium_hubble" {
     mount_path           = local.state.security_vault_downstream_pki.downstream_pki_configuration.path
     role_allowed_domains = concat(local.cilium_hubble_cluster_pki.dns_san, module.helm_chart_cilium.hubble_tls_domains)
     role_ou              = local.cilium_hubble_cluster_pki.ou
-    issuer_policy_name   = local.cilium_hubble_operator.cluster_issuer_policy
+    issuer_policy_name   = local.terraform_operator.cluster_issuer_policy
   }
   external_secrets_config = {
     kv_paths    = ["${local.downstream_kv_paths.addon}-hubble-ui"]
-    policy_name = local.cilium_hubble_operator.external_secrets_policy
+    policy_name = local.terraform_operator.external_secrets_policy
   }
 }
 

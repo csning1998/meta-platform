@@ -219,14 +219,14 @@ The lookup MUST print `approle` and the policy `meta-platform-terraform-operator
 
 ### Item B. Login per Layer
 
-Every layer of the deployment chain runs correctly inside one tenant session. A layer whose Downstream Vault provider logs in with a JWT-SVID MUST run through `tools/terraform-operator.sh`, which fetches the JWT-SVID of the operator of the layer.
+Every layer of the deployment chain runs correctly inside one tenant session. A layer whose Downstream Vault provider logs in with a JWT-SVID MUST run through `platform terraform`, which fetches the JWT-SVID of the operator which the layer declares in `terraform_operator_subject`.
 
 | Layer                                                                                                                                                                                            | Login                       | Command, run in the layer directory    |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------- | -------------------------------------- |
 | `foundation-libvirt-resources`                                                                                                                                                                   | State backend only          | `terraform`                            |
 | `platform-spire-parent`, `provision-spire-parent`, `platform-haproxy-frontend`, `platform-vault-downstream-frontend`, `provision-vault-downstream-frontend`, `security-vault-downstream-tenants` | Tenant session              | `terraform`                            |
-| `security-vault-downstream-pki`                                                                                                                                                                  | Tenant session and JWT-SVID | `../../../tools/terraform-operator.sh` |
-| Every other layer of the deployment chain                                                                                                                                                        | JWT-SVID                    | `../../../tools/terraform-operator.sh` |
+| `security-vault-downstream-pki`                                                                                                                                                                  | Tenant session and JWT-SVID | `../../../platform terraform`          |
+| Every other layer of the deployment chain                                                                                                                                                        | JWT-SVID                    | `../../../platform terraform`          |
 
 A plain `terraform` run in a JWT-SVID layer fails with `required fields are unset: [jwt]`. The `state` subcommands use the state backend only, and plain `terraform state` works in every layer.
 
@@ -245,7 +245,7 @@ A plain `terraform` run in a JWT-SVID layer fails with `required fields are unse
 
 #### Item D.1. Host SPIRE Agent Without an Identity
 
-1. The symptom is the message `dial unix /run/spire-agent/public/api.sock: connect: no such file or directory` from `tools/terraform-operator.sh`.
+1. The symptom is the message `dial unix /run/spire-agent/public/api.sock: connect: no such file or directory` from `platform terraform`.
 2. The journal of `spire-agent.service` shows `join token does not exist or has already been used`.
 3. The cause is an expired agent SVID after a host outage longer than the SVID lifetime, since a join token is valid for one attestation only.
 4. The play of `provision-spire-parent` issues a new join token when the agent health check fails.

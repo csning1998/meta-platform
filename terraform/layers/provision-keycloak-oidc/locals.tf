@@ -13,8 +13,9 @@ locals {
     platform_keycloak_frontend        = data.terraform_remote_state.platform_keycloak_frontend.outputs
   }
 
-  downstream_kv_paths = local.state.security_vault_downstream_tenants.foundation_vault_path.kv_paths
-  keycloak_operator   = local.state.security_vault_downstream_tenants.downstream_vault_component_operators["keycloak"]
+  downstream_kv_paths        = local.state.security_vault_downstream_tenants.foundation_vault_path.kv_paths
+  terraform_operator_subject = { service = "keycloak", component = "frontend" }
+  terraform_operator         = local.state.security_vault_downstream_tenants.downstream_vault_operators[local.terraform_operator_subject.service][local.terraform_operator_subject.component]
 }
 
 locals {

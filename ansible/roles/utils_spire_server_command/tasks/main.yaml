@@ -35,8 +35,10 @@
           rc: "{{ _utils_spire_server_command_parent.rc | default(255) }}"
           stdout: "{{ _utils_spire_server_command_parent.stdout | default('') }}"
           stderr: >-
-            {{ _utils_spire_server_command_parent.stderr
-              | default(_utils_spire_server_command_parent.msg | default('')) }}
+            {{
+              _utils_spire_server_command_parent.stderr
+              | default(_utils_spire_server_command_parent.msg | default(''))
+            }}
           unreachable: "{{ _utils_spire_server_command_parent.unreachable | default(false) }}"
       no_log: "{{ utils_spire_server_command_no_log }}"
 
@@ -96,12 +98,15 @@
     - name: "Step B5. Execute spire-server in the pod of the Child server"
       ansible.builtin.command:
         argv: >-
-          {{ ['kubectl', '--kubeconfig', _utils_spire_server_command_kubeconfig_file.path, '--request-timeout=60s',
+          {{
+            [
+              'kubectl', '--kubeconfig', _utils_spire_server_command_kubeconfig_file.path, '--request-timeout=60s',
               '-n', utils_spire_server_command_child_namespace, 'exec', utils_spire_server_command_child_pod,
               '-c', utils_spire_server_command_child_container, '--',
-              utils_spire_server_command_child_binary]
-              + (utils_spire_server_command_arguments | trim | regex_replace('\\s+', ' ') | split(' '))
-              + ['-socketPath', utils_spire_server_command_child_socket_path]
+              utils_spire_server_command_child_binary
+            ]
+            + (utils_spire_server_command_arguments | trim | regex_replace('\\s+', ' ') | split(' '))
+            + ['-socketPath', utils_spire_server_command_child_socket_path]
           }}
       register: _utils_spire_server_command_child
       changed_when: false

@@ -17,8 +17,9 @@ locals {
 
 # The operator of this component logs in to the Downstream Vault with the JWT-SVID of the SPIRE Parent.
 locals {
-  harbor_origin_operator = local.state.security_vault_downstream_tenants.downstream_vault_component_operators["harbor-origin"]
-  tenant_login           = local.state.security_vault_downstream_tenants.downstream_tenants.tenant_login[module.terraform_layer_context.cluster_identity.cluster_name]
+  terraform_operator_subject = { service = "harbor-origin", component = "frontend" }
+  terraform_operator         = local.state.security_vault_downstream_tenants.downstream_vault_operators[local.terraform_operator_subject.service][local.terraform_operator_subject.component]
+  tenant_login               = local.state.security_vault_downstream_tenants.downstream_tenants.tenant_login[module.terraform_layer_context.cluster_identity.cluster_name]
 
   security_vault_agent_identity = merge(module.terraform_layer_context.vault_agent_identity_base, {
     auth_path      = local.tenant_login.auth_mount
@@ -69,9 +70,9 @@ locals {
     downstream = {
       endpoint     = local.state.security_vault_downstream_tenants.downstream_vault_endpoint
       ca_cert_path = local.state.security_vault_downstream_tenants.downstream_vault_ca_cert_path
-      auth_mount   = local.harbor_origin_operator.auth_mount
-      role         = local.harbor_origin_operator.role_name
-      wrapper      = local.harbor_origin_operator.wrapper_name
+      auth_mount   = local.terraform_operator.auth_mount
+      role         = local.terraform_operator.role_name
+      wrapper      = local.terraform_operator.wrapper_name
     }
   }
 
@@ -91,8 +92,8 @@ locals {
     # The join tokens and the registrar kubeconfig of the SPIRE Child live in the Downstream KV.
     operator_vault_url          = local.state.security_vault_downstream_tenants.downstream_vault_endpoint
     operator_vault_ca_cert_path = local.state.security_vault_downstream_tenants.downstream_vault_ca_cert_path
-    operator_vault_wrapper      = local.harbor_origin_operator.wrapper_name
-    operator_vault_role         = local.harbor_origin_operator.role_name
-    operator_vault_auth_mount   = local.harbor_origin_operator.auth_mount
+    operator_vault_wrapper      = local.terraform_operator.wrapper_name
+    operator_vault_role         = local.terraform_operator.role_name
+    operator_vault_auth_mount   = local.terraform_operator.auth_mount
   }
 }

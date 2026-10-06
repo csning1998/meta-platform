@@ -31,8 +31,10 @@
     - name: "Step A2. Compute inventory_hostname's Agent SPIFFE ID"
       ansible.builtin.set_fact:
         _utils_spire_workload_entry_parent_id: >-
-          {{ "spiffe://" ~ spire_trust_domain ~ "/spire/agent/join_token/"
-              ~ utils_vault_kv2_read_result.join_token.join_token }}
+          {{
+            "spiffe://" ~ spire_trust_domain ~ "/spire/agent/join_token/"
+            ~ utils_vault_kv2_read_result.join_token.join_token
+          }}
       no_log: true
 
   rescue:
@@ -81,14 +83,18 @@
     - name: "Step B2b. Split existing entries into current and stale"
       ansible.builtin.set_fact:
         _utils_spire_workload_entry_current: >-
-          {{ _utils_spire_workload_entry_all
+          {{
+            _utils_spire_workload_entry_all
             | selectattr('parent_id.path', 'equalto', _utils_spire_workload_entry_expected_parent_path)
             | selectattr('selectors', 'equalto', [_utils_spire_workload_entry_expected_selector])
-            | list }}
+            | list
+          }}
         _utils_spire_workload_entry_stale: >-
-          {{ _utils_spire_workload_entry_all
+          {{
+            _utils_spire_workload_entry_all
             | rejectattr('parent_id.path', 'equalto', _utils_spire_workload_entry_expected_parent_path)
-            | list }}
+            | list
+          }}
 
     - name: "Step B2c. Delete only stale registration entries for this SPIFFE ID"
       ansible.builtin.include_role:

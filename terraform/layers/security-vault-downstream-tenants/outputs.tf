@@ -48,28 +48,26 @@ output "downstream_vault_ca_cert_path" {
   value       = local.downstream_vault.ca_cert_path
 }
 
-output "downstream_vault_tenant_operator" {
-  description = "Login coordinates of the administrator operator of the Downstream Vault, which only the vault-downstream SPIFFE ID assumes."
+output "downstream_vault_operators" {
+  description = "Login coordinates of every local Terraform operator, keyed by catalog service and component as each layer declares terraform_operator_subject: the auth mount, the role, the audience, the JWT-SVID wrapper, the cluster name, the workload policies which the operator assigns on its Kubernetes auth mount, and the Vault instance, KV mount, and KV path of the cluster-config leaf. The vault-downstream operator administers the Downstream Vault and carries null workload policies."
   value = {
-    auth_mount   = local.jwt_auth.parent.mount_path
-    role_name    = vault_jwt_auth_backend_role.operator.role_name
-    audience     = local.jwt_auth.parent.audience
-    wrapper_name = local.tenant_operator.wrapper_name
-  }
-}
-
-output "downstream_vault_component_operators" {
-  description = "Login coordinates of the operator of each component, keyed as the terraform_operator output of provision-spire-parent: the auth mount, the role, the audience, the JWT-SVID wrapper, the cluster name, and the workload policies which the operator assigns on its Kubernetes auth mount."
-  value = {
-    for key, operator in local.component_operators : key => {
-      auth_mount   = local.jwt_auth.parent.mount_path
-      role_name    = vault_jwt_auth_backend_role.component_operator[key].role_name
-      audience     = local.jwt_auth.parent.audience
-      wrapper_name = operator.wrapper_name
-      cluster_name = operator.cluster_name
-      # The workload policies which this layer declares for the cluster, null when the component has none.
-      cluster_issuer_policy   = contains(keys(local.workload_policies), "${operator.cluster_name}-cluster-issuer") ? vault_policy.workload["${operator.cluster_name}-cluster-issuer"].name : null
-      external_secrets_policy = contains(keys(local.workload_policies), "${operator.cluster_name}-external-secrets") ? vault_policy.workload["${operator.cluster_name}-external-secrets"].name : null
+    for service in distinct([for operator in local.terraform_operators : operator.service]) : service => {
+      for key, operator in local.terraform_operators : operator.component => {
+        auth_mount   = local.jwt_auth.parent.mount_path
+        role_name    = key == "vault-downstream" ? vault_jwt_auth_backend_role.operator.role_name : vault_jwt_auth_backend_role.component_operator[key].role_name
+        audience     = local.jwt_auth.parent.audience
+        wrapper_name = operator.wrapper_name
+        cluster_name = operator.cluster_name
+        # The workload policies which this layer declares for the cluster, null when the component has none.
+        cluster_issuer_policy   = contains(keys(local.workload_policies), "${operator.cluster_name}-cluster-issuer") ? vault_policy.workload["${operator.cluster_name}-cluster-issuer"].name : null
+        external_secrets_policy = contains(keys(local.workload_policies), "${operator.cluster_name}-external-secrets") ? vault_policy.workload["${operator.cluster_name}-external-secrets"].name : null
+        # The Bastion Vault holds the cluster-config of the Downstream Vault cluster, since that cluster precedes its own Vault.
+        cluster_config = {
+          vault    = key == "vault-downstream" ? "bastion" : "downstream"
+          kv_mount = key == "vault-downstream" ? "secret" : vault_mount.kv.path
+          kv_path  = local.foundation_kv_paths[operator.service][operator.component].cluster_config
+        }
+      } if operator.service == service
     }
   }
 }

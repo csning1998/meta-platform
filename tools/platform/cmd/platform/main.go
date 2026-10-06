@@ -1,5 +1,5 @@
 // Package main provides the platform CLI for infrastructure management across Vault, Packer, Terraform,
-// SSH, Gitaly, and libvirt. Invocation without arguments launches the interactive management menu.
+// SSH, and libvirt. Invocation without arguments launches the interactive management menu.
 package main
 
 import (
@@ -54,6 +54,26 @@ func resolveProjectRoot(start string) (string, error) {
 	}
 }
 
+// annotationSkipBootstrap marks a command which runs inside a layer directory and leaves .env untouched.
+const annotationSkipBootstrap = "platform/skip-bootstrap"
+
+// annotationStdoutPayload marks a command whose standard output carries a value which a caller captures.
+const annotationStdoutPayload = "platform/stdout-payload"
+
+// resolveBootstrapPrinter returns the printer of the .env bootstrap of cmd, which writes to the error stream when
+// the standard output of cmd carries a payload.
+func resolveBootstrapPrinter(cmd *cobra.Command, out *ui.Printer) *ui.Printer {
+	if cmd.Annotations[annotationStdoutPayload] == "true" {
+		return out.Diagnostic()
+	}
+	return out
+}
+
+// isBootstrapRequired reports whether cmd needs the .env bootstrap before the run of cmd.
+func isBootstrapRequired(cmd *cobra.Command) bool {
+	return cmd.Annotations[annotationSkipBootstrap] != "true"
+}
+
 func execute() int {
 	out := ui.New(os.Stdout, os.Stderr)
 
@@ -91,11 +111,11 @@ func execute() int {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			if cmd == rootCmd {
+			if cmd == rootCmd || !isBootstrapRequired(cmd) {
 				// runMenu bootstraps itself after printing the title banner.
 				return nil
 			}
-			env, err := config.BootstrapEnv(a.root, a.packerDir, a.terraform, a.ansibleDir, a.out)
+			env, err := config.BootstrapEnv(a.root, a.packerDir, a.terraform, a.ansibleDir, resolveBootstrapPrinter(cmd, a.out))
 			if err != nil {
 				return err
 			}
@@ -113,7 +133,9 @@ func execute() int {
 		a.envCmd(),
 		a.packerCmd(),
 		a.terraformCmd(),
-		a.gitalyCmd(),
+		a.layerCmd(),
+		a.hostsCmd(),
+		a.clusterCmd(),
 		a.libvirtCmd(),
 		a.strategyCmd(),
 	)

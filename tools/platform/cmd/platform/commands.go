@@ -56,6 +56,13 @@ func (a *app) envCmd() *cobra.Command {
 		Short: "Verify the full native IaC environment (non-interactive)",
 		RunE:  func(cmd *cobra.Command, args []string) error { return a.verifyEnvironment() },
 	})
+	cmd.AddCommand(&cobra.Command{
+		Use:         "get <KEY>",
+		Short:       "Print the expanded .env value of KEY alone, refusing a secret key",
+		Args:        cobra.ExactArgs(1),
+		Annotations: map[string]string{annotationStdoutPayload: "true"},
+		RunE:        func(cmd *cobra.Command, args []string) error { return a.printEnvValue(args[0]) },
+	})
 	return cmd
 }
 
@@ -88,7 +95,17 @@ func (a *app) packerCmd() *cobra.Command {
 }
 
 func (a *app) terraformCmd() *cobra.Command {
-	cmd := &cobra.Command{Use: "terraform", Short: "Terraform layer artifact management"}
+	return &cobra.Command{
+		Use:                "terraform [terraform arguments]",
+		Short:              "Run terraform in the current layer directory, with the JWT-SVID of the layer operator when the layer logs in with one",
+		DisableFlagParsing: true,
+		Annotations:        map[string]string{annotationSkipBootstrap: "true"},
+		RunE:               func(cmd *cobra.Command, args []string) error { return a.runLayerTerraform(cmd.Context(), args) },
+	}
+}
+
+func (a *app) layerCmd() *cobra.Command {
+	cmd := &cobra.Command{Use: "layer", Short: "Terraform layer artifact management"}
 	cmd.AddCommand(&cobra.Command{
 		Use:   "clean <layer|all>",
 		Short: "Report Terraform artifact cleanup status for a layer (or 'all')",
@@ -100,13 +117,43 @@ func (a *app) terraformCmd() *cobra.Command {
 	return cmd
 }
 
-func (a *app) gitalyCmd() *cobra.Command {
-	cmd := &cobra.Command{Use: "gitaly", Short: "Gitaly operations"}
+func (a *app) hostsCmd() *cobra.Command {
+	cmd := &cobra.Command{Use: "hosts", Short: "Host name resolution of the workstation"}
+
+	var apply bool
+	syncCmd := &cobra.Command{
+		Use:         "sync",
+		Short:       "Print the diff of the meta-platform block of /etc/hosts against the libvirt DNS records, and write it with --apply",
+		Annotations: map[string]string{annotationSkipBootstrap: "true"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return a.syncHosts(cmd.Context(), newHostsSyncConfig(), apply)
+		},
+	}
+	syncCmd.Flags().BoolVar(&apply, "apply", false, "back up /etc/hosts and write the block through sudo")
+	cmd.AddCommand(syncCmd)
+
+	return cmd
+}
+
+func (a *app) clusterCmd() *cobra.Command {
+	cmd := &cobra.Command{Use: "cluster", Short: "Operator sessions on the Talos clusters, inside a tenant session"}
+	skipBootstrap := map[string]string{annotationSkipBootstrap: "true"}
+
 	cmd.AddCommand(&cobra.Command{
-		Use:   "revert-precheck",
-		Short: "[PROD] Safety pre-check before reverting Gitaly to standalone",
-		RunE:  func(cmd *cobra.Command, args []string) error { return a.confirmGitalyRevertPrecheck(cmd.Context()) },
+		Use:         "shell <service>/<component>",
+		Short:       "Open a shell with KUBECONFIG and TALOSCONFIG of the cluster, removed on exit",
+		Args:        cobra.ExactArgs(1),
+		Annotations: skipBootstrap,
+		RunE:        func(cmd *cobra.Command, args []string) error { return a.openClusterShell(cmd.Context(), args[0]) },
 	})
+	cmd.AddCommand(&cobra.Command{
+		Use:         "status <service>/<component>|all",
+		Short:       "Print the nodes and the pods of one cluster or of every cluster",
+		Args:        cobra.ExactArgs(1),
+		Annotations: skipBootstrap,
+		RunE:        func(cmd *cobra.Command, args []string) error { return a.reportClusterStatus(cmd.Context(), args[0]) },
+	})
+
 	return cmd
 }
 

@@ -93,6 +93,36 @@ func EnsureServices(out *ui.Printer) error {
 	return nil
 }
 
+// ListActiveNetworkXML returns the XML document of every active network on qemu:///system. The XML of an
+// inactive network carries no DNS record which dnsmasq serves.
+func ListActiveNetworkXML() ([]string, error) {
+	conn, err := libvirt.NewConnect("qemu:///system")
+	if err != nil {
+		return nil, fmt.Errorf("libvirtops: connect to qemu:///system: %w", err)
+	}
+	defer func() { _, _ = conn.Close() }()
+
+	networks, err := conn.ListAllNetworks(libvirt.CONNECT_LIST_NETWORKS_ACTIVE)
+	if err != nil {
+		return nil, fmt.Errorf("libvirtops: list networks: %w", err)
+	}
+	defer func() {
+		for i := range networks {
+			_ = networks[i].Free()
+		}
+	}()
+
+	documents := make([]string, 0, len(networks))
+	for i := range networks {
+		desc, err := networks[i].GetXMLDesc(0)
+		if err != nil {
+			return nil, fmt.Errorf("libvirtops: read network XML: %w", err)
+		}
+		documents = append(documents, desc)
+	}
+	return documents, nil
+}
+
 // Purge forcefully destroys and deletes all domains, storage pools, volumes, and networks matching ProjectCode.
 func Purge(out *ui.Printer) error {
 	conn, err := libvirt.NewConnect("qemu:///system")

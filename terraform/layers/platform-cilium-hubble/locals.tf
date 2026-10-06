@@ -67,5 +67,6 @@ locals {
 
 # The operator of this component logs in to the Downstream Vault with the JWT-SVID of the SPIRE Parent.
 locals {
-  cilium_hubble_operator = local.state.security_vault_downstream_tenants.downstream_vault_component_operators["cilium"]
+  terraform_operator_subject = { service = "cilium", component = "hubble" }
+  terraform_operator         = local.state.security_vault_downstream_tenants.downstream_vault_operators[local.terraform_operator_subject.service][local.terraform_operator_subject.component]
 }

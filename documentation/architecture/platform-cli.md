@@ -14,10 +14,11 @@
 
 ### Item B. Build and Execution Constraints
 
-1. The binary MUST be built with the command `cd tools/platform && go build -o ../../platform ./cmd/platform`.
-2. The executable MUST be invoked with the working directory set to the `meta-platform` repository root.
-3. Automatic environment initialization MUST determine `PROJECT_ROOT` from the current working directory.
-4. The compiled `platform` binary MUST NOT be tracked in version control and MUST be excluded by `.gitignore`.
+1. The binary MUST be built with `build-platform.sh`, which runs the tests, builds `tools/platform` into `meta-platform/platform`, and runs the SonarQube scan.
+2. `build-platform.sh` MUST read the workstation values `BASTION_VAULT_ADDR` and `BASTION_VAULT_CACERT` through `platform env get` unless the caller exports them, and MUST hold the repository values as `readonly` constants.
+3. The executable MUST be invoked with the working directory inside the `meta-platform` repository. `platform terraform` MUST be invoked with the working directory set to a layer directory under `terraform/layers/`.
+4. Automatic environment initialization MUST determine `PROJECT_ROOT` from the current working directory.
+5. The compiled `platform` binary MUST NOT be tracked in version control and MUST be excluded by `.gitignore`.
 
 ## Section 2. Command Reference and Group Specifications
 
@@ -43,6 +44,8 @@
 
 1. `platform env verify` MUST verify the availability of `qemu-system-x86_64`, `virsh`, `packer`, `terraform`, `tofu`, `vault`, and `ansible` on `PATH`.
 2. `platform env verify` MUST exit with status code 1 if any prerequisite tool binary is missing.
+3. `platform env get <KEY>` MUST print the expanded `.env` value of the key alone on standard output, and MUST write the bootstrap messages to standard error.
+4. `platform env get` MUST refuse `VAULT_TOKEN` and an undefined key without output.
 
 ### Item D. Packer Image Operations (`packer`)
 
@@ -50,28 +53,50 @@
 2. `platform packer clean <base|all>` MUST remove designated build output directories under `packer/output/` and purge non-ISO files from `$HOME/.cache/packer`.
 3. `platform packer purge-all` MUST clean all build outputs and host caches across all discovered Packer bases.
 
-### Item E. Terraform Layer Operations (`terraform`)
+### Item E. Terraform Layer Operations (`terraform`, `layer`)
 
-1. `platform terraform clean <layer|all>` MUST verify the existence of layer directories under `terraform/layers/` and report artifact cleanup status.
-2. `platform terraform clean` MUST NOT delete state files because Terraform remote state is stored in the GitLab HTTP backend.
+1. `platform terraform [args]` MUST pass every argument to `terraform` unparsed and MUST replace its own process with `terraform` in the current layer directory.
+2. For a layer whose Vault provider declares block `auth_login_jwt`, `platform terraform` MUST fetch the JWT-SVID of the layer operator through its wrapper under `/usr/local/bin` and MUST export the JWT-SVID as `TERRAFORM_VAULT_AUTH_JWT`.
+3. For every other layer, `platform terraform` MUST remove `TERRAFORM_VAULT_AUTH_JWT` from the environment of `terraform`.
+4. `platform terraform` MUST NOT bootstrap `.env`.
+5. `platform layer clean <layer|all>` MUST verify the existence of layer directories under `terraform/layers/` and report artifact cleanup status.
+6. `platform layer clean` MUST NOT delete state files because Terraform remote state is stored in the GitLab HTTP backend.
 
-### Item F. Gitaly Operations (`gitaly`)
-
-1. `platform gitaly revert-precheck` MUST execute the `core-gitlab-praefect` Ansible playbook with tag `gitaly-revert-standalone`.
-2. `platform gitaly revert-precheck` MUST require explicit confirmation by typing `Y` or `y` prior to execution.
-3. A failure in `platform gitaly revert-precheck` MUST block removal of Praefect nodes in Terraform configuration.
-
-### Item G. Libvirt and KVM Operations (`libvirt`)
+### Item F. Libvirt and KVM Operations (`libvirt`)
 
 1. `platform libvirt ensure-services` MUST verify that modular libvirt sockets (`virtqemud.socket`, `virtnetworkd.socket`, `virtstoraged.socket`) are active, starting inactive units via `sudo systemctl start`.
 2. `platform libvirt purge` MUST destroy and undefine all domains, storage pools, storage volumes, and virtual networks whose names begin with the `platform-` prefix.
 3. `platform libvirt purge` MUST require explicit user confirmation by typing `Y` or `y` prior to resource destruction.
 
-### Item H. Strategy Configuration (`strategy`)
+### Item G. Strategy Configuration (`strategy`)
 
 1. `platform strategy switch` MUST toggle `ENVIRONMENT_STRATEGY` between `native` and `container`.
 2. `platform strategy switch` MUST remove `terraform/.terraform` and `terraform/.terraform.lock.hcl`.
 3. `platform strategy switch` MUST recompute `PKR_VAR_NET_BRIDGE` and `PKR_VAR_NET_DEVICE` based on strategy and bridge availability.
+
+### Item H. Workstation Host Resolution (`hosts`)
+
+1. `platform hosts sync` MUST read the DNS host records of every active network on `qemu:///system` and MUST keep the records which carry a host name with prefix `meta-platform-`.
+2. `platform hosts sync` MUST merge the records into one line per address, ordered by address.
+3. `platform hosts sync` MUST print the unified diff between `/etc/hosts` and the rewritten block between `# BEGIN meta-platform` and `# END meta-platform`, and MUST NOT write without `--apply`.
+4. `platform hosts sync --apply` MUST back up `/etc/hosts` to `/etc/hosts.bak` and MUST write the file in place, which keeps its SELinux label.
+5. The backup and the write MUST run through `sudo`, and every other step MUST run unprivileged.
+6. `platform hosts sync` MUST fail without a write when libvirt returns no record or when the managed block lacks its end line or repeats.
+7. `platform hosts sync` MUST NOT bootstrap `.env`.
+
+### Item J. Talos Cluster Sessions (`cluster`)
+
+1. `platform cluster shell <service>/<component>` and `platform cluster status <service>/<component>|all` MUST run inside a tenant session, which supplies the backend credentials and the Bastion Vault login.
+2. The target MUST be one `/` between two catalog names of lowercase words joined by single hyphens, and the command MUST reject every other argument without an alias.
+3. The commands MUST read the Vault coordinates from one `terraform output -json` of `security-vault-downstream-tenants`, whose output `downstream_vault_operators` names the Vault instance, the KV mount, and the KV path of each `cluster-config` leaf.
+4. For a leaf on the Downstream Vault, the commands MUST log in with the JWT-SVID of the operator of the target and MUST verify the listener against `downstream_vault_ca_cert_path`.
+5. For a leaf on the Bastion Vault, the commands MUST use `VAULT_ADDR`, `VAULT_TOKEN`, and `VAULT_CACERT` of the tenant session.
+6. The Downstream Vault token MUST stay inside the process and MUST NOT enter the environment of the session shell.
+7. The session files MUST reside in a new directory of mode `0700` below `XDG_RUNTIME_DIR`, or below the temporary directory without `XDG_RUNTIME_DIR`, with mode `0600` for each file.
+8. The talosconfig MUST take its endpoints from the InternalIP of the nodes which the API server reports, and MUST omit the endpoints when the API server does not answer.
+9. `platform cluster shell` MUST remove the session directory after the shell exits, whatever the exit status.
+10. `platform cluster status all` MUST report a target without a `cluster-config` leaf as a component of the VM runtime and MUST continue with the next target.
+11. The commands MUST NOT bootstrap `.env`.
 
 ## Section 3. Interactive Menu Navigation
 
@@ -79,22 +104,18 @@
 
 The interactive menu MUST present options in the following sequence:
 
-| Number | Menu Option Label                                          | Target Command                                                      |
-| :----- | :--------------------------------------------------------- | :------------------------------------------------------------------ |
-| 1      | `[BASTION] Set up TLS for Bastion Vault (Local)`           | `platform vault tls-generate`                                       |
-| 2      | `[BASTION] Initialize Bastion Vault (Local)`               | `platform vault init`                                               |
-| 3      | `[BASTION] Unseal Bastion Vault (Local)`                   | `platform vault unseal`                                             |
-| 4      | `[BASTION] Enable KV-v2 Engine (Manual Fallback)`          | `platform vault enable-kv`                                          |
-| 5      | `[PROD] Unseal Production Vault (via Ansible)`             | `platform vault prod-unseal`                                        |
-| 6      | `Generate SSH Key`                                         | Interactive prompt for key name, then `platform ssh keygen`         |
-| 7      | `Verify IaC Environment`                                   | `platform env verify`                                               |
-| 8      | `Build Packer Base Image`                                  | Packer category submenu                                             |
-| 9      | `Verify Guest VM Connectivity via SSH`                     | Confirmation prompt, then `platform ssh verify`                     |
-| 10     | `Switch Environment Strategy`                              | `platform strategy switch`                                          |
-| 11     | `[PROD] Revert Gitaly to Standalone for Safety Pre-check`  | `platform gitaly revert-precheck`                                   |
-| 12     | `Purge All Packer Artifacts`                               | `platform packer purge-all`                                         |
-| 13     | `Purge All Infrastructure Resources (Libvirt + Terraform)` | `platform libvirt purge` followed by `platform terraform clean all` |
-| 14     | `Quit`                                                     | Terminates menu execution                                           |
+| Number | Menu Option Label                                          | Target Command                                                  |
+| :----- | :--------------------------------------------------------- | :-------------------------------------------------------------- |
+| 1      | `[PROD] Unseal Production Vault via Ansible`               | `platform vault unseal-prod`                                    |
+| 2      | `Generate SSH Key`                                         | Interactive prompt for key name, then `platform ssh keygen`     |
+| 3      | `Verify IaC Environment`                                   | `platform env verify`                                           |
+| 4      | `Execute Hypervisor Configuration via Ansible`             | `playbook_hypervisor.yaml` against a temporary local inventory  |
+| 5      | `Build Packer Base Image`                                  | Packer category submenu                                         |
+| 6      | `Verify Guest VM Connectivity via SSH`                     | Confirmation prompt, then `platform ssh verify`                 |
+| 7      | `Switch Environment Strategy`                              | `platform strategy switch`                                      |
+| 8      | `Purge All Packer Artifacts`                               | `platform packer purge-all`                                     |
+| 9      | `Purge All Infrastructure Resources (Libvirt + Terraform)` | `platform libvirt purge` followed by `platform layer clean all` |
+| 10     | `Quit`                                                     | Terminates menu execution                                       |
 
 ### Item B. Packer Submenu Navigation
 
@@ -120,8 +141,11 @@ The interactive menu MUST present options in the following sequence:
 | `internal/sshops` (Verify)                        | `ssh` CLI binary                 | Preserves full OpenSSH configuration compatibility (`Host`, `ProxyJump`, `UserKnownHostsFile`). Incurs child process execution cost. |
 | `internal/libvirtops` (Purge)                     | `libvirt.org/go/libvirt` (CGO)   | Direct RPC interaction with `libvirtd`. Requires system development headers at compile time.                                         |
 | `internal/packerops` (Build)                      | `packer` CLI binary              | Official CLI automation of HCL templates and plugins. Incurs subprocess management overhead.                                         |
-| `internal/gitalyops`, `vaultops.UnsealProduction` | `ansible-playbook` CLI binary    | Playbook execution utilizing existing Ansible role collections. Incurs Python interpreter startup overhead.                          |
+| `vaultops.UnsealProduction`                       | `ansible-playbook` CLI binary    | Playbook execution utilizing existing Ansible role collections. Incurs Python interpreter startup overhead.                          |
 | `internal/libvirtops.EnsureServices`              | `systemctl` CLI binary           | Systemd socket activation management. Avoids heavyweight D-Bus library bindings.                                                     |
+| `internal/clusterops`                             | `github.com/hashicorp/vault/api` | JWT login and KV reads with CA verification. Delegates `terraform output` and `kubectl get nodes` to the CLI binaries.               |
+| `internal/hostsops`                               | `diff`, `sudo cp`, `sudo tee`    | Unprivileged diff and an elevated backup and in-place write. Incurs one `sudo` prompt per applied rewrite.                           |
+| `internal/operatorops`                            | `terraform` CLI binary, `execve` | Process replacement keeps the JWT-SVID out of every child but `terraform`. Incurs one wrapper run per invocation of a JWT layer.     |
 
 ### Item C. Libvirt Resource Cleanup Invariant
 

@@ -25,10 +25,10 @@ provider "vault" {
   address      = local.downstream_vault.endpoint
   ca_cert_file = local.downstream_vault.ca_cert_path
 
-  # The JWT-SVID arrives through TERRAFORM_VAULT_AUTH_JWT from tools/terraform-operator.sh and stays out of the state.
+  # The JWT-SVID arrives through TERRAFORM_VAULT_AUTH_JWT from platform terraform and stays out of the state.
   auth_login_jwt {
-    mount = local.state.security_vault_downstream_tenants.downstream_vault_tenant_operator.auth_mount
-    role  = local.state.security_vault_downstream_tenants.downstream_vault_tenant_operator.role_name
+    mount = local.terraform_operator.auth_mount
+    role  = local.terraform_operator.role_name
   }
   skip_child_token = true
 }

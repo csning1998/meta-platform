@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -188,24 +189,6 @@ func TestConfirmExecutionAbortAndAccept(t *testing.T) {
 	}
 }
 
-func TestConfirmGitalyRevertPrecheckAbortedByUser(t *testing.T) {
-	a, out := newOperationsApp(t, "n\n")
-	if err := a.confirmGitalyRevertPrecheck(context.Background()); err != nil {
-		t.Fatalf("confirmGitalyRevertPrecheck abort: %v", err)
-	}
-	if !strings.Contains(out.String(), operationAbortedMsg) {
-		t.Errorf("output = %q, want it to contain %q", out.String(), operationAbortedMsg)
-	}
-}
-
-func TestConfirmGitalyRevertPrecheckConfirmedMissingInventory(t *testing.T) {
-	a, _ := newOperationsApp(t, "y\n")
-	err := a.confirmGitalyRevertPrecheck(context.Background())
-	if err == nil || !strings.Contains(err.Error(), "inventory file not found") {
-		t.Fatalf("confirmGitalyRevertPrecheck(y) = %v, want inventory file not found", err)
-	}
-}
-
 func TestPurgeLibvirtResourcesAbortedByUser(t *testing.T) {
 	a, out := newOperationsApp(t, "n\n")
 	if err := a.purgeLibvirtResources(); err != nil {
@@ -304,5 +287,25 @@ func TestSwitchStrategySaveError(t *testing.T) {
 	t.Cleanup(func() { _ = os.Chmod(a.root, 0o700) })
 	if err := a.switchStrategy(); err == nil {
 		t.Fatal("switchStrategy: want Save error on read-only root, got nil")
+	}
+}
+
+func TestPrintEnvValuePrintsTheValueAlone(t *testing.T) {
+	a, out := newOperationsApp(t, "")
+	a.env.Set("BASTION_VAULT_ADDR", "https://127.0.0.1:8200")
+
+	err := a.printEnvValue("BASTION_VAULT_ADDR")
+	if err != nil || out.String() != "https://127.0.0.1:8200\n" {
+		t.Errorf("printEnvValue = %q, %v, want the value and one newline", out.String(), err)
+	}
+}
+
+func TestPrintEnvValueRefusesTheVaultToken(t *testing.T) {
+	a, out := newOperationsApp(t, "")
+	a.env.Set("VAULT_TOKEN", "hvs.secret-token-value")
+
+	err := a.printEnvValue("VAULT_TOKEN")
+	if !errors.Is(err, config.ErrSecretKey) || out.Len() != 0 {
+		t.Errorf("printEnvValue(VAULT_TOKEN) = %q, %v, want no output and ErrSecretKey", out.String(), err)
 	}
 }

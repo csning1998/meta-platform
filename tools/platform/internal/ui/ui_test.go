@@ -345,3 +345,24 @@ func TestNewRoundTripsWritersWithoutSwapping(t *testing.T) {
 		t.Errorf("New(out, errOut).Print(Info, ...) wrote to errOut: %q, want nothing", errOut.String())
 	}
 }
+
+func TestPrintTextWritesVerbatimToOut(t *testing.T) {
+	var out, errOut bytes.Buffer
+	p := New(&out, &errOut)
+	text := "--- /etc/hosts\n+++ /etc/hosts (candidate)\n-old\n+new\n"
+	p.PrintText(text)
+	if out.String() != text || errOut.Len() != 0 {
+		t.Errorf("PrintText wrote out %q, errOut %q, want the text on out alone", out.String(), errOut.String())
+	}
+}
+
+func TestDiagnosticWritesEveryLevelToErrOut(t *testing.T) {
+	var out, errOut bytes.Buffer
+	p := New(&out, &errOut).Diagnostic()
+	p.Print(Info, "Network Mode: Bridge detected (virbr0).")
+	p.Print(Error, "failure")
+	p.PrintDivider("")
+	if out.Len() != 0 || !strings.Contains(errOut.String(), "Network Mode") || !strings.Contains(errOut.String(), "failure") {
+		t.Errorf("Diagnostic wrote out %q, errOut %q, want every line on errOut", out.String(), errOut.String())
+	}
+}

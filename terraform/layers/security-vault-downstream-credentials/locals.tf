@@ -24,3 +24,9 @@ locals {
     ca_cert_path = local.state.security_vault_downstream_tenants.downstream_vault_ca_cert_path
   }
 }
+
+# The operator of the Downstream Vault logs in with the JWT-SVID of the SPIRE Parent.
+locals {
+  terraform_operator_subject = { service = "vault-downstream", component = "frontend" }
+  terraform_operator         = local.state.security_vault_downstream_tenants.downstream_vault_operators[local.terraform_operator_subject.service][local.terraform_operator_subject.component]
+}

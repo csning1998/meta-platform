@@ -9,6 +9,7 @@
 terraform/*.tf.bak
 terraform/layers/**/*.output.json
 terraform/layers/**/ansible.cfg
+tfplan
 
 # GitLab HTTP Backend credentials
 backend-auth.hcl
