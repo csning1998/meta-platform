@@ -5,10 +5,16 @@ variable "prod_vault_endpoint" {
 }
 
 variable "pki_settings" {
-  description = "Global certificate parameters for generating the downstream intermediate CA."
+  description = "Certificate parameters of the downstream intermediate CA: the common name, and the DNS names which the signing request carries. A signer with permitted DNS Name Constraints rejects a CA certificate without a DNS name inside the permitted subtree."
   type = object({
     intermediate_ca_common_name = string
+    intermediate_dns_names      = list(string)
   })
+
+  validation {
+    condition     = length(var.pki_settings.intermediate_dns_names) > 0
+    error_message = "pki_settings.intermediate_dns_names MUST name at least one DNS name inside the permitted subtree of the signer."
+  }
 }
 
 variable "pki_roles" {
@@ -34,6 +40,6 @@ variable "pki_engine_config" {
 }
 
 variable "bastion_pki_inter_mount_path" {
-  description = "Mount path of the upstream Bastion Vault intermediate PKI engine responsible for signing CSRs."
+  description = "Mount path of the constrained Bastion Vault PKI engine which signs the CSR, such as pki-downstream."
   type        = string
 }
