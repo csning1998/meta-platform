@@ -11,13 +11,12 @@ locals {
     security_vault_downstream_tenants  = data.terraform_remote_state.security_vault_downstream_tenants.outputs
     security_vault_downstream_pki      = data.terraform_remote_state.security_vault_downstream_pki.outputs
     provision_keycloak_oidc            = data.terraform_remote_state.provision_keycloak_oidc.outputs
-    provision_spire_child              = data.terraform_remote_state.provision_spire_child.outputs
   }
 }
 
 locals {
   downstream_vault = {
-    endpoint = local.state.platform_vault_downstream_frontend.endpoint
+    endpoint = local.state.platform_vault_downstream_frontend.vault_endpoint.address
     fqdn     = "https://${local.state.security_vault_downstream_tenants.foundation_pki.map["vault-downstream-frontend"].dns_san[0]}"
   }
 
@@ -25,4 +24,9 @@ locals {
   oidc_discovery_url = local.state.provision_keycloak_oidc.issuer_url
   oidc_client_id     = data.vault_kv_secret_v2.keycloak_vault_client.data["client_id"]
   oidc_client_secret = data.vault_kv_secret_v2.keycloak_vault_client.data["client_secret"]
+}
+
+# The operator of this component logs in to the Downstream Vault with the JWT-SVID of the SPIRE Parent.
+locals {
+  downstream_operator = local.state.security_vault_downstream_tenants.tenant_operator
 }
