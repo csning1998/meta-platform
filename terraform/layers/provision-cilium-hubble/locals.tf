@@ -10,7 +10,6 @@ locals {
     platform_cilium_hubble            = data.terraform_remote_state.platform_cilium_hubble.outputs
     foundation_libvirt_resources      = data.terraform_remote_state.foundation_libvirt_resources.outputs
     security_vault_downstream_tenants = data.terraform_remote_state.security_vault_downstream_tenants.outputs
-    security_vault_downstream_pki     = data.terraform_remote_state.security_vault_downstream_pki.outputs
   }
 }
 

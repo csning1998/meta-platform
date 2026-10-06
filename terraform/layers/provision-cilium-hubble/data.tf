@@ -14,11 +14,6 @@ data "terraform_remote_state" "security_vault_downstream_tenants" {
   config  = { address = "${local._state_base_meta_platform}/security-vault-downstream-tenants" }
 }
 
-data "terraform_remote_state" "security_vault_downstream_pki" {
-  backend = "http"
-  config  = { address = "${local._state_base_meta_platform}/security-pki" }
-}
-
 ephemeral "vault_kv_secret_v2" "cilium_hubble" {
   provider = vault.downstream
   mount    = "secret"

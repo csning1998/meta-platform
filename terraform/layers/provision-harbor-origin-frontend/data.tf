@@ -6,11 +6,6 @@ data "terraform_remote_state" "security_vault_downstream_tenants" {
   config  = { address = "${local._state_base_meta_platform}/security-vault-downstream-tenants" }
 }
 
-data "terraform_remote_state" "security_vault_downstream_pki" {
-  backend = "http"
-  config  = { address = "${local._state_base_meta_platform}/security-pki" }
-}
-
 data "terraform_remote_state" "platform_harbor_origin_frontend" {
   backend = "http"
   config  = { address = "${local._state_base_meta_platform}/platform-harbor-origin-frontend" }
