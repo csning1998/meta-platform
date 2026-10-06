@@ -88,7 +88,17 @@ func (a *app) packerCmd() *cobra.Command {
 }
 
 func (a *app) terraformCmd() *cobra.Command {
-	cmd := &cobra.Command{Use: "terraform", Short: "Terraform layer artifact management"}
+	return &cobra.Command{
+		Use:                "terraform [terraform arguments]",
+		Short:              "Run terraform in the current layer directory, with the JWT-SVID of the layer operator when the layer logs in with one",
+		DisableFlagParsing: true,
+		Annotations:        map[string]string{annotationSkipBootstrap: "true"},
+		RunE:               func(cmd *cobra.Command, args []string) error { return a.runLayerTerraform(cmd.Context(), args) },
+	}
+}
+
+func (a *app) layerCmd() *cobra.Command {
+	cmd := &cobra.Command{Use: "layer", Short: "Terraform layer artifact management"}
 	cmd.AddCommand(&cobra.Command{
 		Use:   "clean <layer|all>",
 		Short: "Report Terraform artifact cleanup status for a layer (or 'all')",
@@ -96,13 +106,6 @@ func (a *app) terraformCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return terraformops.ReportCleanupStatus(a.terraform, args[0], getConfiguredTerraformLayers(a.env), a.out)
 		},
-	})
-	cmd.AddCommand(&cobra.Command{
-		Use:                "run [terraform arguments]",
-		Short:              "Run terraform in the current layer directory with the JWT-SVID of the layer operator",
-		DisableFlagParsing: true,
-		Annotations:        map[string]string{annotationSkipBootstrap: "true"},
-		RunE:               func(cmd *cobra.Command, args []string) error { return a.runOperatorTerraform(cmd.Context(), args) },
 	})
 	return cmd
 }

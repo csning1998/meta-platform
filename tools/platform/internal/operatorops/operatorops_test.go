@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -14,90 +15,183 @@ import (
 // layersDir is the terraform/layers directory of the repository, relative to this package.
 const layersDir = "../../../../terraform/layers"
 
-func TestResolveOperator(t *testing.T) {
+// writeLayerFiles writes each file of files below a new layer directory and returns the directory.
+func writeLayerFiles(t *testing.T, files map[string]string) string {
+	t.Helper()
+	dir := t.TempDir()
+	for name, content := range files {
+		err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600)
+		if err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+	return dir
+}
+
+func TestReadOperatorSubject(t *testing.T) {
 	cases := []struct {
-		layer string
-		want  string
+		name  string
+		files map[string]string
+		want  OperatorSubject
 	}{
-		{"platform-cilium-hubble", "cilium-hubble"},
-		{"provision-cilium-hubble", "cilium-hubble"},
-		{"platform-harbor-origin-frontend", "harbor-origin-frontend"},
-		{"provision-harbor-origin-frontend", "harbor-origin-frontend"},
-		{"provision-harbor-origin-oidc", "harbor-origin-frontend"},
-		{"platform-keycloak-frontend", "keycloak-frontend"},
-		{"provision-keycloak-oidc", "keycloak-frontend"},
-		{"platform-spire-child", "spire-child"},
-		{"provision-spire-child", "spire-child"},
-		{"provision-vault-oidc", "vault-downstream-frontend"},
-		{"security-vault-downstream-credentials", "vault-downstream-frontend"},
-		{"security-vault-downstream-pki", "vault-downstream-frontend"},
+		{
+			name: "locals.tf",
+			files: map[string]string{"locals.tf": `locals {
+  terraform_operator_subject = { service = "harbor-origin", component = "frontend" }
+  terraform_operator         = local.state.x[local.terraform_operator_subject.service]
+}
+`},
+			want: OperatorSubject{Service: "harbor-origin", Component: "frontend"},
+		},
+		{
+			name: "another file among several locals blocks",
+			files: map[string]string{
+				"locals.tf":    "locals {\n  state = {}\n}\n",
+				"operator.tf":  "locals {\n  terraform_operator_subject = {\n    service   = \"spire\"\n    component = \"child\"\n  }\n}\n",
+				"variables.tf": "variable \"terraform_operator_subject\" {\n  default = { service = \"x\", component = \"y\" }\n}\n",
+			},
+			want: OperatorSubject{Service: "spire", Component: "child"},
+		},
 	}
 	for _, c := range cases {
-		t.Run(c.layer, func(t *testing.T) {
-			got, err := ResolveOperator(c.layer)
-			if err != nil || got != c.want {
-				t.Errorf("ResolveOperator(%q) = %q, %v, want %q, nil", c.layer, got, err, c.want)
+		t.Run(c.name, func(t *testing.T) {
+			got, found, err := ReadOperatorSubject(writeLayerFiles(t, c.files))
+			if err != nil || !found || got != c.want {
+				t.Errorf("ReadOperatorSubject = %+v, %v, %v, want %+v, true, nil", got, found, err, c.want)
 			}
 		})
 	}
 }
 
-func TestResolveOperatorRejectsLayerWithoutJWTLogin(t *testing.T) {
-	for _, layer := range []string{
-		"foundation-libvirt-resources",
-		"provision-spire-parent",
-		"security-vault-downstream-tenants",
-		"",
-		"keycloak-oidc",
-		"provision-keycloak-oidc/",
+func TestReadOperatorSubjectReportsLayerWithoutSubject(t *testing.T) {
+	for name, files := range map[string]map[string]string{
+		"no locals":          {"main.tf": "resource \"terraform_data\" \"x\" {}\n"},
+		"other locals":       {"locals.tf": "locals {\n  terraform_operator = {}\n}\n"},
+		"tfvars only":        {"terraform.tfvars": "terraform_operator_subject = { service = \"x\", component = \"y\" }\n"},
+		"empty layer":        {},
+		"variable not local": {"variables.tf": "variable \"terraform_operator_subject\" {}\n"},
 	} {
-		t.Run(layer, func(t *testing.T) {
-			got, err := ResolveOperator(layer)
-			if !errors.Is(err, ErrLayerWithoutOperator) {
-				t.Fatalf("ResolveOperator(%q) = %q, %v, want ErrLayerWithoutOperator", layer, got, err)
-			}
-			if !strings.Contains(err.Error(), layer) {
-				t.Errorf("ResolveOperator(%q) error = %q, want the layer name in the message", layer, err)
+		t.Run(name, func(t *testing.T) {
+			got, found, err := ReadOperatorSubject(writeLayerFiles(t, files))
+			if err != nil || found {
+				t.Errorf("ReadOperatorSubject = %+v, %v, %v, want not found and nil", got, found, err)
 			}
 		})
 	}
 }
 
-// TestResolveOperatorMatchesTheProviders fails when a layer gains or loses block auth_login_jwt without the table.
-func TestResolveOperatorMatchesTheProviders(t *testing.T) {
-	files, err := filepath.Glob(filepath.Join(layersDir, "*", "*.tf"))
-	if err != nil || len(files) == 0 {
-		t.Fatalf("glob %s: %d files, %v", layersDir, len(files), err)
+func TestReadOperatorSubjectRejectsInvalidDeclaration(t *testing.T) {
+	for name, files := range map[string]map[string]string{
+		"reference":      {"locals.tf": "locals {\n  terraform_operator_subject = { service = local.service, component = \"frontend\" }\n}\n"},
+		"template":       {"locals.tf": "locals {\n  terraform_operator_subject = { service = \"${local.s}\", component = \"frontend\" }\n}\n"},
+		"missing field":  {"locals.tf": "locals {\n  terraform_operator_subject = { service = \"keycloak\" }\n}\n"},
+		"extra field":    {"locals.tf": "locals {\n  terraform_operator_subject = { service = \"keycloak\", component = \"frontend\", owner = \"x\" }\n}\n"},
+		"number field":   {"locals.tf": "locals {\n  terraform_operator_subject = { service = \"keycloak\", component = 1 }\n}\n"},
+		"empty field":    {"locals.tf": "locals {\n  terraform_operator_subject = { service = \"\", component = \"frontend\" }\n}\n"},
+		"string literal": {"locals.tf": "locals {\n  terraform_operator_subject = \"keycloak-frontend\"\n}\n"},
+		"declared twice": {"a.tf": "locals {\n  terraform_operator_subject = { service = \"a\", component = \"b\" }\n}\n", "b.tf": "locals {\n  terraform_operator_subject = { service = \"a\", component = \"b\" }\n}\n"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got, found, err := ReadOperatorSubject(writeLayerFiles(t, files))
+			if !errors.Is(err, ErrInvalidOperatorSubject) {
+				t.Errorf("ReadOperatorSubject = %+v, %v, %v, want ErrInvalidOperatorSubject", got, found, err)
+			}
+		})
 	}
-	jwtLayers := map[string]bool{}
-	allLayers := map[string]bool{}
-	for _, file := range files {
-		layer := filepath.Base(filepath.Dir(file))
-		allLayers[layer] = true
-		content, err := os.ReadFile(file)
+}
+
+func TestReadOperatorSubjectRejectsSyntaxError(t *testing.T) {
+	dir := writeLayerFiles(t, map[string]string{"locals.tf": "locals {\n  terraform_operator_subject = {\n"})
+	_, _, err := ReadOperatorSubject(dir)
+	if err == nil || !strings.Contains(err.Error(), "locals.tf") {
+		t.Errorf("ReadOperatorSubject error = %v, want a parse error which names locals.tf", err)
+	}
+}
+
+// operatorTargetRe matches the literal service and component of each operator target of provision-spire-parent.
+var operatorTargetRe = regexp.MustCompile(`\{\s*service\s*=\s*"([a-z0-9-]+)",\s*component\s*=\s*"([a-z0-9-]+)"\s*\}`)
+
+// readOperatorTargets returns the operator targets which provision-spire-parent registers.
+func readOperatorTargets(t *testing.T) map[OperatorSubject]bool {
+	t.Helper()
+	content, err := os.ReadFile(filepath.Join(layersDir, "provision-spire-parent", "locals.tf"))
+	if err != nil {
+		t.Fatalf("read provision-spire-parent locals: %v", err)
+	}
+	start := strings.Index(string(content), "_spire_operator_targets = {")
+	end := strings.Index(string(content)[start:], "\n  }\n")
+	if start < 0 || end < 0 {
+		t.Fatal("provision-spire-parent declares no _spire_operator_targets block")
+	}
+	targets := map[OperatorSubject]bool{}
+	for _, m := range operatorTargetRe.FindAllStringSubmatch(string(content)[start:start+end], -1) {
+		targets[OperatorSubject{Service: m[1], Component: m[2]}] = true
+	}
+	if len(targets) == 0 {
+		t.Fatal("_spire_operator_targets of provision-spire-parent holds no target")
+	}
+	return targets
+}
+
+// TestReadOperatorSubjectMatchesTheLayers enforces the Day 0 declaration of every layer of the repository.
+func TestReadOperatorSubjectMatchesTheLayers(t *testing.T) {
+	targets := readOperatorTargets(t)
+	dirs, err := filepath.Glob(filepath.Join(layersDir, "*"))
+	if err != nil || len(dirs) == 0 {
+		t.Fatalf("glob %s: %d layers, %v", layersDir, len(dirs), err)
+	}
+	for _, dir := range dirs {
+		files, err := filepath.Glob(filepath.Join(dir, "*.tf"))
 		if err != nil {
-			t.Fatalf("read %s: %v", file, err)
+			t.Fatalf("glob %s: %v", dir, err)
 		}
-		if strings.Contains(string(content), "auth_login_jwt") {
-			jwtLayers[layer] = true
+		var source strings.Builder
+		for _, file := range files {
+			content, err := os.ReadFile(file)
+			if err != nil {
+				t.Fatalf("read %s: %v", file, err)
+			}
+			source.Write(content)
 		}
-	}
-	for layer := range allLayers {
-		_, err := ResolveOperator(layer)
-		if jwtLayers[layer] && err != nil {
-			t.Errorf("layer %s declares auth_login_jwt, but ResolveOperator returns %v", layer, err)
+		isJWTLayer := strings.Contains(source.String(), "auth_login_jwt")
+
+		layer := filepath.Base(dir)
+		subject, found, err := ReadOperatorSubject(dir)
+		switch {
+		case err != nil:
+			t.Errorf("layer %s: %v", layer, err)
+		case isJWTLayer && !found:
+			t.Errorf("layer %s declares auth_login_jwt without %s", layer, SubjectLocal)
+		case !isJWTLayer && found:
+			t.Errorf("layer %s declares %s without auth_login_jwt", layer, SubjectLocal)
+		case found && !targets[subject]:
+			t.Errorf("layer %s declares %+v, which provision-spire-parent registers as no operator", layer, subject)
 		}
-		if !jwtLayers[layer] && err == nil {
-			t.Errorf("layer %s declares no auth_login_jwt, but ResolveOperator resolves an operator", layer)
+		if isJWTLayer {
+			for _, ref := range []string{"local.terraform_operator.auth_mount", "local.terraform_operator.role_name"} {
+				if !strings.Contains(source.String(), ref) {
+					t.Errorf("layer %s logs in without %s", layer, ref)
+				}
+			}
 		}
 	}
 }
 
 func TestResolveWrapperPath(t *testing.T) {
-	got := ResolveWrapperPath("/usr/local/bin", "keycloak-frontend")
-	want := "/usr/local/bin/spire-fetch-meta-platform-terraform-operator-keycloak-frontend"
-	if got != want {
-		t.Errorf("ResolveWrapperPath = %q, want %q", got, want)
+	cfg := Config{WrapperDir: "/usr/local/bin", OwnerCode: "meta-platform"}
+	cases := []struct {
+		subject OperatorSubject
+		want    string
+	}{
+		{OperatorSubject{"keycloak", "frontend"}, "/usr/local/bin/spire-fetch-meta-platform-terraform-operator-keycloak-frontend"},
+		{OperatorSubject{"harbor-origin", "frontend"}, "/usr/local/bin/spire-fetch-meta-platform-terraform-operator-harbor-origin-frontend"},
+		{OperatorSubject{"spire", "child"}, "/usr/local/bin/spire-fetch-meta-platform-terraform-operator-spire-child"},
+	}
+	for _, c := range cases {
+		got := ResolveWrapperPath(cfg, c.subject)
+		if got != c.want {
+			t.Errorf("ResolveWrapperPath(%+v) = %q, want %q", c.subject, got, c.want)
+		}
 	}
 }
 
@@ -242,28 +336,35 @@ func TestBuildTerraformEnv(t *testing.T) {
 
 // prepareFixture holds a layer directory, a wrapper directory, and a PATH with a fake terraform.
 type prepareFixture struct {
-	layerDir   string
-	wrapperDir string
-	terraform  string
-	marker     string
+	cfg       Config
+	layerDir  string
+	terraform string
+	marker    string
 }
 
-func newPrepareFixture(t *testing.T, layer string) prepareFixture {
+// keycloakSubjectLocals declares the operator of keycloak/frontend in a layer whose name carries neither field.
+const keycloakSubjectLocals = "locals {\n  terraform_operator_subject = { service = \"keycloak\", component = \"frontend\" }\n}\n"
+
+func newPrepareFixture(t *testing.T, locals string) prepareFixture {
 	t.Helper()
 	root := t.TempDir()
 	f := prepareFixture{
-		layerDir:   filepath.Join(root, "layers", layer),
-		wrapperDir: filepath.Join(root, "wrappers"),
-		marker:     filepath.Join(root, "wrapper-ran"),
+		cfg:      Config{WrapperDir: filepath.Join(root, "wrappers"), OwnerCode: "meta-platform"},
+		layerDir: filepath.Join(root, "layers", "any-layer"),
+		marker:   filepath.Join(root, "wrapper-ran"),
 	}
 	binDir := filepath.Join(root, "bin")
-	for _, dir := range []string{f.layerDir, f.wrapperDir, binDir} {
+	for _, dir := range []string{f.layerDir, f.cfg.WrapperDir, binDir} {
 		err := os.MkdirAll(dir, 0o700)
 		if err != nil {
 			t.Fatalf("mkdir %s: %v", dir, err)
 		}
 	}
-	writeFakeExecutable(t, f.wrapperDir, "spire-fetch-meta-platform-terraform-operator-keycloak-frontend",
+	err := os.WriteFile(filepath.Join(f.layerDir, "locals.tf"), []byte(locals), 0o600)
+	if err != nil {
+		t.Fatalf("write layer locals: %v", err)
+	}
+	writeFakeExecutable(t, f.cfg.WrapperDir, "spire-fetch-meta-platform-terraform-operator-keycloak-frontend",
 		`touch "`+f.marker+`"; printf '{"jwt":"eyJ.keycloak.sig"}'`)
 	f.terraform = writeFakeExecutable(t, binDir, "terraform", "exit 0")
 	t.Setenv("PATH", binDir)
@@ -271,10 +372,10 @@ func newPrepareFixture(t *testing.T, layer string) prepareFixture {
 }
 
 func TestPrepareTerraform(t *testing.T) {
-	f := newPrepareFixture(t, "provision-keycloak-oidc")
+	f := newPrepareFixture(t, keycloakSubjectLocals)
 	environ := []string{"PATH=" + filepath.Dir(f.terraform), "VAULT_TOKEN=tenant"}
 
-	got, err := PrepareTerraform(context.Background(), f.wrapperDir, f.layerDir, []string{"plan", "-out=tfplan"}, environ)
+	got, err := PrepareTerraform(context.Background(), f.cfg, f.layerDir, []string{"plan", "-out=tfplan"}, environ)
 	if err != nil {
 		t.Fatalf("PrepareTerraform: %v", err)
 	}
@@ -291,23 +392,48 @@ func TestPrepareTerraform(t *testing.T) {
 	}
 }
 
-func TestPrepareTerraformSkipsTheWrapperOfLayerWithoutJWTLogin(t *testing.T) {
-	f := newPrepareFixture(t, "foundation-libvirt-resources")
+// TestPrepareTerraformRunsLayerWithoutJWTLoginPlainly covers a stale JWT-SVID of the shell, which MUST NOT reach another layer.
+func TestPrepareTerraformRunsLayerWithoutJWTLoginPlainly(t *testing.T) {
+	f := newPrepareFixture(t, "locals {\n  state = {}\n}\n")
+	environ := []string{JWTEnvKey + "=eyJ.stale.sig", "PATH=" + filepath.Dir(f.terraform)}
 
-	_, err := PrepareTerraform(context.Background(), f.wrapperDir, f.layerDir, []string{"plan"}, nil)
-	if !errors.Is(err, ErrLayerWithoutOperator) {
-		t.Errorf("PrepareTerraform error = %v, want ErrLayerWithoutOperator", err)
+	got, err := PrepareTerraform(context.Background(), f.cfg, f.layerDir, []string{"plan"}, environ)
+	if err != nil {
+		t.Fatalf("PrepareTerraform: %v", err)
+	}
+	if got.Path != f.terraform {
+		t.Errorf("Path = %q, want %q", got.Path, f.terraform)
+	}
+	wantArgs := []string{"terraform", "plan"}
+	if !slices.Equal(got.Args, wantArgs) {
+		t.Errorf("Args = %q, want %q", got.Args, wantArgs)
+	}
+	wantEnv := []string{"PATH=" + filepath.Dir(f.terraform)}
+	if !slices.Equal(got.Env, wantEnv) {
+		t.Errorf("Env = %q, want %q", got.Env, wantEnv)
 	}
 	if isPathPresent(f.marker) {
 		t.Error("PrepareTerraform ran a wrapper for a layer without JWT login")
 	}
 }
 
+func TestPrepareTerraformRejectsInvalidSubject(t *testing.T) {
+	f := newPrepareFixture(t, "locals {\n  terraform_operator_subject = { service = local.s, component = \"frontend\" }\n}\n")
+
+	_, err := PrepareTerraform(context.Background(), f.cfg, f.layerDir, []string{"plan"}, nil)
+	if !errors.Is(err, ErrInvalidOperatorSubject) {
+		t.Errorf("PrepareTerraform error = %v, want ErrInvalidOperatorSubject", err)
+	}
+	if isPathPresent(f.marker) {
+		t.Error("PrepareTerraform ran a wrapper for an invalid subject")
+	}
+}
+
 func TestPrepareTerraformRejectsMissingTerraform(t *testing.T) {
-	f := newPrepareFixture(t, "provision-keycloak-oidc")
+	f := newPrepareFixture(t, keycloakSubjectLocals)
 	t.Setenv("PATH", t.TempDir())
 
-	_, err := PrepareTerraform(context.Background(), f.wrapperDir, f.layerDir, []string{"plan"}, nil)
+	_, err := PrepareTerraform(context.Background(), f.cfg, f.layerDir, []string{"plan"}, nil)
 	if !errors.Is(err, exec.ErrNotFound) {
 		t.Errorf("PrepareTerraform error = %v, want exec.ErrNotFound", err)
 	}

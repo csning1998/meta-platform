@@ -4,16 +4,21 @@ go 1.26.0
 
 require (
 	github.com/apenella/go-ansible/v2 v2.4.1
+	github.com/hashicorp/hcl/v2 v2.25.0
 	github.com/hashicorp/vault/api v1.23.0
 	github.com/spf13/cobra v1.10.2
+	github.com/zclconf/go-cty v1.19.0
 	gitlab.com/csning1998-lab/parent-group-governance/tools/governance v0.0.0-20260919140900-1f44c1efca38
 	gitlab.com/csning1998-lab/terraform/terraform-provider-sshclient v0.0.0-20260910050740-2f2427450309
 	libvirt.org/go/libvirt v1.12006.0
 )
 
 require (
+	github.com/agext/levenshtein v1.2.1 // indirect
 	github.com/apenella/go-common-utils/data v0.0.0-20220913191136-86daaa87e7df // indirect
 	github.com/apenella/go-common-utils/error v0.0.0-20220913191136-86daaa87e7df // indirect
+	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
+	github.com/apparentlymart/go-textseg/v17 v17.0.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
@@ -28,6 +33,7 @@ require (
 	github.com/hashicorp/hcl v1.0.1-vault-7 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
+	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
@@ -36,11 +42,13 @@ require (
 	github.com/stretchr/objx v0.5.3 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	golang.org/x/crypto v0.56.0 // indirect
+	golang.org/x/mod v0.38.0 // indirect
 	golang.org/x/net v0.57.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
+	golang.org/x/tools v0.48.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

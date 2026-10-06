@@ -121,6 +121,7 @@ func execute() int {
 		a.envCmd(),
 		a.packerCmd(),
 		a.terraformCmd(),
+		a.layerCmd(),
 		a.gitalyCmd(),
 		a.libvirtCmd(),
 		a.strategyCmd(),

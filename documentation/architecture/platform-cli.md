@@ -15,7 +15,7 @@
 ### Item B. Build and Execution Constraints
 
 1. The binary MUST be built with the command `cd tools/platform && go build -o ../../platform ./cmd/platform`.
-2. The executable MUST be invoked with the working directory set to the `meta-platform` repository root.
+2. The executable MUST be invoked with the working directory inside the `meta-platform` repository. `platform terraform` MUST be invoked with the working directory set to a layer directory under `terraform/layers/`.
 3. Automatic environment initialization MUST determine `PROJECT_ROOT` from the current working directory.
 4. The compiled `platform` binary MUST NOT be tracked in version control and MUST be excluded by `.gitignore`.
 
@@ -50,10 +50,14 @@
 2. `platform packer clean <base|all>` MUST remove designated build output directories under `packer/output/` and purge non-ISO files from `$HOME/.cache/packer`.
 3. `platform packer purge-all` MUST clean all build outputs and host caches across all discovered Packer bases.
 
-### Item E. Terraform Layer Operations (`terraform`)
+### Item E. Terraform Layer Operations (`terraform`, `layer`)
 
-1. `platform terraform clean <layer|all>` MUST verify the existence of layer directories under `terraform/layers/` and report artifact cleanup status.
-2. `platform terraform clean` MUST NOT delete state files because Terraform remote state is stored in the GitLab HTTP backend.
+1. `platform terraform [args]` MUST pass every argument to `terraform` unparsed and MUST replace its own process with `terraform` in the current layer directory.
+2. For a layer whose Vault provider declares block `auth_login_jwt`, `platform terraform` MUST fetch the JWT-SVID of the layer operator through its wrapper under `/usr/local/bin` and MUST export the JWT-SVID as `TERRAFORM_VAULT_AUTH_JWT`.
+3. For every other layer, `platform terraform` MUST remove `TERRAFORM_VAULT_AUTH_JWT` from the environment of `terraform`.
+4. `platform terraform` MUST NOT bootstrap `.env`.
+5. `platform layer clean <layer|all>` MUST verify the existence of layer directories under `terraform/layers/` and report artifact cleanup status.
+6. `platform layer clean` MUST NOT delete state files because Terraform remote state is stored in the GitLab HTTP backend.
 
 ### Item F. Gitaly Operations (`gitaly`)
 
@@ -93,7 +97,7 @@ The interactive menu MUST present options in the following sequence:
 | 10     | `Switch Environment Strategy`                              | `platform strategy switch`                                          |
 | 11     | `[PROD] Revert Gitaly to Standalone for Safety Pre-check`  | `platform gitaly revert-precheck`                                   |
 | 12     | `Purge All Packer Artifacts`                               | `platform packer purge-all`                                         |
-| 13     | `Purge All Infrastructure Resources (Libvirt + Terraform)` | `platform libvirt purge` followed by `platform terraform clean all` |
+| 13     | `Purge All Infrastructure Resources (Libvirt + Terraform)` | `platform libvirt purge` followed by `platform layer clean all`     |
 | 14     | `Quit`                                                     | Terminates menu execution                                           |
 
 ### Item B. Packer Submenu Navigation
@@ -122,6 +126,7 @@ The interactive menu MUST present options in the following sequence:
 | `internal/packerops` (Build)                      | `packer` CLI binary              | Official CLI automation of HCL templates and plugins. Incurs subprocess management overhead.                                         |
 | `internal/gitalyops`, `vaultops.UnsealProduction` | `ansible-playbook` CLI binary    | Playbook execution utilizing existing Ansible role collections. Incurs Python interpreter startup overhead.                          |
 | `internal/libvirtops.EnsureServices`              | `systemctl` CLI binary           | Systemd socket activation management. Avoids heavyweight D-Bus library bindings.                                                     |
+| `internal/operatorops`                            | `terraform` CLI binary, `execve` | Process replacement keeps the JWT-SVID out of every child but `terraform`. Incurs one wrapper run per invocation of a JWT layer.     |
 
 ### Item C. Libvirt Resource Cleanup Invariant
 

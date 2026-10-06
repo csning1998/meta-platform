@@ -1,5 +1,5 @@
-// Package operatorops prepares a terraform run of a layer whose Vault provider logs in with the JWT-SVID of the
-// Terraform operator of its component.
+// Package operatorops prepares the terraform invocation of a layer, which carries the JWT-SVID of the Terraform operator
+// of its component when the Vault provider of the layer logs in with one.
 package operatorops
 
 import (
@@ -13,6 +13,11 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"github.com/hashicorp/hcl/v2"
+	"github.com/hashicorp/hcl/v2/hclparse"
+	"github.com/hashicorp/hcl/v2/hclsyntax"
+	"github.com/zclconf/go-cty/cty"
 )
 
 // DefaultWrapperDir is the directory where the play of provision-spire-parent installs the JWT-SVID wrappers.
@@ -21,32 +26,28 @@ const DefaultWrapperDir = "/usr/local/bin"
 // JWTEnvKey is the variable which the Vault provider reads for block auth_login_jwt.
 const JWTEnvKey = "TERRAFORM_VAULT_AUTH_JWT"
 
-const wrapperPrefix = "spire-fetch-meta-platform-terraform-operator-"
+// SubjectLocal is the local which a layer of JWT-SVID login declares in place of a name parse of the layer.
+const SubjectLocal = "terraform_operator_subject"
 
 var (
-	// ErrLayerWithoutOperator reports a layer whose Vault provider does not log in with a JWT-SVID.
-	ErrLayerWithoutOperator = errors.New("operatorops: layer does not log in with a JWT-SVID, run terraform directly")
+	// ErrInvalidOperatorSubject reports a terraform_operator_subject other than one literal of service and component.
+	ErrInvalidOperatorSubject = errors.New("operatorops: terraform_operator_subject MUST be one object literal of string literals service and component")
 	// ErrWrapperMissing reports an absent or non-executable JWT-SVID wrapper.
 	ErrWrapperMissing = errors.New("operatorops: JWT-SVID wrapper is missing, apply provision-spire-parent first")
 	// ErrJWTMissing reports a wrapper output without a non-empty jwt field.
 	ErrJWTMissing = errors.New("operatorops: wrapper output carries no jwt field")
 )
 
-// layerOperators maps each layer to its operator. The Vault role of each operator binds one SPIFFE ID,
-// hence a wrong entry fails the login.
-var layerOperators = map[string]string{
-	"platform-cilium-hubble":                "cilium-hubble",
-	"provision-cilium-hubble":               "cilium-hubble",
-	"platform-harbor-origin-frontend":       "harbor-origin-frontend",
-	"provision-harbor-origin-frontend":      "harbor-origin-frontend",
-	"provision-harbor-origin-oidc":          "harbor-origin-frontend",
-	"platform-keycloak-frontend":            "keycloak-frontend",
-	"provision-keycloak-oidc":               "keycloak-frontend",
-	"platform-spire-child":                  "spire-child",
-	"provision-spire-child":                 "spire-child",
-	"provision-vault-oidc":                  "vault-downstream-frontend",
-	"security-vault-downstream-credentials": "vault-downstream-frontend",
-	"security-vault-downstream-pki":         "vault-downstream-frontend",
+// OperatorSubject is the catalog service and component of a local Terraform operator.
+type OperatorSubject struct {
+	Service   string
+	Component string
+}
+
+// Config holds the wrapper directory and the owner code which the wrapper names carry.
+type Config struct {
+	WrapperDir string
+	OwnerCode  string
 }
 
 // Invocation is the program, the argument vector, and the environment which replace the current process.
@@ -56,18 +57,76 @@ type Invocation struct {
 	Env  []string
 }
 
-// ResolveOperator returns the operator whose JWT-SVID the Vault provider of layer presents.
-func ResolveOperator(layer string) (string, error) {
-	operator, ok := layerOperators[layer]
-	if !ok {
-		return "", fmt.Errorf("%w: %s", ErrLayerWithoutOperator, layer)
+// ReadOperatorSubject returns the terraform_operator_subject of the layer at layerDir, and false when the layer
+// declares none. The parse stays static, since an evaluation would need the remote state of the layer.
+func ReadOperatorSubject(layerDir string) (OperatorSubject, bool, error) {
+	files, err := filepath.Glob(filepath.Join(layerDir, "*.tf"))
+	if err != nil {
+		return OperatorSubject{}, false, fmt.Errorf("operatorops: list %s: %w", layerDir, err)
 	}
-	return operator, nil
+
+	parser := hclparse.NewParser()
+	var subject OperatorSubject
+	found := false
+	for _, file := range files {
+		parsed, diags := parser.ParseHCLFile(file)
+		if diags.HasErrors() {
+			return OperatorSubject{}, false, fmt.Errorf("operatorops: parse %s: %w", file, diags)
+		}
+		body, ok := parsed.Body.(*hclsyntax.Body)
+		if !ok {
+			return OperatorSubject{}, false, fmt.Errorf("operatorops: %s is not native HCL syntax", file)
+		}
+		for _, block := range body.Blocks {
+			attr, ok := block.Body.Attributes[SubjectLocal]
+			if block.Type != "locals" || !ok {
+				continue
+			}
+			if found {
+				return OperatorSubject{}, false, fmt.Errorf("%w: %s declares it again", ErrInvalidOperatorSubject, file)
+			}
+			subject, err = decodeOperatorSubject(attr.Expr)
+			if err != nil {
+				return OperatorSubject{}, false, fmt.Errorf("%w: %s: %s", ErrInvalidOperatorSubject, file, err)
+			}
+			found = true
+		}
+	}
+	return subject, found, nil
 }
 
-// ResolveWrapperPath returns the path of the JWT-SVID wrapper of operator below wrapperDir.
-func ResolveWrapperPath(wrapperDir, operator string) string {
-	return filepath.Join(wrapperDir, wrapperPrefix+operator)
+// decodeOperatorSubject returns the subject of expr, which MUST be an object of exactly two non-empty string literals.
+func decodeOperatorSubject(expr hclsyntax.Expression) (OperatorSubject, error) {
+	object, ok := expr.(*hclsyntax.ObjectConsExpr)
+	if !ok {
+		return OperatorSubject{}, errors.New("the value is not an object")
+	}
+	fields := map[string]string{}
+	for _, item := range object.Items {
+		key := hcl.ExprAsKeyword(item.KeyExpr)
+		// A nil evaluation context rejects every reference and function call, which admits literals alone.
+		value, diags := item.ValueExpr.Value(nil)
+		if diags.HasErrors() || value.Type() != cty.String || value.IsNull() || value.AsString() == "" {
+			return OperatorSubject{}, fmt.Errorf("field %q is not a non-empty string literal", key)
+		}
+		if _, exists := fields[key]; exists {
+			return OperatorSubject{}, fmt.Errorf("field %q repeats", key)
+		}
+		fields[key] = value.AsString()
+	}
+	service, hasService := fields["service"]
+	component, hasComponent := fields["component"]
+	if len(fields) != 2 || !hasService || !hasComponent {
+		return OperatorSubject{}, errors.New("the object MUST hold exactly the fields service and component")
+	}
+	return OperatorSubject{Service: service, Component: component}, nil
+}
+
+// ResolveWrapperPath returns the path of the JWT-SVID wrapper of subject below cfg.WrapperDir. The name follows the
+// identity string of the operator, which provision-spire-parent composes from the same fields.
+func ResolveWrapperPath(cfg Config, subject OperatorSubject) string {
+	return filepath.Join(cfg.WrapperDir,
+		"spire-fetch-"+cfg.OwnerCode+"-terraform-operator-"+subject.Service+"-"+subject.Component)
 }
 
 // FetchJWT runs the wrapper at wrapperPath and returns the jwt field of its JSON output.
@@ -104,30 +163,40 @@ func FetchJWT(ctx context.Context, wrapperPath string) (string, error) {
 
 // BuildTerraformEnv returns base with JWTEnvKey set to jwt.
 func BuildTerraformEnv(base []string, jwt string) []string {
-	env := slices.DeleteFunc(slices.Clone(base), func(kv string) bool {
-		return strings.HasPrefix(kv, JWTEnvKey+"=")
-	})
-	return append(env, JWTEnvKey+"="+jwt)
+	return append(removeJWTEnv(base), JWTEnvKey+"="+jwt)
 }
 
-// PrepareTerraform returns the terraform invocation of the layer at layerDir with the JWT-SVID of its operator.
-// Resolution of the layer and of terraform precedes the wrapper run, keeping a JWT-SVID out of an unstartable run.
-func PrepareTerraform(ctx context.Context, wrapperDir, layerDir string, args, environ []string) (Invocation, error) {
-	operator, err := ResolveOperator(filepath.Base(layerDir))
-	if err != nil {
-		return Invocation{}, err
-	}
+// removeJWTEnv returns a copy of base without JWTEnvKey.
+func removeJWTEnv(base []string) []string {
+	return slices.DeleteFunc(slices.Clone(base), func(kv string) bool {
+		return strings.HasPrefix(kv, JWTEnvKey+"=")
+	})
+}
+
+// PrepareTerraform returns the terraform invocation of the layer at layerDir, with the JWT-SVID of its operator
+// when the layer logs in with one. Resolution of terraform precedes the wrapper run, keeping a JWT-SVID out of an unstartable run.
+func PrepareTerraform(ctx context.Context, cfg Config, layerDir string, args, environ []string) (Invocation, error) {
 	terraform, err := exec.LookPath("terraform")
 	if err != nil {
 		return Invocation{}, fmt.Errorf("operatorops: %w", err)
 	}
-	jwt, err := FetchJWT(ctx, ResolveWrapperPath(wrapperDir, operator))
+	inv := Invocation{
+		Path: terraform,
+		Args: append([]string{"terraform"}, args...),
+		Env:  removeJWTEnv(environ),
+	}
+
+	subject, found, err := ReadOperatorSubject(layerDir)
 	if err != nil {
 		return Invocation{}, err
 	}
-	return Invocation{
-		Path: terraform,
-		Args: append([]string{"terraform"}, args...),
-		Env:  BuildTerraformEnv(environ, jwt),
-	}, nil
+	if !found {
+		return inv, nil
+	}
+	jwt, err := FetchJWT(ctx, ResolveWrapperPath(cfg, subject))
+	if err != nil {
+		return Invocation{}, err
+	}
+	inv.Env = BuildTerraformEnv(environ, jwt)
+	return inv, nil
 }

@@ -6,19 +6,21 @@ import (
 	"os"
 	"syscall"
 
+	"platform/internal/libvirtops"
 	"platform/internal/operatorops"
 )
 
-// runOperatorTerraform replaces the process with terraform, which keeps the JWT-SVID out of every child but terraform.
-func (a *app) runOperatorTerraform(ctx context.Context, args []string) error {
+// runLayerTerraform replaces the process with terraform, which keeps the JWT-SVID out of every child but terraform.
+func (a *app) runLayerTerraform(ctx context.Context, args []string) error {
 	layerDir, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("terraform run: %w", err)
+		return fmt.Errorf("terraform: %w", err)
 	}
-	inv, err := operatorops.PrepareTerraform(ctx, operatorops.DefaultWrapperDir, layerDir, args, os.Environ())
+	cfg := operatorops.Config{WrapperDir: operatorops.DefaultWrapperDir, OwnerCode: libvirtops.ProjectCode}
+	inv, err := operatorops.PrepareTerraform(ctx, cfg, layerDir, args, os.Environ())
 	if err != nil {
 		return err
 	}
 	err = syscall.Exec(inv.Path, inv.Args, inv.Env)
-	return fmt.Errorf("terraform run: exec %s: %w", inv.Path, err)
+	return fmt.Errorf("terraform: exec %s: %w", inv.Path, err)
 }
