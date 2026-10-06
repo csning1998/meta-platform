@@ -67,6 +67,10 @@
 - name: "Section D. Expose the secrets by alias"
   ansible.builtin.set_fact:
     utils_vault_kv2_read_result: >-
-      {{ dict(utils_vault_kv2_read_secrets | map(attribute='as')
-              | zip(_utils_vault_kv2_read_responses.results | map(attribute='secret'))) }}
+      {{
+        dict(
+          utils_vault_kv2_read_secrets | map(attribute='as')
+          | zip(_utils_vault_kv2_read_responses.results | map(attribute='secret'))
+        )
+      }}
   no_log: true
