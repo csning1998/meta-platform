@@ -12,7 +12,6 @@ import (
 
 	"platform/internal/ansibleops"
 	"platform/internal/config"
-	"platform/internal/gitalyops"
 	"platform/internal/libvirtops"
 	"platform/internal/packerops"
 	"platform/internal/terraformops"
@@ -204,13 +203,6 @@ func (a *app) confirmExecution() bool {
 	}
 	a.out.Print(ui.Info, operationAbortedMsg)
 	return false
-}
-
-func (a *app) confirmGitalyRevertPrecheck(ctx context.Context) error {
-	if !a.confirmExecution() {
-		return nil
-	}
-	return gitalyops.VerifyStandaloneRevert(ctx, a.ansibleDir, a.out)
 }
 
 func (a *app) purgeLibvirtResources() error {

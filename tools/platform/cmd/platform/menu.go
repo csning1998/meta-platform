@@ -27,7 +27,6 @@ func (a *app) runMenu(ctx context.Context) error {
 		{"Build Packer Base Image", func(ctx context.Context) error { return a.packerMenu(ctx) }},
 		{"Verify Guest VM Connectivity via SSH", func(ctx context.Context) error { return a.sshVerifyMenu() }},
 		{"Switch Environment Strategy", func(ctx context.Context) error { return a.switchStrategy() }},
-		{"[PROD] Revert Gitaly to Standalone for Safety Pre-check", func(ctx context.Context) error { return a.confirmGitalyRevertPrecheck(ctx) }},
 		{"Purge All Packer Artifacts", func(ctx context.Context) error { return a.purgeAllPackerArtifacts() }},
 		{"Purge All Infrastructure Resources (Libvirt + Terraform)", func(ctx context.Context) error { return a.purgeAllInfrastructure() }},
 		{"Quit", nil},

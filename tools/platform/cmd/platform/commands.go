@@ -148,16 +148,6 @@ func (a *app) clusterCmd() *cobra.Command {
 	return cmd
 }
 
-func (a *app) gitalyCmd() *cobra.Command {
-	cmd := &cobra.Command{Use: "gitaly", Short: "Gitaly operations"}
-	cmd.AddCommand(&cobra.Command{
-		Use:   "revert-precheck",
-		Short: "[PROD] Safety pre-check before reverting Gitaly to standalone",
-		RunE:  func(cmd *cobra.Command, args []string) error { return a.confirmGitalyRevertPrecheck(cmd.Context()) },
-	})
-	return cmd
-}
-
 func (a *app) libvirtCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "libvirt", Short: "libvirt/KVM resource management"}
 	cmd.AddCommand(&cobra.Command{

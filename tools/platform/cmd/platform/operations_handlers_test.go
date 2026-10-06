@@ -277,20 +277,6 @@ func TestPackerPurgeAllCommand(t *testing.T) {
 	}
 }
 
-func TestGitalyRevertPrecheckCommandAborted(t *testing.T) {
-	a, out := newOperationsApp(t, "n\n")
-	cmd := a.gitalyCmd()
-	cmd.SetArgs([]string{"revert-precheck"})
-	cmd.SetOut(io.Discard)
-	cmd.SetErr(io.Discard)
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("gitaly revert-precheck abort: %v", err)
-	}
-	if !strings.Contains(out.String(), operationAbortedMsg) {
-		t.Errorf("output = %q, want aborted message", out.String())
-	}
-}
-
 func TestStrategySwitchCommand(t *testing.T) {
 	a, _ := newOperationsApp(t, "")
 	a.env.Set(config.KeyEnvironmentStrategy, config.StrategyNative)

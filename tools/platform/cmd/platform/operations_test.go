@@ -188,24 +188,6 @@ func TestConfirmExecutionAbortAndAccept(t *testing.T) {
 	}
 }
 
-func TestConfirmGitalyRevertPrecheckAbortedByUser(t *testing.T) {
-	a, out := newOperationsApp(t, "n\n")
-	if err := a.confirmGitalyRevertPrecheck(context.Background()); err != nil {
-		t.Fatalf("confirmGitalyRevertPrecheck abort: %v", err)
-	}
-	if !strings.Contains(out.String(), operationAbortedMsg) {
-		t.Errorf("output = %q, want it to contain %q", out.String(), operationAbortedMsg)
-	}
-}
-
-func TestConfirmGitalyRevertPrecheckConfirmedMissingInventory(t *testing.T) {
-	a, _ := newOperationsApp(t, "y\n")
-	err := a.confirmGitalyRevertPrecheck(context.Background())
-	if err == nil || !strings.Contains(err.Error(), "inventory file not found") {
-		t.Fatalf("confirmGitalyRevertPrecheck(y) = %v, want inventory file not found", err)
-	}
-}
-
 func TestPurgeLibvirtResourcesAbortedByUser(t *testing.T) {
 	a, out := newOperationsApp(t, "n\n")
 	if err := a.purgeLibvirtResources(); err != nil {

@@ -1,5 +1,5 @@
 // Package main provides the platform CLI for infrastructure management across Vault, Packer, Terraform,
-// SSH, Gitaly, and libvirt. Invocation without arguments launches the interactive management menu.
+// SSH, and libvirt. Invocation without arguments launches the interactive management menu.
 package main
 
 import (
@@ -124,7 +124,6 @@ func execute() int {
 		a.layerCmd(),
 		a.hostsCmd(),
 		a.clusterCmd(),
-		a.gitalyCmd(),
 		a.libvirtCmd(),
 		a.strategyCmd(),
 	)

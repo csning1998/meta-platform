@@ -59,25 +59,19 @@
 5. `platform layer clean <layer|all>` MUST verify the existence of layer directories under `terraform/layers/` and report artifact cleanup status.
 6. `platform layer clean` MUST NOT delete state files because Terraform remote state is stored in the GitLab HTTP backend.
 
-### Item F. Gitaly Operations (`gitaly`)
-
-1. `platform gitaly revert-precheck` MUST execute the `core-gitlab-praefect` Ansible playbook with tag `gitaly-revert-standalone`.
-2. `platform gitaly revert-precheck` MUST require explicit confirmation by typing `Y` or `y` prior to execution.
-3. A failure in `platform gitaly revert-precheck` MUST block removal of Praefect nodes in Terraform configuration.
-
-### Item G. Libvirt and KVM Operations (`libvirt`)
+### Item F. Libvirt and KVM Operations (`libvirt`)
 
 1. `platform libvirt ensure-services` MUST verify that modular libvirt sockets (`virtqemud.socket`, `virtnetworkd.socket`, `virtstoraged.socket`) are active, starting inactive units via `sudo systemctl start`.
 2. `platform libvirt purge` MUST destroy and undefine all domains, storage pools, storage volumes, and virtual networks whose names begin with the `platform-` prefix.
 3. `platform libvirt purge` MUST require explicit user confirmation by typing `Y` or `y` prior to resource destruction.
 
-### Item H. Strategy Configuration (`strategy`)
+### Item G. Strategy Configuration (`strategy`)
 
 1. `platform strategy switch` MUST toggle `ENVIRONMENT_STRATEGY` between `native` and `container`.
 2. `platform strategy switch` MUST remove `terraform/.terraform` and `terraform/.terraform.lock.hcl`.
 3. `platform strategy switch` MUST recompute `PKR_VAR_NET_BRIDGE` and `PKR_VAR_NET_DEVICE` based on strategy and bridge availability.
 
-### Item J. Workstation Host Resolution (`hosts`)
+### Item H. Workstation Host Resolution (`hosts`)
 
 1. `platform hosts sync` MUST read the DNS host records of every active network on `qemu:///system` and MUST keep the records which carry a host name with prefix `meta-platform-`.
 2. `platform hosts sync` MUST merge the records into one line per address, ordered by address.
@@ -87,7 +81,7 @@
 6. `platform hosts sync` MUST fail without a write when libvirt returns no record or when the managed block lacks its end line or repeats.
 7. `platform hosts sync` MUST NOT bootstrap `.env`.
 
-### Item K. Talos Cluster Sessions (`cluster`)
+### Item J. Talos Cluster Sessions (`cluster`)
 
 1. `platform cluster shell <service>/<component>` and `platform cluster status <service>/<component>|all` MUST run inside a tenant session, which supplies the backend credentials and the Bastion Vault login.
 2. The target MUST be one `/` between two catalog names of lowercase words joined by single hyphens, and the command MUST reject every other argument without an alias.
@@ -109,20 +103,16 @@ The interactive menu MUST present options in the following sequence:
 
 | Number | Menu Option Label                                          | Target Command                                                  |
 | :----- | :--------------------------------------------------------- | :-------------------------------------------------------------- |
-| 1      | `[BASTION] Set up TLS for Bastion Vault (Local)`           | `platform vault tls-generate`                                   |
-| 2      | `[BASTION] Initialize Bastion Vault (Local)`               | `platform vault init`                                           |
-| 3      | `[BASTION] Unseal Bastion Vault (Local)`                   | `platform vault unseal`                                         |
-| 4      | `[BASTION] Enable KV-v2 Engine (Manual Fallback)`          | `platform vault enable-kv`                                      |
-| 5      | `[PROD] Unseal Production Vault (via Ansible)`             | `platform vault prod-unseal`                                    |
-| 6      | `Generate SSH Key`                                         | Interactive prompt for key name, then `platform ssh keygen`     |
-| 7      | `Verify IaC Environment`                                   | `platform env verify`                                           |
-| 8      | `Build Packer Base Image`                                  | Packer category submenu                                         |
-| 9      | `Verify Guest VM Connectivity via SSH`                     | Confirmation prompt, then `platform ssh verify`                 |
-| 10     | `Switch Environment Strategy`                              | `platform strategy switch`                                      |
-| 11     | `[PROD] Revert Gitaly to Standalone for Safety Pre-check`  | `platform gitaly revert-precheck`                               |
-| 12     | `Purge All Packer Artifacts`                               | `platform packer purge-all`                                     |
-| 13     | `Purge All Infrastructure Resources (Libvirt + Terraform)` | `platform libvirt purge` followed by `platform layer clean all` |
-| 14     | `Quit`                                                     | Terminates menu execution                                       |
+| 1      | `[PROD] Unseal Production Vault via Ansible`               | `platform vault unseal-prod`                                    |
+| 2      | `Generate SSH Key`                                         | Interactive prompt for key name, then `platform ssh keygen`     |
+| 3      | `Verify IaC Environment`                                   | `platform env verify`                                           |
+| 4      | `Execute Hypervisor Configuration via Ansible`             | `playbook_hypervisor.yaml` against a temporary local inventory  |
+| 5      | `Build Packer Base Image`                                  | Packer category submenu                                         |
+| 6      | `Verify Guest VM Connectivity via SSH`                     | Confirmation prompt, then `platform ssh verify`                 |
+| 7      | `Switch Environment Strategy`                              | `platform strategy switch`                                      |
+| 8      | `Purge All Packer Artifacts`                               | `platform packer purge-all`                                     |
+| 9      | `Purge All Infrastructure Resources (Libvirt + Terraform)` | `platform libvirt purge` followed by `platform layer clean all` |
+| 10     | `Quit`                                                     | Terminates menu execution                                       |
 
 ### Item B. Packer Submenu Navigation
 
@@ -148,7 +138,7 @@ The interactive menu MUST present options in the following sequence:
 | `internal/sshops` (Verify)                        | `ssh` CLI binary                 | Preserves full OpenSSH configuration compatibility (`Host`, `ProxyJump`, `UserKnownHostsFile`). Incurs child process execution cost. |
 | `internal/libvirtops` (Purge)                     | `libvirt.org/go/libvirt` (CGO)   | Direct RPC interaction with `libvirtd`. Requires system development headers at compile time.                                         |
 | `internal/packerops` (Build)                      | `packer` CLI binary              | Official CLI automation of HCL templates and plugins. Incurs subprocess management overhead.                                         |
-| `internal/gitalyops`, `vaultops.UnsealProduction` | `ansible-playbook` CLI binary    | Playbook execution utilizing existing Ansible role collections. Incurs Python interpreter startup overhead.                          |
+| `vaultops.UnsealProduction`                       | `ansible-playbook` CLI binary    | Playbook execution utilizing existing Ansible role collections. Incurs Python interpreter startup overhead.                          |
 | `internal/libvirtops.EnsureServices`              | `systemctl` CLI binary           | Systemd socket activation management. Avoids heavyweight D-Bus library bindings.                                                     |
 | `internal/clusterops`                             | `github.com/hashicorp/vault/api` | JWT login and KV reads with CA verification. Delegates `terraform output` and `kubectl get nodes` to the CLI binaries.               |
 | `internal/hostsops`                               | `diff`, `sudo cp`, `sudo tee`    | Unprivileged diff and an elevated backup and in-place write. Incurs one `sudo` prompt per applied rewrite.                           |
