@@ -1,6 +1,6 @@
 
-module "context" {
-  source = "../../modules/kvm-provisioning/layer-context"
+module "terraform_layer_context" {
+  source = "../../modules/kvm-provisioning/helpers/terraform-layer-context"
 
   global_topology_identity = local.state.foundation_libvirt_resources.foundation_topology.identity
   global_topology_network  = local.state.foundation_libvirt_resources.foundation_topology.network
@@ -15,37 +15,27 @@ module "context" {
 }
 
 module "interface_alias" {
-  source   = "../../modules/kvm-provisioning/interface-alias"
+  source   = "../../modules/kvm-provisioning/helpers/interface-alias"
   for_each = local.fronted_segments
 
   name = each.key
 }
 
-module "spire_workload_identity" {
-  source = "../../modules/vault-provisioning/vault-spiffe-workload-identity-federation"
-
-  auth_role_name    = module.context.svc_identity.cluster_name
-  auth_backend_path = local.state.platform_spire_parent.spire_oidc_auth_backend_path
-  spiffe_id         = local.spire_workload_spiffe_id
-  pki_role_name     = local.haproxy_pki_role_name
-  pki_mount_path    = local.state.foundation_vault_bastion.bastion_vault_pki.intermediate_mount_path
-}
-
 module "platform_haproxy_frontend" {
-  source            = "../../modules/kvm-provisioning/ha-service-kvm-general"
-  ansible_root_path = abspath("${path.root}/../../../ansible")
-  scripts_root_path = abspath("${path.root}/../../../shell")
+  source            = "../../modules/kvm-provisioning/orchestrate/linux-generic-cluster"
+  ansible_root_path = local.state.foundation_libvirt_resources.foundation_paths.ansible_root
+  scripts_root_path = local.state.foundation_libvirt_resources.foundation_paths.scripts_root
 
-  svc_identity               = module.context.svc_identity
-  node_identities            = module.context.node_identities
-  topology_cluster           = module.context.topology_cluster
-  network_infrastructure_map = module.context.network_infrastructure_map
+  svc_identity               = module.terraform_layer_context.svc_identity
+  node_identities            = module.terraform_layer_context.node_identities
+  topology_cluster           = module.terraform_layer_context.topology_cluster
+  network_infrastructure_map = module.terraform_layer_context.network_infrastructure_map
   storage_infrastructure_map = local.state.foundation_libvirt_resources.foundation_storage.infrastructure
-  ssh_config_path            = local.state.foundation_libvirt_resources.foundation_ssh.config_paths[module.context.svc_identity.cluster_name]
+  ssh_config_path            = local.state.foundation_libvirt_resources.foundation_ssh.config_paths[module.terraform_layer_context.svc_identity.cluster_name]
 
-  credentials_system = merge(module.context.sec_vm_credentials, {
-    ssh_private_key_path = local.state.foundation_libvirt_resources.foundation_ssh.identity_key_paths[module.context.svc_identity.cluster_name]
-    ssh_public_key_path  = local.state.foundation_libvirt_resources.foundation_ssh.public_key_paths[module.context.svc_identity.cluster_name]
+  credentials_system = merge(module.terraform_layer_context.sec_vm_credentials, {
+    ssh_private_key_path = local.state.foundation_libvirt_resources.foundation_ssh.identity_key_paths[module.terraform_layer_context.svc_identity.cluster_name]
+    ssh_public_key_path  = local.state.foundation_libvirt_resources.foundation_ssh.public_key_paths[module.terraform_layer_context.svc_identity.cluster_name]
   })
 
   ansible_generic_config = {
