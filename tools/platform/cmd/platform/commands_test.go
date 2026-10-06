@@ -44,7 +44,23 @@ func TestHostsCmdRegistersSyncWithDryRunDefault(t *testing.T) {
 	}
 }
 
-// TestIsBootstrapRequired covers terraform and hosts sync, which MUST leave .env untouched.
+func TestClusterCmdRegistersShellAndStatus(t *testing.T) {
+	a := &app{}
+	for _, name := range []string{"shell", "status"} {
+		t.Run(name, func(t *testing.T) {
+			cmd, _, err := a.clusterCmd().Find([]string{name})
+			if err != nil || cmd.Name() != name {
+				t.Fatalf("find %s: command %q, error %v", name, cmd.Name(), err)
+			}
+			if cmd.Args == nil || cmd.Args(cmd, []string{"keycloak/frontend"}) != nil || cmd.Args(cmd, nil) == nil ||
+				cmd.Args(cmd, []string{"a/b", "c/d"}) == nil {
+				t.Errorf("cluster %s accepts other than one target", name)
+			}
+		})
+	}
+}
+
+// TestIsBootstrapRequired covers terraform, hosts sync, and cluster, which MUST leave .env untouched.
 func TestIsBootstrapRequired(t *testing.T) {
 	a := &app{}
 	findSubcommand := func(parent func() *cobra.Command, name string) func(t *testing.T) *cobra.Command {
@@ -65,6 +81,8 @@ func TestIsBootstrapRequired(t *testing.T) {
 		{"terraform", func(*testing.T) *cobra.Command { return a.terraformCmd() }, false},
 		{"layer clean", findSubcommand(a.layerCmd, "clean"), true},
 		{"hosts sync", findSubcommand(a.hostsCmd, "sync"), false},
+		{"cluster shell", findSubcommand(a.clusterCmd, "shell"), false},
+		{"cluster status", findSubcommand(a.clusterCmd, "status"), false},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

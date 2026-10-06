@@ -87,6 +87,20 @@
 6. `platform hosts sync` MUST fail without a write when libvirt returns no record or when the managed block lacks its end line or repeats.
 7. `platform hosts sync` MUST NOT bootstrap `.env`.
 
+### Item K. Talos Cluster Sessions (`cluster`)
+
+1. `platform cluster shell <service>/<component>` and `platform cluster status <service>/<component>|all` MUST run inside a tenant session, which supplies the backend credentials and the Bastion Vault login.
+2. The target MUST be one `/` between two catalog names of lowercase words joined by single hyphens, and the command MUST reject every other argument without an alias.
+3. The commands MUST read the Vault coordinates from one `terraform output -json` of `security-vault-downstream-tenants`, whose output `downstream_vault_operators` names the Vault instance, the KV mount, and the KV path of each `cluster-config` leaf.
+4. For a leaf on the Downstream Vault, the commands MUST log in with the JWT-SVID of the operator of the target and MUST verify the listener against `downstream_vault_ca_cert_path`.
+5. For a leaf on the Bastion Vault, the commands MUST use `VAULT_ADDR`, `VAULT_TOKEN`, and `VAULT_CACERT` of the tenant session.
+6. The Downstream Vault token MUST stay inside the process and MUST NOT enter the environment of the session shell.
+7. The session files MUST reside in a new directory of mode `0700` below `XDG_RUNTIME_DIR`, or below the temporary directory without `XDG_RUNTIME_DIR`, with mode `0600` for each file.
+8. The talosconfig MUST take its endpoints from the InternalIP of the nodes which the API server reports, and MUST omit the endpoints when the API server does not answer.
+9. `platform cluster shell` MUST remove the session directory after the shell exits, whatever the exit status.
+10. `platform cluster status all` MUST report a target without a `cluster-config` leaf as a component of the VM runtime and MUST continue with the next target.
+11. The commands MUST NOT bootstrap `.env`.
+
 ## Section 3. Interactive Menu Navigation
 
 ### Item A. Menu Structure and Action Mapping
@@ -136,6 +150,7 @@ The interactive menu MUST present options in the following sequence:
 | `internal/packerops` (Build)                      | `packer` CLI binary              | Official CLI automation of HCL templates and plugins. Incurs subprocess management overhead.                                         |
 | `internal/gitalyops`, `vaultops.UnsealProduction` | `ansible-playbook` CLI binary    | Playbook execution utilizing existing Ansible role collections. Incurs Python interpreter startup overhead.                          |
 | `internal/libvirtops.EnsureServices`              | `systemctl` CLI binary           | Systemd socket activation management. Avoids heavyweight D-Bus library bindings.                                                     |
+| `internal/clusterops`                             | `github.com/hashicorp/vault/api` | JWT login and KV reads with CA verification. Delegates `terraform output` and `kubectl get nodes` to the CLI binaries.               |
 | `internal/hostsops`                               | `diff`, `sudo cp`, `sudo tee`    | Unprivileged diff and an elevated backup and in-place write. Incurs one `sudo` prompt per applied rewrite.                           |
 | `internal/operatorops`                            | `terraform` CLI binary, `execve` | Process replacement keeps the JWT-SVID out of every child but `terraform`. Incurs one wrapper run per invocation of a JWT layer.     |
 

@@ -126,6 +126,28 @@ func (a *app) hostsCmd() *cobra.Command {
 	return cmd
 }
 
+func (a *app) clusterCmd() *cobra.Command {
+	cmd := &cobra.Command{Use: "cluster", Short: "Operator sessions on the Talos clusters, inside a tenant session"}
+	skipBootstrap := map[string]string{annotationSkipBootstrap: "true"}
+
+	cmd.AddCommand(&cobra.Command{
+		Use:         "shell <service>/<component>",
+		Short:       "Open a shell with KUBECONFIG and TALOSCONFIG of the cluster, removed on exit",
+		Args:        cobra.ExactArgs(1),
+		Annotations: skipBootstrap,
+		RunE:        func(cmd *cobra.Command, args []string) error { return a.openClusterShell(cmd.Context(), args[0]) },
+	})
+	cmd.AddCommand(&cobra.Command{
+		Use:         "status <service>/<component>|all",
+		Short:       "Print the nodes and the pods of one cluster or of every cluster",
+		Args:        cobra.ExactArgs(1),
+		Annotations: skipBootstrap,
+		RunE:        func(cmd *cobra.Command, args []string) error { return a.reportClusterStatus(cmd.Context(), args[0]) },
+	})
+
+	return cmd
+}
+
 func (a *app) gitalyCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "gitaly", Short: "Gitaly operations"}
 	cmd.AddCommand(&cobra.Command{

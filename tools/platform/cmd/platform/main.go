@@ -123,6 +123,7 @@ func execute() int {
 		a.terraformCmd(),
 		a.layerCmd(),
 		a.hostsCmd(),
+		a.clusterCmd(),
 		a.gitalyCmd(),
 		a.libvirtCmd(),
 		a.strategyCmd(),
