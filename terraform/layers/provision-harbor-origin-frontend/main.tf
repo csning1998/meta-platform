@@ -1,6 +1,6 @@
 
 module "ansible_sync_oci" {
-  source = "../../modules/kvm-provisioning/cluster-provision/ansible-runner"
+  source = "../../modules/kvm-provisioning/configure/ansible-runner"
 
   depends_on = [
     vault_kv_secret_v2.robot_helm_creds,
@@ -9,7 +9,7 @@ module "ansible_sync_oci" {
     harbor_registry.proxy_registries
   ]
 
-  status_trigger = local.state.platform_harbor_origin_frontend.topology_node
+  status_trigger = local.state.platform_harbor_origin_frontend.generic_cluster.topology_node
   ansible_config = local.ansible_config
   inventory_data = local.inventory_data
   extra_vars     = local.ansible_extra_vars
