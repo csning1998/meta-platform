@@ -73,16 +73,20 @@
       when: _platform_spire_parent_upstream_env.content is defined
       ansible.builtin.uri:
         url: >-
-          {{ operator_vault_url ~ '/v1/auth/' ~ spire_vault_upstream_approle_mount_path ~ '/role/'
-             ~ spire_vault_upstream_role_name ~ '/secret-id/lookup' }}
+          {{
+            operator_vault_url ~ '/v1/auth/' ~ spire_vault_upstream_approle_mount_path ~ '/role/'
+            ~ spire_vault_upstream_role_name ~ '/secret-id/lookup'
+          }}
         method: POST
         headers:
           X-Vault-Token: "{{ utils_vault_operator_login_token }}"
         body_format: json
         body:
           secret_id: >-
-            {{ _platform_spire_parent_upstream_env.content | b64decode
-               | regex_replace('^VAULT_APPROLE_SECRET_ID=', '') | trim }}
+            {{
+              _platform_spire_parent_upstream_env.content | b64decode
+              | regex_replace('^VAULT_APPROLE_SECRET_ID=', '') | trim
+            }}
         ca_path: "{{ operator_vault_ca_cert_path }}"
         validate_certs: true
         # Vault answers 204 for a secret ID which the role does not know, and 400 for an orphaned or empty secret ID.
@@ -97,8 +101,10 @@
       when: (_platform_spire_parent_upstream_lookup.status | default(0)) != 200
       ansible.builtin.uri:
         url: >-
-          {{ operator_vault_url ~ '/v1/auth/' ~ spire_vault_upstream_approle_mount_path ~ '/role/'
-             ~ spire_vault_upstream_role_name ~ '/secret-id' }}
+          {{
+            operator_vault_url ~ '/v1/auth/' ~ spire_vault_upstream_approle_mount_path ~ '/role/'
+            ~ spire_vault_upstream_role_name ~ '/secret-id'
+          }}
         method: POST
         headers:
           X-Vault-Token: "{{ utils_vault_operator_login_token }}"
