@@ -49,7 +49,7 @@ output "downstream_vault_ca_cert_path" {
 }
 
 output "downstream_vault_operators" {
-  description = "Login coordinates of every local Terraform operator, keyed by catalog service and component as each layer declares terraform_operator_subject: the auth mount, the role, the audience, the JWT-SVID wrapper, the cluster name, and the workload policies which the operator assigns on its Kubernetes auth mount. The vault-downstream operator administers the Downstream Vault and carries null workload policies."
+  description = "Login coordinates of every local Terraform operator, keyed by catalog service and component as each layer declares terraform_operator_subject: the auth mount, the role, the audience, the JWT-SVID wrapper, the cluster name, the workload policies which the operator assigns on its Kubernetes auth mount, and the Vault instance, KV mount, and KV path of the cluster-config leaf. The vault-downstream operator administers the Downstream Vault and carries null workload policies."
   value = {
     for service in distinct([for operator in local.terraform_operators : operator.service]) : service => {
       for key, operator in local.terraform_operators : operator.component => {
@@ -61,6 +61,12 @@ output "downstream_vault_operators" {
         # The workload policies which this layer declares for the cluster, null when the component has none.
         cluster_issuer_policy   = contains(keys(local.workload_policies), "${operator.cluster_name}-cluster-issuer") ? vault_policy.workload["${operator.cluster_name}-cluster-issuer"].name : null
         external_secrets_policy = contains(keys(local.workload_policies), "${operator.cluster_name}-external-secrets") ? vault_policy.workload["${operator.cluster_name}-external-secrets"].name : null
+        # The Bastion Vault holds the cluster-config of the Downstream Vault cluster, since that cluster precedes its own Vault.
+        cluster_config = {
+          vault    = key == "vault-downstream" ? "bastion" : "downstream"
+          kv_mount = key == "vault-downstream" ? "secret" : vault_mount.kv.path
+          kv_path  = local.foundation_kv_paths[operator.service][operator.component].cluster_config
+        }
       } if operator.service == service
     }
   }
