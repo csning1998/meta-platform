@@ -77,28 +77,38 @@
 2. `platform strategy switch` MUST remove `terraform/.terraform` and `terraform/.terraform.lock.hcl`.
 3. `platform strategy switch` MUST recompute `PKR_VAR_NET_BRIDGE` and `PKR_VAR_NET_DEVICE` based on strategy and bridge availability.
 
+### Item J. Workstation Host Resolution (`hosts`)
+
+1. `platform hosts sync` MUST read the DNS host records of every active network on `qemu:///system` and MUST keep the records which carry a host name with prefix `meta-platform-`.
+2. `platform hosts sync` MUST merge the records into one line per address, ordered by address.
+3. `platform hosts sync` MUST print the unified diff between `/etc/hosts` and the rewritten block between `# BEGIN meta-platform` and `# END meta-platform`, and MUST NOT write without `--apply`.
+4. `platform hosts sync --apply` MUST back up `/etc/hosts` to `/etc/hosts.bak` and MUST write the file in place, which keeps its SELinux label.
+5. The backup and the write MUST run through `sudo`, and every other step MUST run unprivileged.
+6. `platform hosts sync` MUST fail without a write when libvirt returns no record or when the managed block lacks its end line or repeats.
+7. `platform hosts sync` MUST NOT bootstrap `.env`.
+
 ## Section 3. Interactive Menu Navigation
 
 ### Item A. Menu Structure and Action Mapping
 
 The interactive menu MUST present options in the following sequence:
 
-| Number | Menu Option Label                                          | Target Command                                                      |
-| :----- | :--------------------------------------------------------- | :------------------------------------------------------------------ |
-| 1      | `[BASTION] Set up TLS for Bastion Vault (Local)`           | `platform vault tls-generate`                                       |
-| 2      | `[BASTION] Initialize Bastion Vault (Local)`               | `platform vault init`                                               |
-| 3      | `[BASTION] Unseal Bastion Vault (Local)`                   | `platform vault unseal`                                             |
-| 4      | `[BASTION] Enable KV-v2 Engine (Manual Fallback)`          | `platform vault enable-kv`                                          |
-| 5      | `[PROD] Unseal Production Vault (via Ansible)`             | `platform vault prod-unseal`                                        |
-| 6      | `Generate SSH Key`                                         | Interactive prompt for key name, then `platform ssh keygen`         |
-| 7      | `Verify IaC Environment`                                   | `platform env verify`                                               |
-| 8      | `Build Packer Base Image`                                  | Packer category submenu                                             |
-| 9      | `Verify Guest VM Connectivity via SSH`                     | Confirmation prompt, then `platform ssh verify`                     |
-| 10     | `Switch Environment Strategy`                              | `platform strategy switch`                                          |
-| 11     | `[PROD] Revert Gitaly to Standalone for Safety Pre-check`  | `platform gitaly revert-precheck`                                   |
-| 12     | `Purge All Packer Artifacts`                               | `platform packer purge-all`                                         |
-| 13     | `Purge All Infrastructure Resources (Libvirt + Terraform)` | `platform libvirt purge` followed by `platform layer clean all`     |
-| 14     | `Quit`                                                     | Terminates menu execution                                           |
+| Number | Menu Option Label                                          | Target Command                                                  |
+| :----- | :--------------------------------------------------------- | :-------------------------------------------------------------- |
+| 1      | `[BASTION] Set up TLS for Bastion Vault (Local)`           | `platform vault tls-generate`                                   |
+| 2      | `[BASTION] Initialize Bastion Vault (Local)`               | `platform vault init`                                           |
+| 3      | `[BASTION] Unseal Bastion Vault (Local)`                   | `platform vault unseal`                                         |
+| 4      | `[BASTION] Enable KV-v2 Engine (Manual Fallback)`          | `platform vault enable-kv`                                      |
+| 5      | `[PROD] Unseal Production Vault (via Ansible)`             | `platform vault prod-unseal`                                    |
+| 6      | `Generate SSH Key`                                         | Interactive prompt for key name, then `platform ssh keygen`     |
+| 7      | `Verify IaC Environment`                                   | `platform env verify`                                           |
+| 8      | `Build Packer Base Image`                                  | Packer category submenu                                         |
+| 9      | `Verify Guest VM Connectivity via SSH`                     | Confirmation prompt, then `platform ssh verify`                 |
+| 10     | `Switch Environment Strategy`                              | `platform strategy switch`                                      |
+| 11     | `[PROD] Revert Gitaly to Standalone for Safety Pre-check`  | `platform gitaly revert-precheck`                               |
+| 12     | `Purge All Packer Artifacts`                               | `platform packer purge-all`                                     |
+| 13     | `Purge All Infrastructure Resources (Libvirt + Terraform)` | `platform libvirt purge` followed by `platform layer clean all` |
+| 14     | `Quit`                                                     | Terminates menu execution                                       |
 
 ### Item B. Packer Submenu Navigation
 
@@ -126,6 +136,7 @@ The interactive menu MUST present options in the following sequence:
 | `internal/packerops` (Build)                      | `packer` CLI binary              | Official CLI automation of HCL templates and plugins. Incurs subprocess management overhead.                                         |
 | `internal/gitalyops`, `vaultops.UnsealProduction` | `ansible-playbook` CLI binary    | Playbook execution utilizing existing Ansible role collections. Incurs Python interpreter startup overhead.                          |
 | `internal/libvirtops.EnsureServices`              | `systemctl` CLI binary           | Systemd socket activation management. Avoids heavyweight D-Bus library bindings.                                                     |
+| `internal/hostsops`                               | `diff`, `sudo cp`, `sudo tee`    | Unprivileged diff and an elevated backup and in-place write. Incurs one `sudo` prompt per applied rewrite.                           |
 | `internal/operatorops`                            | `terraform` CLI binary, `execve` | Process replacement keeps the JWT-SVID out of every child but `terraform`. Incurs one wrapper run per invocation of a JWT layer.     |
 
 ### Item C. Libvirt Resource Cleanup Invariant

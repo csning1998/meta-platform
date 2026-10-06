@@ -110,6 +110,22 @@ func (a *app) layerCmd() *cobra.Command {
 	return cmd
 }
 
+func (a *app) hostsCmd() *cobra.Command {
+	cmd := &cobra.Command{Use: "hosts", Short: "Host name resolution of the workstation"}
+
+	var apply bool
+	syncCmd := &cobra.Command{
+		Use:         "sync",
+		Short:       "Print the diff of the meta-platform block of /etc/hosts against the libvirt DNS records, and write it with --apply",
+		Annotations: map[string]string{annotationSkipBootstrap: "true"},
+		RunE:        func(cmd *cobra.Command, args []string) error { return a.syncHosts(cmd.Context(), apply) },
+	}
+	syncCmd.Flags().BoolVar(&apply, "apply", false, "back up /etc/hosts and write the block through sudo")
+	cmd.AddCommand(syncCmd)
+
+	return cmd
+}
+
 func (a *app) gitalyCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "gitaly", Short: "Gitaly operations"}
 	cmd.AddCommand(&cobra.Command{

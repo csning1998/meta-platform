@@ -32,16 +32,30 @@ func TestLayerCmdRegistersClean(t *testing.T) {
 	}
 }
 
-// TestIsBootstrapRequired covers terraform, which runs inside a layer directory and MUST leave .env untouched.
+func TestHostsCmdRegistersSyncWithDryRunDefault(t *testing.T) {
+	a := &app{}
+	cmd, _, err := a.hostsCmd().Find([]string{"sync"})
+	if err != nil || cmd.Name() != "sync" {
+		t.Fatalf("find sync: command %q, error %v, want command %q", cmd.Name(), err, "sync")
+	}
+	flag := cmd.Flags().Lookup("apply")
+	if flag == nil || flag.DefValue != "false" {
+		t.Errorf("hosts sync flag apply = %v, want a flag with default false", flag)
+	}
+}
+
+// TestIsBootstrapRequired covers terraform and hosts sync, which MUST leave .env untouched.
 func TestIsBootstrapRequired(t *testing.T) {
 	a := &app{}
-	findLayerClean := func(t *testing.T) *cobra.Command {
-		t.Helper()
-		cmd, _, err := a.layerCmd().Find([]string{"clean"})
-		if err != nil {
-			t.Fatalf("find layer clean: %v", err)
+	findSubcommand := func(parent func() *cobra.Command, name string) func(t *testing.T) *cobra.Command {
+		return func(t *testing.T) *cobra.Command {
+			t.Helper()
+			cmd, _, err := parent().Find([]string{name})
+			if err != nil || cmd.Name() != name {
+				t.Fatalf("find %s: command %q, error %v", name, cmd.Name(), err)
+			}
+			return cmd
 		}
-		return cmd
 	}
 	cases := []struct {
 		name string
@@ -49,7 +63,8 @@ func TestIsBootstrapRequired(t *testing.T) {
 		want bool
 	}{
 		{"terraform", func(*testing.T) *cobra.Command { return a.terraformCmd() }, false},
-		{"layer clean", findLayerClean, true},
+		{"layer clean", findSubcommand(a.layerCmd, "clean"), true},
+		{"hosts sync", findSubcommand(a.hostsCmd, "sync"), false},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
