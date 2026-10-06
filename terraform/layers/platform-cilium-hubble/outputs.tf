@@ -1,10 +1,15 @@
 
-output "hubble_ui" {
-  description = "Hubble UI access details including ingress hostname, Gateway VIP, and Vault credential path."
+output "talos_cluster" {
+  description = "Facts of the Cilium Hubble Talos cluster."
   value = {
-    hostname    = local.hubble_ui.hostname
-    gateway_vip = local.entrypoint.gateway_vip
-    login_user  = local.hubble_ui.login_user
-    password_at = "secret/${local.hubble_ui.kv_path}, field password"
+    hostonly_addresses = module.establish_platform_cilium_hubble_talos_cluster.hostonly_addresses
+    bootstrap_node_key = module.establish_platform_cilium_hubble_talos_cluster.bootstrap_node_key
+    cluster_issuer     = module.vault_auth_cilium_hubble.cluster_issuer
+    external_secrets   = module.vault_auth_cilium_hubble.external_secrets
   }
+}
+
+output "hubble_tls_certificates" {
+  description = "Hubble mTLS certificates which the provision layer issues through the ClusterIssuer, keyed by the Secret name which the Cilium chart mounts."
+  value       = module.helm_chart_cilium.hubble_tls_certificates
 }

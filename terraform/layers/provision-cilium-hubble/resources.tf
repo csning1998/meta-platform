@@ -19,7 +19,7 @@ resource "kubernetes_manifest" "lb_ip_pool" {
     apiVersion = "cilium.io/v2alpha1"
     kind       = "CiliumLoadBalancerIPPool"
     metadata = {
-      name = "${local.project_code}-catalog"
+      name = "${local.foundation_project_code}-catalog"
     }
     spec = {
       serviceSelector = {
@@ -39,7 +39,7 @@ resource "kubernetes_manifest" "l2_announcement_policy" {
     apiVersion = "cilium.io/v2alpha1"
     kind       = "CiliumL2AnnouncementPolicy"
     metadata = {
-      name = "${local.project_code}-catalog"
+      name = "${local.foundation_project_code}-catalog"
     }
     spec = {
       serviceSelector = {
