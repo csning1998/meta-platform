@@ -1,6 +1,6 @@
 
 locals {
-  # Extract a map of unique base images to avoid creating duplicate base volumes (Copy-on-Write)
+  # Deduplicates base image paths to prevent redundant Copy-on-Write backing volume creation.
   unique_base_images = toset([for k, v in var.guest_config.all_nodes_map : abspath(v.base_image_path)])
 
   base_image_map = {
@@ -19,11 +19,8 @@ locals {
 
       hostonly_ip_cidr = "${node_config.ip}/${var.libvirt_infrastructure[node_config.network_tier].network.hostonly.ips.prefix}"
 
-      # Pairs each extra network's deterministically-salted MAC address with the caller-assigned static CIDR, keyed by network name.
-      # The network segment provides no DHCP service; this local carries every value libvirt_domain and cloud-init require to attach the interface.
-      # `alias` is a systemd-networkd set-name derived only from the network name, stable across
-      # reboots and MAC changes. Callers binding to this interface by name (Keepalived VRRP,
-      # policy routing) do not depend on kernel PCI-slot-ordered device names.
+      # Maps extra networks to deterministic MACs, static CIDRs, and systemd-networkd stable aliases.
+      # Precludes reliance on kernel PCI-slot probe order for VRRP and routing bindings.
       extra_network_interfaces = {
         for net, cidr in node_config.extra_networks : net => {
           mac     = module.deterministic_mac.macs["${node_name}/${net}"]

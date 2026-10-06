@@ -4,12 +4,12 @@ output "topology" {
   value = {
     identity = module.service_catalog.topology_identity
     network  = module.service_catalog.topology_network
-    segments = local.net_service_segments
+    segments = local.network_service_segments
 
     infrastructure = {
-      for seg in local.net_service_segments : seg.name => {
+      for seg in local.network_service_segments : seg.name => {
         # 1. Physical Infrastructure (Libvirt bridges, IPs)
-        network = local.net_infrastructure[seg.name]
+        network = local.network_infrastructure[seg.name]
 
         lb_config = {
           vip   = seg.vip
@@ -31,7 +31,7 @@ output "topology" {
   }
 }
 
-output "global" {
+output "network_global" {
   description = "Global facts shared by every consumer: the network baseline with CIDR, VIP offsets, and MTU and MSS, the root domain suffix, and the hostname to VIP records grouped by IP."
   value = {
     network_baseline = var.network_baseline
@@ -69,7 +69,7 @@ output "vault_path" {
   }
 }
 
-output "ssh" {
+output "ssh_identity" {
   description = "SSH identity inputs keyed by cluster_name. The hosts map is the identity_hosts input of the ssh-identity-bootstrap module."
   value = {
     hosts = local.ssh_hosts

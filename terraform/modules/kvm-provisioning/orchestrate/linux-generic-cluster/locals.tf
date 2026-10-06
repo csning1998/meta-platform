@@ -16,7 +16,7 @@ locals {
         attached_volumes = [
           for idx, vol in distinct(
             concat(
-              node_data.attached_volumes, # Keep manually defined volumes if any
+              node_data.attached_volumes,
               [
                 for vol_key, vol_data in var.storage_infrastructure_map : {
                   pool           = vol_data.pool_name
@@ -72,7 +72,7 @@ locals {
 locals {
   ansible = {
     root_path      = var.ansible_root_path
-    inventory_file = var.svc_identity.ansible_inventory
+    inventory_file = var.cluster_identity.ansible_inventory
   }
 
   ansible_playbook_paths = [
@@ -87,7 +87,7 @@ locals {
       vars = merge(
         var.ansible_generic_config.template_vars,
         {
-          cluster_name               = var.svc_identity.cluster_name
+          cluster_name               = var.cluster_identity.cluster_name
           ansible_python_interpreter = "/usr/bin/python3"
         }
       )
@@ -153,21 +153,10 @@ locals {
 
 # Security Credentials
 locals {
-  guest_credentials_for_hypervisor = {
+  guest_hypervisor_credentials = {
     username            = var.credentials_system.username
     ssh_public_key_path = var.credentials_system.ssh_public_key_path
   }
-
-  guest_credentials_for_ssh = {
-    username             = var.credentials_system.username
-    ssh_private_key_path = var.credentials_system.ssh_private_key_path
-  }
-}
-
-# Primary Tier Selection
-locals {
-  primary_tier_key = contains(keys(var.network_infrastructure_map), "default") ? "default" : keys(var.network_infrastructure_map)[0]
-  primary_params   = var.network_infrastructure_map[local.primary_tier_key]
 }
 
 # KVM Module Adaptation (Interface Translation)

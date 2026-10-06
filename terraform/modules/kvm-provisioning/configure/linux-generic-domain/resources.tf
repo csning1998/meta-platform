@@ -145,9 +145,6 @@ resource "libvirt_volume" "os_disk" {
 
 # Host SSH keys MUST be generated locally prior to guest deployment
 # to establish trust relationships without relying on trust-on-first-use network inspection.
-# The private half is stored in plaintext in Terraform state and in the guest cloud-init ISO
-# on the libvirt host. Refer to documentation/architecture-decision-record/20260813_0218-vault-approle-state-leakage-assessment.md
-# for the accepted single-developer threat model covering both exposure paths.
 resource "tls_private_key" "guest_host_key" {
   for_each  = var.guest_config.all_nodes_map
   algorithm = "ED25519"

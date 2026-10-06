@@ -1,22 +1,22 @@
 
-output "svc_identity" {
+output "cluster_identity" {
   description = "SSoT identity object for the primary cluster."
-  value       = local.svc_identity
+  value       = local.cluster_identity
 }
 
-output "svc_network" {
+output "cluster_network" {
   description = "SSoT network object for the primary cluster."
-  value       = local.svc_network
+  value       = local.cluster_network
 }
 
-output "svc_pki_role" {
+output "cluster_pki_role" {
   description = "PKI role object for the primary cluster."
-  value       = local.svc_pki_role
+  value       = local.cluster_pki_role
 }
 
-output "svc_fqdn" {
+output "cluster_fqdn" {
   description = "Primary FQDN derived from PKI DNS SANs."
-  value       = local.svc_fqdn
+  value       = local.cluster_fqdn
 }
 
 output "network_infrastructure_map" {
@@ -24,24 +24,24 @@ output "network_infrastructure_map" {
   value       = local.network_infrastructure_map
 }
 
-output "primary_net_config" {
+output "primary_network_config" {
   description = "Network infrastructure configuration for the primary role's network tier."
-  value       = local.primary_net_config
+  value       = local.primary_network_config
 }
 
-output "tier_network_map" {
+output "network_tier_topology_map" {
   description = "Full global_topology_network entry keyed by network_tier, exposing ports and node_ips for downstream layers needing non-LB topology data (e.g. metrics endpoints)."
-  value       = local.tier_network_map
+  value       = local.network_tier_topology_map
 }
 
-output "sec_vm_credentials" {
+output "security_vm_credentials" {
   description = "Login account of the guest VMs. The guests accept SSH keys only."
-  value       = local.sec_vm_credentials
+  value       = local.security_vm_credentials
 }
 
-output "prod_vault_endpoint" {
-  description = "Vault HTTPS address constructed from prod_vault_svc_vip. Null for layers without Vault Agent integration."
-  value       = local.prod_vault_endpoint
+output "downstream_vault_endpoint" {
+  description = "Downstream Vault HTTPS address constructed from downstream_vault_service_vip. Null for layers without Vault Agent integration."
+  value       = local.downstream_vault_endpoint
 }
 
 output "storage_pool_name" {
@@ -90,9 +90,9 @@ output "components_context" {
   value       = local.components_context
 }
 
-output "prod_vault_svc_vip" {
-  description = "Raw Vault system VIP address without protocol or port. Null for layers without Vault integration."
-  value       = var.prod_vault_svc_vip
+output "downstream_vault_service_vip" {
+  description = "Raw Downstream Vault system VIP address without protocol or port. Null for layers without Vault integration."
+  value       = var.downstream_vault_service_vip
 }
 
 output "all_vault_agent_identity_bases" {

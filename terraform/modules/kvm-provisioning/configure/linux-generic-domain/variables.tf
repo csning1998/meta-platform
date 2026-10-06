@@ -1,11 +1,5 @@
 
-/**
- * Virtual Machine Configuration
- * Variables defining the specifications and credentials for the VMs.
-*/
-
-# Module-level variable definitions
-
+# Virtual Machine Configuration specifications and credentials for the VMs.
 variable "guest_config" {
   description = "All configurations related to the virtual machines being provisioned."
   type = object({

@@ -5,7 +5,7 @@ module "linux_generic_domain" {
   guest_config = local.guest_config
 
   create_networks        = false
-  credentials            = local.guest_credentials_for_hypervisor
+  credentials            = local.guest_hypervisor_credentials
   libvirt_infrastructure = local.hypervisor_kvm_infrastructure
   static_routes          = var.static_routes
 }
@@ -13,7 +13,7 @@ module "linux_generic_domain" {
 # Host SSH keys MUST originate from pre-boot cryptographic generation
 # to populate client known_hosts files before guest network initialization.
 resource "local_file" "known_hosts" {
-  filename             = pathexpand("~/.ssh/known_hosts_${var.svc_identity.cluster_name}")
+  filename             = pathexpand("~/.ssh/known_hosts_${var.cluster_identity.cluster_name}")
   file_permission      = "0644"
   directory_permission = "0700"
   content = join("", [
@@ -27,14 +27,14 @@ resource "local_file" "known_hosts" {
 resource "sshclient_reachability" "guest_ready" {
   depends_on = [module.linux_generic_domain, local_file.known_hosts]
 
-  config_name = var.svc_identity.cluster_name
+  config_name = var.cluster_identity.cluster_name
   hosts       = [for k, v in local.flat_node_map : v.ip]
 }
 
 module "ansible_runner" {
   source         = "../../configure/ansible-runner"
   depends_on     = [sshclient_reachability.guest_ready]
-  status_trigger = { (var.svc_identity.cluster_name) = local_file.known_hosts.id }
+  status_trigger = { (var.cluster_identity.cluster_name) = local_file.known_hosts.id }
 
   inventory_data = local.ansible_inventory_data
   playbook_paths = local.ansible_playbook_paths

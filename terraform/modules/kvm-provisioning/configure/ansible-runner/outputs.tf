@@ -1,8 +1,9 @@
-
 output "inventory_content" {
-  value = local_file.inventory.content
+  description = "Generated YAML content of the Ansible inventory file."
+  value       = local_file.inventory.content
 }
 
 output "inventory_file_path" {
-  value = local_file.inventory.filename
+  description = "Filesystem path to the written Ansible inventory file."
+  value       = local_file.inventory.filename
 }

@@ -1,7 +1,7 @@
 
 # NAT Networks (one per segment, including CLB itself)
 resource "libvirt_network" "nat_networks" {
-  for_each = local.net_infrastructure
+  for_each = local.network_infrastructure
 
   name      = each.value.nat.name
   autostart = true
@@ -32,7 +32,7 @@ resource "libvirt_network" "nat_networks" {
 
 # HostOnly Networks (one per segment, including CLB itself)
 resource "libvirt_network" "hostonly_networks" {
-  for_each = local.net_infrastructure
+  for_each = local.network_infrastructure
 
   name      = each.value.hostonly.name
   autostart = true

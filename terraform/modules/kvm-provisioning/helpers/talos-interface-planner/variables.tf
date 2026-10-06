@@ -1,12 +1,12 @@
 
 variable "node_config" {
-  description = "Talos node specifications keyed by node key."
+  description = "Talos node specifications keyed by node key, with optional extra static CIDR network mappings."
   type = map(object({
     ip_suffix            = number
     vcpu                 = number
     ram                  = number
     os_disk_capacity_gib = optional(number, 40)
-    extra_networks       = optional(map(string), {}) # Map of network names to static CIDR addresses appended after service segments.
+    extra_networks       = optional(map(string), {})
   }))
 
   validation {
@@ -20,7 +20,7 @@ variable "storage_pool_name" {
   type        = string
 }
 
-variable "svc_network" {
+variable "cluster_network" {
   description = "Network attributes of the own segment of the cluster from SSoT (mac_address, cidr_block)."
   type = object({
     mac_address = string
@@ -53,7 +53,7 @@ variable "network_infra" {
   })
 }
 
-variable "svc_network_map" {
+variable "cluster_network_map" {
   description = "Full topology network map keyed by cluster_name, used for service segment MAC and CIDR resolution."
   type        = any
 }

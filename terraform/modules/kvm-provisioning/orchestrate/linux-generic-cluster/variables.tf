@@ -14,7 +14,7 @@ variable "ssh_config_path" {
   type        = string
 }
 
-variable "svc_identity" {
+variable "cluster_identity" {
   description = "SSoT Extracted Identity containing cluster_name, storage_pool, etc. Used for shared components like Ansible & SSH."
   type = object({
     cluster_name      = string

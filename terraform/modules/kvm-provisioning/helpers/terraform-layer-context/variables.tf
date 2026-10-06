@@ -133,16 +133,16 @@ variable "infrastructure_map" {
 }
 
 # Vault integration inputs. These are optional and only required for 30-tier layers featuring Vault Agent integration.
-variable "prod_vault_svc_vip" {
-  description = "Production Vault VIP for prod_vault_endpoint construction. Required for layers with Vault Agent integration."
+variable "downstream_vault_service_vip" {
+  description = "Downstream Vault VIP for downstream_vault_endpoint construction. Required for layers with Vault Agent integration."
   type        = string
   default     = null
 }
 
 variable "security_pki_outputs" {
-  description = "The `security_pki_outputs` variable MUST conform strictly to the output schema of `security-pki`. Any attribute mismatch causes object type conversion failure during Terraform evaluation."
+  description = "The `security_pki_outputs` variable MUST conform strictly to the output schema of `security-vault-downstream-pki`. Any attribute mismatch causes object type conversion failure during Terraform evaluation."
   type = object({
-    prod_pki_configuration = object({
+    downstream_pki_configuration = object({
       path = string
       leaf_roles = map(object({
         id              = string
@@ -154,7 +154,7 @@ variable "security_pki_outputs" {
       path        = string
       content_b64 = string
     })
-    prod_pki_issuer_cert_b64 = string
+    downstream_pki_issuer_cert_b64 = string
   })
   default = null
 }

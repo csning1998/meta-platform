@@ -13,12 +13,12 @@ output "client_configuration" {
 
 output "hostonly_addresses" {
   description = "Per-node static HostOnly interface IP addresses."
-  value       = local.hostonly_addresses
+  value       = local.network_hostonly_addresses
 }
 
 output "bootstrap_node_key" {
   description = "Target node identifier for etcd cluster bootstrap and Kubernetes API endpoint initialization."
-  value       = local.bootstrap_node_key
+  value       = local.cluster_bootstrap_key
 }
 
 output "volume_mount_path" {

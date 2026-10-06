@@ -2,12 +2,12 @@
 module "talos_interface_planner" {
   source = "../../helpers/talos-interface-planner"
 
-  node_config           = local.nodes
-  storage_pool_name     = var.svc_identity.storage_pool_name
-  svc_network           = local.svc_net
-  network_infra         = local.infra
-  svc_network_map       = var.svc_network_map
-  service_segment_names = [for seg in local.net_service_segments : seg.name]
+  node_config           = local.cluster_nodes
+  storage_pool_name     = var.cluster_identity.storage_pool_name
+  cluster_network       = local.network_primary
+  network_infra         = local.network_infrastructure
+  cluster_network_map   = var.cluster_network_map
+  service_segment_names = [for seg in local.network_service_segments : seg.name]
 }
 
 module "linux_talos_domain" {
@@ -15,9 +15,9 @@ module "linux_talos_domain" {
 
   talos_iso_path                 = var.talos_iso_path
   os_disk_format                 = var.talos_config.os_disk_format
-  talos_cluster_vm_config        = local.talos_cluster_vm_config
+  talos_cluster_vm_config        = local.cluster_vm_config
   network_infrastructure         = var.network_infrastructure_map
-  talos_cluster_service_segments = local.net_service_segments
+  talos_cluster_service_segments = local.network_service_segments
   create_networks                = false
 }
 
@@ -28,7 +28,7 @@ resource "talos_machine_secrets" "this" {
 # Target pre-configuration node maintenance IP addresses resolved from libvirt DHCP leases.
 resource "talos_machine_configuration_apply" "this" {
   depends_on = [module.linux_talos_domain]
-  for_each   = local.talos_cluster_vm_config.nodes
+  for_each   = local.cluster_vm_config.nodes
 
   # Configuration patch applications MUST trigger a full node reboot
   # because in-place reconfiguration fails to recover inconsistent in-memory etcd learner states.
@@ -43,7 +43,7 @@ resource "talos_machine_configuration_apply" "this" {
 resource "talos_machine_bootstrap" "this" {
   depends_on = [talos_machine_configuration_apply.this]
 
-  node                 = local.hostonly_addresses[local.bootstrap_node_key]
+  node                 = local.network_hostonly_addresses[local.cluster_bootstrap_key]
   client_configuration = talos_machine_secrets.this.client_configuration
 
   timeouts = {
@@ -55,5 +55,5 @@ resource "talos_cluster_kubeconfig" "this" {
   depends_on = [data.talos_cluster_health.this]
 
   client_configuration = talos_machine_secrets.this.client_configuration
-  node                 = local.hostonly_addresses[local.bootstrap_node_key]
+  node                 = local.network_hostonly_addresses[local.cluster_bootstrap_key]
 }

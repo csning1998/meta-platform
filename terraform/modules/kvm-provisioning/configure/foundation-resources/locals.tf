@@ -1,4 +1,3 @@
-
 # SSoT Output Alignment: mirrors the former global_* output shape of foundation-metadata.
 # The network and volume computation below reads one consistent structure.
 locals {
@@ -33,7 +32,7 @@ locals {
 
 # Full Infrastructure Map (All Segments: Consumed by libvirt_network resources)
 locals {
-  net_infrastructure = {
+  network_infrastructure = {
     for key, data in local.segments : key => {
       hostonly = {
         name        = data.identity.cluster_name
@@ -59,13 +58,13 @@ locals {
 
 # Service Segments with at least one exposed port, used for Identity outputs.
 locals {
-  net_sorted_segment_keys = sort([
+  network_sorted_segment_keys = sort([
     for k, v in local.segments : k
     if length(v.network.ports) > 0
   ])
 
-  net_service_segments = {
-    for key in local.net_sorted_segment_keys : key => {
+  network_service_segments = {
+    for key in local.network_sorted_segment_keys : key => {
       name        = key
       bridge_name = local.segments[key].identity.bridge_name_host
       cidr        = local.segments[key].network.cidr_block
@@ -138,9 +137,7 @@ locals {
 
   global_volume_map = local.metadata.global_volume_map
 
-  # Extract unique pool names required for physical storage realization.
-  # This includes pools for segments without data disks (root disk pools)
-  # and specific data volume pools.
+  # Aggregates root disk and data volume storage pools to guarantee complete host pool provisioning.
   unique_pools = toset(distinct(concat(
     [for key, identity in local.global_identity_map : identity.storage_pool_name],
     [for vol_key, vol_data in local.global_volume_map : vol_data.pool_name]

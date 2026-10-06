@@ -1,11 +1,11 @@
 
 variable "ansible_config" {
-  description = "Ansible execution configuration"
+  description = "Ansible execution configuration."
   type = object({
-    root_path         = string           # e.g. ".../ansible"
-    identity_key_path = optional(string) # Written by sshclient_identity_key. Null omits -i, letting SSH use default keys.
-    known_hosts_path  = optional(string) # Written by sshclient_known_host. Null omits -o UserKnownHostsFile, deferring to SSH config.
-    inventory_file    = string           # e.g. "inventory-platform-spire-parent-frontend.yaml"
+    root_path         = string
+    identity_key_path = optional(string)
+    known_hosts_path  = optional(string)
+    inventory_file    = string
     verbosity         = optional(number, 4)
   })
 
@@ -26,12 +26,12 @@ variable "playbook_paths" {
 }
 
 variable "inventory_data" {
-  description = "The structured inventory data object (from yamldecode of template)"
+  description = "Structured inventory data object passed to the template."
   type        = any
 }
 
 variable "extra_vars" {
-  description = "Map of sensitive/extra variables to pass to Ansible CLI (-e)"
+  description = "Map of sensitive/extra variables to pass to Ansible CLI (-e)."
   type        = map(string)
   default     = {}
   # Note: Turn off `sensitive = true` if and only if in development. It must be enabled for production.
@@ -39,7 +39,7 @@ variable "extra_vars" {
 }
 
 variable "status_trigger" {
-  description = "Trigger to re-run the provisioner (usually VM IDs)"
+  description = "Arbitrary value whose modification triggers re-execution of the provisioner."
   type        = any
 }
 

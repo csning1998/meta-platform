@@ -1,5 +1,5 @@
 
-variable "svc_identity" {
+variable "cluster_identity" {
   description = "The SSoT identity object of the cluster."
   type = object({
     cluster_name      = string
@@ -8,7 +8,7 @@ variable "svc_identity" {
   })
 }
 
-variable "svc_network_map" {
+variable "cluster_network_map" {
   description = "Pure MECE mapping of calculated network attributes (from foundation-libvirt-resources), keyed by cluster_name. The map MUST contain the entry of this cluster and the entry of every service segment."
   type = map(object({
     segment_key     = string
