@@ -2,21 +2,21 @@
 # The Role names the pod, and the credential therefore does not grant any other access to the Child cluster.
 resource "kubernetes_service_account_v1" "registrar" {
   metadata {
-    name      = local.chart.registrar_sa
+    name      = local.spire_child_chart.registrar_sa
     namespace = kubernetes_namespace_v1.spire_server.metadata[0].name
   }
 }
 
 resource "kubernetes_role_v1" "registrar" {
   metadata {
-    name      = local.chart.registrar_sa
+    name      = local.spire_child_chart.registrar_sa
     namespace = kubernetes_namespace_v1.spire_server.metadata[0].name
   }
 
   rule {
     api_groups     = [""]
     resources      = ["pods"]
-    resource_names = [local.chart.internal_server_pod]
+    resource_names = [local.spire_child_chart.internal_server_pod]
     verbs          = ["get"]
   }
 
@@ -24,14 +24,14 @@ resource "kubernetes_role_v1" "registrar" {
   rule {
     api_groups     = [""]
     resources      = ["pods/exec"]
-    resource_names = [local.chart.internal_server_pod]
+    resource_names = [local.spire_child_chart.internal_server_pod]
     verbs          = ["get", "create"]
   }
 }
 
 resource "kubernetes_role_binding_v1" "registrar" {
   metadata {
-    name      = local.chart.registrar_sa
+    name      = local.spire_child_chart.registrar_sa
     namespace = kubernetes_namespace_v1.spire_server.metadata[0].name
   }
 
@@ -50,7 +50,7 @@ resource "kubernetes_role_binding_v1" "registrar" {
 
 resource "kubernetes_secret_v1" "registrar_token" {
   metadata {
-    name      = local.chart.registrar_sa
+    name      = local.spire_child_chart.registrar_sa
     namespace = kubernetes_service_account_v1.registrar.metadata[0].namespace
     annotations = {
       "kubernetes.io/service-account.name" = kubernetes_service_account_v1.registrar.metadata[0].name
@@ -60,32 +60,32 @@ resource "kubernetes_secret_v1" "registrar_token" {
   wait_for_service_account_token = true
 }
 
-# The kubeconfig lives in the Bastion KV. The operators of the downstream components read the path with their own policy.
+# The kubeconfig lives in the Downstream KV. The operators of the downstream components read the path with their own policy.
 resource "vault_kv_secret_v2" "registrar" {
-  provider = vault.bastion
+  provider = vault.downstream
 
   mount = "secret"
-  name  = local.kv_path.registrar
+  name  = local.spire_child_kv_paths.registrar
 
   data_json = jsonencode({
     content_b64 = base64encode(yamlencode({
       apiVersion        = "v1"
       kind              = "Config"
-      "current-context" = local.cluster_name
+      "current-context" = local.spire_child_cluster_name
       clusters = [{
-        name = local.cluster_name
+        name = local.spire_child_cluster_name
         cluster = {
-          server                       = local.api_server_vip_url
+          server                       = local.spire_child_api_server_vip_url
           "certificate-authority-data" = base64encode(data.kubernetes_config_map_v1.root_ca.data["ca.crt"])
         }
       }]
       users = [{
-        name = local.chart.registrar_sa
+        name = local.spire_child_chart.registrar_sa
         user = { token = kubernetes_secret_v1.registrar_token.data["token"] }
       }]
       contexts = [{
-        name    = local.cluster_name
-        context = { cluster = local.cluster_name, user = local.chart.registrar_sa }
+        name    = local.spire_child_cluster_name
+        context = { cluster = local.spire_child_cluster_name, user = local.spire_child_chart.registrar_sa }
       }]
     }))
   })

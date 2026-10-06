@@ -4,9 +4,9 @@ data "terraform_remote_state" "platform_spire_child" {
   config  = { address = "${local._state_base_meta_platform}/platform-spire-child" }
 }
 
-data "terraform_remote_state" "foundation_vault_bastion" {
+data "terraform_remote_state" "security_vault_downstream_tenants" {
   backend = "http"
-  config  = { address = "${local._state_base_parent_group_governance}/foundation-vault-bastion" }
+  config  = { address = "${local._state_base_meta_platform}/security-vault-downstream-tenants" }
 }
 
 data "terraform_remote_state" "platform_spire_parent" {
@@ -14,21 +14,16 @@ data "terraform_remote_state" "platform_spire_parent" {
   config  = { address = "${local._state_base_meta_platform}/platform-spire-parent-frontend" }
 }
 
-data "terraform_remote_state" "provision_spire_parent" {
+data "terraform_remote_state" "security_vault_downstream_pki" {
   backend = "http"
-  config  = { address = "${local._state_base_meta_platform}/provision-spire-parent-frontend" }
-}
-
-# Vault authentication MUST obtain ephemeral JWT-SVID credentials on every execution to prevent state file persistence.
-data "external" "spire_jwt" {
-  program = ["/usr/local/bin/${local.terraform_operator.wrapper_name}"]
+  config  = { address = "${local._state_base_meta_platform}/security-pki" }
 }
 
 ephemeral "vault_kv_secret_v2" "spire_child" {
-  provider = vault.bastion
+  provider = vault.downstream
 
   mount = "secret"
-  name  = local.kv_path.cluster
+  name  = local.spire_child_kv_paths.cluster
 }
 
 # Cluster readiness checks MUST re-validate quorum convergence during apply operations
@@ -39,8 +34,8 @@ ephemeral "talos_cluster_health" "this" {
     client_certificate = ephemeral.vault_kv_secret_v2.spire_child.data["talos_client_certificate_b64"]
     client_key         = ephemeral.vault_kv_secret_v2.spire_child.data["talos_client_key_b64"]
   }
-  control_plane_nodes = values(local.state.platform_spire_child.hostonly_addresses)
-  endpoints           = values(local.state.platform_spire_child.hostonly_addresses)
+  control_plane_nodes = values(local.state.platform_spire_child.talos_cluster.hostonly_addresses)
+  endpoints           = values(local.state.platform_spire_child.talos_cluster.hostonly_addresses)
 
   timeout = "10m"
 }

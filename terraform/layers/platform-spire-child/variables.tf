@@ -8,23 +8,18 @@ variable "node_config" {
   }))
 }
 
-variable "talos_version" {
-  description = "Talos OS version. MUST match the local Packer boot ISO artifact."
-  type        = string
+variable "talos_config" {
+  description = "Talos settings: the Talos release, which MUST match the boot ISO under packer/output/talos-<version>/, the Kubernetes version, and the KubePrism port."
+  type = object({
+    talos_version      = string
+    kubernetes_version = string
+    kubeprism_port     = optional(number, 7445)
+  })
 }
 
-variable "talos_kubernetes_version" {
-  description = "Target Kubernetes version used for Talos machine config and Cilium Helm chart validation."
-  type        = string
-}
-
-variable "cilium_chart_version" {
-  description = "Cilium Helm chart version to render for cluster.inlineManifests."
-  type        = string
-}
-
-variable "kubeprism_port" {
-  description = "Node-local Talos KubePrism load balancer port required for kube-proxy-free CNI API server routing."
-  type        = number
-  default     = 7445
+variable "helm_chart_version" {
+  description = "Helm chart versions rendered into cluster.inlineManifests."
+  type = object({
+    cilium = string
+  })
 }

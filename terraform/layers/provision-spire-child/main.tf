@@ -4,7 +4,7 @@ resource "kubernetes_namespace_v1" "spire_system" {
   depends_on = [ephemeral.talos_cluster_health.this]
 
   metadata {
-    name = local.chart.system_namespace
+    name = local.spire_child_chart.system_namespace
     labels = {
       "pod-security.kubernetes.io/enforce" = "privileged"
       "pod-security.kubernetes.io/audit"   = "privileged"
@@ -17,7 +17,7 @@ resource "kubernetes_namespace_v1" "spire_server" {
   depends_on = [ephemeral.talos_cluster_health.this]
 
   metadata {
-    name = local.chart.server_namespace
+    name = local.spire_child_chart.server_namespace
     labels = {
       "pod-security.kubernetes.io/enforce" = "restricted"
       "pod-security.kubernetes.io/audit"   = "restricted"
@@ -26,35 +26,37 @@ resource "kubernetes_namespace_v1" "spire_server" {
   }
 }
 
-# Upstream agent bootstrap trust bundle injects Bastion intermediate CA for initial gRPC connection establishment.
+# The upstream agent trusts pki-spire, the upstream root of the SPIRE trust bundle, for its first connection to the SPIRE Parent.
 resource "kubernetes_config_map_v1" "upstream_bundle" {
   metadata {
-    name      = local.chart.upstream_bundle_cm
+    name      = local.spire_child_chart.upstream_bundle_cm
     namespace = kubernetes_namespace_v1.spire_system.metadata[0].name
   }
 
   data = {
-    (local.chart.upstream_bundle_field) = local.state.foundation_vault_bastion.bastion_vault_pki.intermediate_cert_pem
+    (local.spire_child_chart.upstream_bundle_field) = local.state.platform_spire_parent.spire_upstream_ca_pem
   }
 }
 
-# Vault PKI issues TLS certificates for OIDC discovery provider endpoints verified by upstream Vault auth backends.
+# The Downstream PKI issues the listener certificate of the OIDC discovery provider, which the Child JWT backend verifies.
 resource "vault_pki_secret_backend_role" "oidc_discovery" {
-  provider = vault.bastion
+  provider = vault.downstream
 
-  backend = local.state.foundation_vault_bastion.bastion_vault_pki.intermediate_mount_path
-  name    = local.cluster_name
+  backend = local.state.security_vault_downstream_pki.downstream_pki_configuration.path
+  name    = local.spire_child_cluster_name
 
   allowed_domains    = local.state.platform_spire_child.foundation_pki.map["spire-child"].dns_san
+  allow_bare_domains = true
   allow_subdomains   = false
   allow_glob_domains = false
-  allow_bare_domains = true
   allow_ip_sans      = true
-  require_cn         = true
   enforce_hostnames  = true
+  require_cn         = true
   allow_any_name     = false
 
-  key_usage   = ["DigitalSignature", "KeyEncipherment"]
+  key_type    = "ec"
+  key_bits    = 256
+  key_usage   = ["DigitalSignature"]
   server_flag = true
   client_flag = false
 
@@ -65,13 +67,13 @@ resource "vault_pki_secret_backend_role" "oidc_discovery" {
 }
 
 resource "vault_pki_secret_backend_cert" "oidc_discovery" {
-  provider = vault.bastion
+  provider = vault.downstream
 
   backend     = vault_pki_secret_backend_role.oidc_discovery.backend
   name        = vault_pki_secret_backend_role.oidc_discovery.name
   common_name = local.state.platform_spire_child.foundation_pki.map["spire-child"].dns_san[0]
   alt_names   = local.state.platform_spire_child.foundation_pki.map["spire-child"].dns_san
-  ip_sans     = [local.oidc_vip]
+  ip_sans     = [local.spire_child_oidc_vip]
 
   auto_renew            = true
   min_seconds_remaining = 60 * 60 * 24 * 7 # 7 Days
@@ -79,7 +81,7 @@ resource "vault_pki_secret_backend_cert" "oidc_discovery" {
 
 resource "kubernetes_secret_v1" "oidc_discovery_tls" {
   metadata {
-    name      = local.chart.oidc_tls_secret
+    name      = local.spire_child_chart.oidc_tls_secret
     namespace = kubernetes_namespace_v1.spire_server.metadata[0].name
   }
   type = "kubernetes.io/tls"
@@ -97,10 +99,10 @@ resource "kubernetes_manifest" "oidc_ip_pool" {
   manifest = {
     apiVersion = "cilium.io/v2alpha1"
     kind       = "CiliumLoadBalancerIPPool"
-    metadata   = { name = "${local.cluster_name}-oidc-discovery" }
+    metadata   = { name = "${local.spire_child_cluster_name}-oidc-discovery" }
     spec = {
-      serviceSelector = { matchLabels = local.oidc_service_labels }
-      blocks          = [{ cidr = "${local.oidc_vip}/32" }]
+      serviceSelector = { matchLabels = local.spire_child_oidc_service_labels }
+      blocks          = [{ cidr = "${local.spire_child_oidc_vip}/32" }]
     }
   }
 }
@@ -111,23 +113,23 @@ resource "kubernetes_manifest" "oidc_l2_announcement" {
   manifest = {
     apiVersion = "cilium.io/v2alpha1"
     kind       = "CiliumL2AnnouncementPolicy"
-    metadata   = { name = "${local.cluster_name}-oidc-discovery" }
+    metadata   = { name = "${local.spire_child_cluster_name}-oidc-discovery" }
     spec = {
-      serviceSelector = { matchLabels = local.oidc_service_labels }
+      serviceSelector = { matchLabels = local.spire_child_oidc_service_labels }
       loadBalancerIPs = true
     }
   }
 }
 
 locals {
-  oidc_service_labels = {
-    "io.kubernetes.service.namespace" = local.chart.server_namespace
-    "io.kubernetes.service.name"      = local.chart.oidc_service_name
+  spire_child_oidc_service_labels = {
+    "io.kubernetes.service.namespace" = local.spire_child_chart.server_namespace
+    "io.kubernetes.service.name"      = local.spire_child_chart.oidc_service_name
   }
 
-  agent_service_labels = {
-    "io.kubernetes.service.namespace" = local.chart.server_namespace
-    "io.kubernetes.service.name"      = local.chart.internal_server_service
+  spire_child_agent_service_labels = {
+    "io.kubernetes.service.namespace" = local.spire_child_chart.server_namespace
+    "io.kubernetes.service.name"      = local.spire_child_chart.internal_server_service
   }
 }
 
@@ -138,10 +140,10 @@ resource "kubernetes_manifest" "agent_ip_pool" {
   manifest = {
     apiVersion = "cilium.io/v2alpha1"
     kind       = "CiliumLoadBalancerIPPool"
-    metadata   = { name = "${local.cluster_name}-agent-endpoint" }
+    metadata   = { name = "${local.spire_child_cluster_name}-agent-endpoint" }
     spec = {
-      serviceSelector = { matchLabels = local.agent_service_labels }
-      blocks          = [{ cidr = "${local.agent_vip}/32" }]
+      serviceSelector = { matchLabels = local.spire_child_agent_service_labels }
+      blocks          = [{ cidr = "${local.spire_child_agent_vip}/32" }]
     }
   }
 }
@@ -152,9 +154,9 @@ resource "kubernetes_manifest" "agent_l2_announcement" {
   manifest = {
     apiVersion = "cilium.io/v2alpha1"
     kind       = "CiliumL2AnnouncementPolicy"
-    metadata   = { name = "${local.cluster_name}-agent-endpoint" }
+    metadata   = { name = "${local.spire_child_cluster_name}-agent-endpoint" }
     spec = {
-      serviceSelector = { matchLabels = local.agent_service_labels }
+      serviceSelector = { matchLabels = local.spire_child_agent_service_labels }
       loadBalancerIPs = true
     }
   }
@@ -174,7 +176,7 @@ resource "helm_release" "spire_crds" {
 # SPIRE parent workload registration MUST precede chart deployment to prevent upstream agent attestation failures.
 resource "helm_release" "spire_nested" {
   depends_on = [
-    module.parent_registration,
+    module.spire_parent_registration,
     helm_release.spire_crds,
     kubernetes_config_map_v1.upstream_bundle,
     kubernetes_secret_v1.oidc_discovery_tls,
@@ -201,13 +203,13 @@ locals {
 
     global = {
       spire = {
-        clusterName = local.cluster_name
-        trustDomain = local.trust_domain
-        jwtIssuer   = local.jwt_issuer
+        clusterName = local.spire_child_cluster_name
+        trustDomain = local.spiffe_trust_domain
+        jwtIssuer   = local.spire_child_jwt_issuer
         caSubject = {
-          country      = var.ca_subject_country
-          organization = local.project_code
-          commonName   = local.cluster_name
+          country      = var.spire_child_ca_subject_country
+          organization = local.spire_child_project_code
+          commonName   = local.spire_child_cluster_name
         }
         recommendations = { enabled = true }
         namespaces      = { create = false }
@@ -220,8 +222,8 @@ locals {
     "upstream-spire-agent" = {
       trustBundleFormat = "pem"
       server = {
-        address = local.parent.node_ip
-        port    = local.parent.server_port
+        address = local.spire_parent.node_ip
+        port    = local.spire_parent.server_port
       }
     }
 
@@ -232,16 +234,16 @@ locals {
       # Agents outside the cluster reach the server through the agent VIP and attest with a single use join token.
       service = {
         type        = "LoadBalancer"
-        port        = local.agent_port
-        annotations = { "lbipam.cilium.io/ips" = local.agent_vip }
+        port        = local.spire_child_agent_port
+        annotations = { "lbipam.cilium.io/ips" = local.spire_child_agent_vip }
       }
       nodeAttestor = { joinToken = { enabled = true } }
 
       upstreamAuthority = {
         spire = {
           server = {
-            address = local.parent.node_ip
-            port    = local.parent.server_port
+            address = local.spire_parent.node_ip
+            port    = local.spire_parent.server_port
           }
         }
       }
@@ -250,11 +252,11 @@ locals {
     "spiffe-oidc-discovery-provider" = {
       tls = {
         spire          = { enabled = false }
-        externalSecret = { enabled = true, secretName = local.chart.oidc_tls_secret }
+        externalSecret = { enabled = true, secretName = local.spire_child_chart.oidc_tls_secret }
       }
       service = {
         type        = "LoadBalancer"
-        annotations = { "lbipam.cilium.io/ips" = local.oidc_vip }
+        annotations = { "lbipam.cilium.io/ips" = local.spire_child_oidc_vip }
       }
     }
   }

@@ -4,9 +4,9 @@ output "foundation_topology" {
   value       = local.state.foundation_libvirt_resources.foundation_topology
 }
 
-output "foundation_global" {
+output "foundation_network_global" {
   description = "Pass-through of the foundation-libvirt-resources global facts object."
-  value       = local.state.foundation_libvirt_resources.foundation_global
+  value       = local.state.foundation_libvirt_resources.foundation_network_global
 }
 
 output "foundation_pki" {
@@ -24,12 +24,10 @@ output "foundation_ssh" {
   value       = local.state.foundation_libvirt_resources.foundation_ssh
 }
 
-output "hostonly_addresses" {
-  description = "Static HostOnly interface addresses per Talos node."
-  value       = module.platform_spire_child.hostonly_addresses
-}
-
-output "bootstrap_node_key" {
-  description = "The node key used as the etcd bootstrap and Kubernetes API endpoint target."
-  value       = module.platform_spire_child.bootstrap_node_key
+output "talos_cluster" {
+  description = "Facts of the SPIRE Child Talos cluster."
+  value = {
+    hostonly_addresses = module.establish_platform_spire_child_talos_cluster.hostonly_addresses
+    bootstrap_node_key = module.establish_platform_spire_child_talos_cluster.bootstrap_node_key
+  }
 }
