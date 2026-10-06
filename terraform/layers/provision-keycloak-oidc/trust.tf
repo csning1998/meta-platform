@@ -23,7 +23,7 @@ data "kubernetes_resource" "cert_manager_webhook" {
 
   metadata {
     name      = "cert-manager-webhook"
-    namespace = local.cluster_issuer.namespace
+    namespace = local.keycloak_cluster_issuer.namespace
   }
 
   lifecycle {
@@ -44,7 +44,7 @@ data "kubernetes_resource" "external_secrets_webhook" {
 
   metadata {
     name      = "external-secrets-webhook"
-    namespace = local.external_secrets.namespace
+    namespace = local.keycloak_external_secrets.namespace
   }
 
   lifecycle {
@@ -63,9 +63,9 @@ module "vault_token_reviewer" {
   depends_on = [ephemeral.talos_cluster_health.this]
   providers  = { vault = vault.downstream }
 
-  api_server_connection    = local.api_server_callback
-  vault_auth_path          = local.cluster_issuer.auth_path
-  reviewer_service_account = { namespace = local.cluster_issuer.namespace }
+  api_server_connection    = local.keycloak_api_server_callback
+  vault_auth_path          = local.keycloak_cluster_issuer.auth_path
+  reviewer_service_account = { namespace = local.keycloak_cluster_issuer.namespace }
 }
 
 module "platform_cluster_issuer" {
@@ -79,7 +79,7 @@ module "platform_cluster_issuer" {
     auth_path = module.vault_token_reviewer[0].vault_auth_path
     ca_cert   = local.downstream_vault.ca_cert
   }
-  issuer_config = local.cluster_issuer
+  issuer_config = local.keycloak_cluster_issuer
 }
 
 resource "kubernetes_service_account_v1" "external_secrets_vault" {
@@ -88,8 +88,8 @@ resource "kubernetes_service_account_v1" "external_secrets_vault" {
   depends_on = [ephemeral.talos_cluster_health.this]
 
   metadata {
-    name      = local.external_secrets.service_account
-    namespace = local.external_secrets.namespace
+    name      = local.keycloak_external_secrets.service_account
+    namespace = local.keycloak_external_secrets.namespace
   }
 }
 
@@ -106,13 +106,13 @@ resource "kubernetes_manifest" "downstream_vault_store" {
       provider = {
         vault = {
           server   = local.downstream_vault.address
-          path     = local.external_secrets.kv_mount_path
+          path     = local.keycloak_external_secrets.kv_mount_path
           version  = "v2"
           caBundle = base64encode(local.downstream_vault.ca_cert)
           auth = {
             kubernetes = {
-              mountPath = local.cluster_issuer.auth_path
-              role      = local.external_secrets.role_name
+              mountPath = local.keycloak_cluster_issuer.auth_path
+              role      = local.keycloak_external_secrets.role_name
               serviceAccountRef = {
                 name      = kubernetes_service_account_v1.external_secrets_vault[0].metadata[0].name
                 namespace = kubernetes_service_account_v1.external_secrets_vault[0].metadata[0].namespace

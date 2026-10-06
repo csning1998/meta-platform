@@ -33,7 +33,7 @@ module "local_path_provisioner" {
     version          = var.talos_workload_config.local_path_provisioner_chart_version
   }
   storage_config = {
-    node_path      = local.state.platform_keycloak_frontend.volume_mount_path
+    node_path      = local.state.platform_keycloak_frontend.talos_cluster.volume_mount_path
     reclaim_policy = "Retain"
   }
 }
@@ -46,9 +46,9 @@ module "keycloak_listener_certificate" {
   certificate_config = {
     name         = local.keycloak_workload.tls_secret_name
     namespace    = kubernetes_namespace_v1.keycloak[0].metadata[0].name
-    common_name  = local.fdqn.keycloak_frontend
+    common_name  = local.keycloak_fqdn.keycloak_frontend
     dns_names    = local.state.security_vault_downstream_tenants.foundation_pki.map["keycloak-frontend"].dns_san
-    ip_addresses = [local.cluster_vip]
+    ip_addresses = [local.keycloak_cluster_vip]
     usages       = ["digital signature", "server auth"]
   }
   issuer_ref = module.platform_cluster_issuer[0].cluster_issuer
@@ -72,7 +72,7 @@ resource "kubernetes_manifest" "keycloak_credentials" {
       data = [
         for field in ["keycloak_admin_user", "keycloak_admin_password", "keycloak_db_user", "keycloak_db_password"] : {
           secretKey = field
-          remoteRef = { key = local.kv_paths["keycloak"]["frontend"].app, property = field }
+          remoteRef = { key = local.downstream_kv_paths["keycloak"]["frontend"].app, property = field }
         }
       ]
     }
@@ -97,7 +97,7 @@ module "manifest_keycloak" {
   keycloak_config = {
     namespace       = kubernetes_namespace_v1.keycloak[0].metadata[0].name
     image           = var.talos_workload_config.keycloak_image
-    hostname        = local.fdqn.keycloak_frontend
+    hostname        = local.keycloak_fqdn.keycloak_frontend
     tls_secret_name = local.keycloak_workload.tls_secret_name
   }
   database_config = {
@@ -113,6 +113,6 @@ module "manifest_keycloak" {
     db_password_key    = "keycloak_db_password"
   }
   service_config = {
-    external_ip = local.cluster_vip
+    external_ip = local.keycloak_cluster_vip
   }
 }

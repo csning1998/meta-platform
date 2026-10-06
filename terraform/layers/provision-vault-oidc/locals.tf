@@ -21,12 +21,12 @@ locals {
   }
 
   # OIDC Configuration
-  oidc_discovery_url = local.state.provision_keycloak_oidc.issuer_url
+  oidc_discovery_url = local.state.provision_keycloak_oidc.keycloak_issuer_url
   oidc_client_id     = data.vault_kv_secret_v2.keycloak_vault_client.data["client_id"]
   oidc_client_secret = data.vault_kv_secret_v2.keycloak_vault_client.data["client_secret"]
 }
 
 # The operator of this component logs in to the Downstream Vault with the JWT-SVID of the SPIRE Parent.
 locals {
-  downstream_operator = local.state.security_vault_downstream_tenants.tenant_operator
+  vault_downstream_operator = local.state.security_vault_downstream_tenants.downstream_vault_tenant_operator
 }

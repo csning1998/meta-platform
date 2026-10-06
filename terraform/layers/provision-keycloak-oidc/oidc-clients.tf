@@ -40,6 +40,6 @@ resource "vault_kv_secret_v2" "oidc_clients" {
   data_json = jsonencode({
     client_id     = each.value.client_id
     client_secret = random_password.client_secrets[each.key].result
-    issuer        = "${local.keycloak_frontend_url}/realms/${local.realm_id}"
+    issuer        = "${local.keycloak_frontend_url}/realms/${local.keycloak_realm_id}"
   })
 }

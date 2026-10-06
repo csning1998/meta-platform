@@ -28,14 +28,14 @@ resource "vault_jwt_auth_backend_role" "keycloak_user" {
   role_type            = "oidc"
   verbose_oidc_logging = true
 
-  allowed_redirect_uris = local.state.provision_keycloak_oidc.vault_redirect_uris
+  allowed_redirect_uris = local.state.provision_keycloak_oidc.keycloak_vault_redirect_uris
 }
 
 resource "vault_identity_group" "management_groups" {
   provider = vault.downstream
-  for_each = local.state.security_vault_downstream_pki.management_policies
+  for_each = local.state.security_vault_downstream_pki.downstream_pki_management_policies
 
-  name     = "keycloak-${replace(each.key, "oidc-", "")}s" # e.g. keycloak-admins, keycloak-auditors
+  name     = "keycloak-${replace(each.key, "oidc-", "")}s"
   type     = "external"
   policies = [each.value]
 
@@ -46,7 +46,7 @@ resource "vault_identity_group" "management_groups" {
 
 resource "vault_identity_group_alias" "management_group_aliases" {
   provider = vault.downstream
-  for_each = local.state.security_vault_downstream_pki.management_policies
+  for_each = local.state.security_vault_downstream_pki.downstream_pki_management_policies
 
   # Maps external Keycloak group claims directly to canonical Vault identity group IDs.
   name           = replace(each.key, "oidc-", "")

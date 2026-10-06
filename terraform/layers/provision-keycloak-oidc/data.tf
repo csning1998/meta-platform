@@ -17,7 +17,7 @@ data "terraform_remote_state" "platform_keycloak_frontend" {
 ephemeral "vault_kv_secret_v2" "keycloak_admin" {
   provider = vault.downstream
   mount    = "secret"
-  name     = local.kv_paths["keycloak"]["frontend"].app
+  name     = local.downstream_kv_paths["keycloak"]["frontend"].app
 }
 
 data "terraform_remote_state" "foundation_libvirt_resources" {
@@ -41,8 +41,8 @@ ephemeral "talos_cluster_health" "this" {
     client_certificate = ephemeral.vault_kv_secret_v2.keycloak_cluster[0].data["talos_client_certificate_b64"]
     client_key         = ephemeral.vault_kv_secret_v2.keycloak_cluster[0].data["talos_client_key_b64"]
   }
-  control_plane_nodes = values(local.state.platform_keycloak_frontend.hostonly_addresses)
-  endpoints           = values(local.state.platform_keycloak_frontend.hostonly_addresses)
+  control_plane_nodes = values(local.state.platform_keycloak_frontend.talos_cluster.hostonly_addresses)
+  endpoints           = values(local.state.platform_keycloak_frontend.talos_cluster.hostonly_addresses)
 
   timeout = "10m"
 }

@@ -3,7 +3,7 @@
 resource "keycloak_realm" "infra_realm" {
   depends_on = [module.manifest_keycloak]
 
-  realm             = local.realm_id
+  realm             = local.keycloak_realm_id
   enabled           = true
   display_name      = "Infrastructure Centralized Identity"
   display_name_html = "<b>Infrastructure Centralized Identity</b>"
@@ -17,19 +17,6 @@ resource "keycloak_realm" "infra_realm" {
     default_locale    = "en"
   }
 }
-
-locals {
-  # Keeps vault_frontend static because the client carries the audience mapper and multiple redirect URIs, unlike single-callback services.
-  oidc_clients_all = merge({
-    vault_frontend = {
-      client_id           = "vault-infra"
-      name                = "Vault Infrastructure"
-      valid_redirect_uris = local.vault_redirect_uris
-      web_origin          = local.vault_frontend_url
-    }
-  }, local.downstream_oidc_clients_resolved)
-}
-
 
 # Injects the target audience claim required by Vault OIDC backend token verification.
 resource "keycloak_openid_audience_protocol_mapper" "vault_audience" {
@@ -83,13 +70,12 @@ resource "keycloak_user" "users" {
   }
 }
 
-
 resource "keycloak_user_groups" "user_assignments" {
   for_each = var.oidc_users
   realm_id = keycloak_realm.infra_realm.id
   user_id  = keycloak_user.users[each.key].id
 
   group_ids = [
-    for g in each.value.groups : local.all_group_ids[g]
+    for g in each.value.groups : local.keycloak_all_group_ids[g]
   ]
 }

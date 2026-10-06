@@ -1,21 +1,21 @@
 # Each OIDC client owns its roles, and organization groups only receive grants of those roles. A reorganization
 # changes the grant table alone, and the token of a client carries the roles of that client and of no other client.
 locals {
-  client_roles = merge([
+  keycloak_client_roles = merge([
     for client_key, roles in var.client_role_grants : {
       for role, groups in roles : "${client_key}/${role}" => { client_key = client_key, role = role, groups = groups }
     }
   ]...)
 
-  group_role_grants = {
-    for group in distinct(flatten([for grant in values(local.client_roles) : grant.groups])) : group => [
-      for key, grant in local.client_roles : keycloak_role.client_roles[key].id if contains(grant.groups, group)
+  keycloak_group_role_grants = {
+    for group in distinct(flatten([for grant in values(local.keycloak_client_roles) : grant.groups])) : group => [
+      for key, grant in local.keycloak_client_roles : keycloak_role.client_roles[key].id if contains(grant.groups, group)
     ]
   }
 }
 
 resource "keycloak_role" "client_roles" {
-  for_each = local.client_roles
+  for_each = local.keycloak_client_roles
 
   realm_id  = keycloak_realm.infra_realm.id
   client_id = keycloak_openid_client.clients[each.value.client_key].id
@@ -23,10 +23,10 @@ resource "keycloak_role" "client_roles" {
 }
 
 resource "keycloak_group_roles" "grants" {
-  for_each = local.group_role_grants
+  for_each = local.keycloak_group_role_grants
 
   realm_id = keycloak_realm.infra_realm.id
-  group_id = local.all_group_ids[each.key]
+  group_id = local.keycloak_all_group_ids[each.key]
   role_ids = each.value
 }
 

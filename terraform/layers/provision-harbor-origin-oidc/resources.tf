@@ -4,9 +4,9 @@ resource "harbor_config_auth" "main" {
   auth_mode                     = "oidc_auth"
   primary_auth_mode             = true
   oidc_name                     = "Keycloak"
-  oidc_endpoint                 = local.oidc_issuer
-  oidc_client_id                = local.oidc_client_id
-  oidc_client_secret_wo         = ephemeral.vault_kv_secret_v2.oidc_client.data["client_secret"]
+  oidc_endpoint                 = local.keycloak_oidc_issuer
+  oidc_client_id                = local.keycloak_oidc_client_id
+  oidc_client_secret_wo         = ephemeral.vault_kv_secret_v2.keycloak_oidc_client.data["client_secret"]
   oidc_client_secret_wo_version = 1
   oidc_scope                    = "openid,profile,email"
   oidc_verify_cert              = true
@@ -20,5 +20,5 @@ resource "harbor_config_auth" "main" {
 
 resource "harbor_group" "infra_admins" {
   group_name = "admin"
-  group_type = 3 # OIDC Group
+  group_type = 3
 }

@@ -34,6 +34,6 @@ data "terraform_remote_state" "provision_harbor_origin_frontend" {
 ephemeral "vault_kv_secret_v2" "harbor_origin_robot" {
   provider = vault.downstream
   mount    = "secret"
-  name     = local.kv_paths["harbor-origin"]["frontend"].robot
+  name     = local.downstream_kv_paths["harbor-origin"]["frontend"].robot
 }
 

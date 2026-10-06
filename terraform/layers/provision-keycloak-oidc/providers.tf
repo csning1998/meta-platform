@@ -38,13 +38,13 @@ terraform {
 
 provider "vault" {
   alias        = "downstream"
-  address      = local.state.security_vault_downstream_tenants.endpoint
-  ca_cert_file = local.state.security_vault_downstream_tenants.ca_cert_path
+  address      = local.state.security_vault_downstream_tenants.downstream_vault_endpoint
+  ca_cert_file = local.state.security_vault_downstream_tenants.downstream_vault_ca_cert_path
 
   # The JWT-SVID arrives through TERRAFORM_VAULT_AUTH_JWT from tools/terraform-operator.sh and stays out of the state.
   auth_login_jwt {
-    mount = local.downstream_operator.auth_mount
-    role  = local.downstream_operator.role_name
+    mount = local.keycloak_operator.auth_mount
+    role  = local.keycloak_operator.role_name
   }
   skip_child_token = true
 }
@@ -60,17 +60,17 @@ provider "keycloak" {
 
 # The provider stays unconfigured on the VM runtime. The layer declares Kubernetes objects for the Talos runtime alone.
 provider "kubernetes" {
-  host                   = local.api_server_connection.host
-  cluster_ca_certificate = local.api_server_connection.ca_cert
-  client_certificate     = local.api_server_connection.client_certificate
-  client_key             = local.api_server_connection.client_key
+  host                   = local.keycloak_api_server_connection.host
+  cluster_ca_certificate = local.keycloak_api_server_connection.ca_cert
+  client_certificate     = local.keycloak_api_server_connection.client_certificate
+  client_key             = local.keycloak_api_server_connection.client_key
 }
 
 provider "helm" {
   kubernetes = {
-    host                   = local.api_server_connection.host
-    cluster_ca_certificate = local.api_server_connection.ca_cert
-    client_certificate     = local.api_server_connection.client_certificate
-    client_key             = local.api_server_connection.client_key
+    host                   = local.keycloak_api_server_connection.host
+    cluster_ca_certificate = local.keycloak_api_server_connection.ca_cert
+    client_certificate     = local.keycloak_api_server_connection.client_certificate
+    client_key             = local.keycloak_api_server_connection.client_key
   }
 }

@@ -23,19 +23,19 @@ terraform {
 # Downstream Provider, authenticated as the local Terraform operator through its SPIRE JWT-SVID
 provider "vault" {
   alias        = "downstream"
-  address      = local.sys_vault_endpoint
-  ca_cert_file = local.state.security_vault_downstream_tenants.ca_cert_path
+  address      = local.downstream_vault_endpoint
+  ca_cert_file = local.state.security_vault_downstream_tenants.downstream_vault_ca_cert_path
 
   # The JWT-SVID arrives through TERRAFORM_VAULT_AUTH_JWT from tools/terraform-operator.sh and stays out of the state.
   auth_login_jwt {
-    mount = local.downstream_operator.auth_mount
-    role  = local.downstream_operator.role_name
+    mount = local.harbor_origin_operator.auth_mount
+    role  = local.harbor_origin_operator.role_name
   }
   skip_child_token = true
 }
 
 provider "harbor" {
-  url      = "https://${local.state.platform_harbor_origin_frontend.harbor_origin_fqdn}"
+  url      = "https://${local.state.platform_harbor_origin_frontend.harbor_endpoint.fqdn}"
   username = "admin"
   password = ephemeral.vault_kv_secret_v2.harbor_origin.data["harbor_origin_admin_password"]
 }

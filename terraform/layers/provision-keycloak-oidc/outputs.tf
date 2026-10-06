@@ -1,8 +1,10 @@
-output "issuer_url" {
-  value = "${local.keycloak_frontend_url}/realms/${local.realm_id}"
+
+output "keycloak_issuer_url" {
+  description = "Keycloak OIDC realm issuer URL."
+  value       = "${local.keycloak_frontend_url}/realms/${local.keycloak_realm_id}"
 }
 
-output "gitlab_sync_root_org" {
+output "keycloak_gitlab_sync_root_org" {
   description = "The root organization name targeted for GitLab synchronization."
   value = one([
     for k, v in var.keycloak_groups : k
@@ -10,7 +12,7 @@ output "gitlab_sync_root_org" {
   ])
 }
 
-output "root_groups_metadata" {
+output "keycloak_root_groups_metadata" {
   description = "Metadata for top-level organizational groups."
   value = {
     for k, v in var.keycloak_groups : k => {
@@ -21,7 +23,7 @@ output "root_groups_metadata" {
   }
 }
 
-output "groups_metadata" {
+output "keycloak_groups_metadata" {
   description = "Sanitized metadata for all groups."
   value = {
     for k, v in var.keycloak_groups : k => {
@@ -32,27 +34,30 @@ output "groups_metadata" {
   }
 }
 
-output "oidc_clients" {
-  value     = keycloak_openid_client.clients
-  sensitive = true
+output "keycloak_oidc_clients" {
+  description = "Map of created Keycloak OpenID clients."
+  value       = keycloak_openid_client.clients
+  sensitive   = true
 }
 
-output "vault_redirect_uris" {
-  value = local.vault_redirect_uris
+output "keycloak_vault_redirect_uris" {
+  description = "Allowed Vault OIDC callback redirect URIs."
+  value       = local.vault_redirect_uris
 }
 
 output "keycloak_groups" {
-  value = var.keycloak_groups
+  description = "Full configuration map of Keycloak groups."
+  value       = var.keycloak_groups
 }
 
-output "node_exporter_targets" {
+output "keycloak_node_exporter_targets" {
   description = "Node Exporter scrape target for the Keycloak node."
-  value       = local.state.platform_keycloak_frontend.node_exporter_targets
+  value       = local.state.platform_keycloak_frontend.generic_cluster.node_exporter_targets
 }
 
 # Since GitLab CE does not support native OIDC inventory/sync,
 # this user data must be passed via remote states to enable shadow account provisioning in platform-gitlab-governance.
-output "oidc_users" {
+output "keycloak_oidc_users" {
   description = "User inventory for downstream layers. Marked as sensitive because it contains initial passwords."
   value = {
     for k, v in var.oidc_users : k => {

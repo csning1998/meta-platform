@@ -31,13 +31,13 @@ provider "libvirt" {
 # Authenticated as the local Terraform operator of this component through SPIRE JWT-SVID.
 provider "vault" {
   alias        = "downstream"
-  address      = local.sys_vault_endpoint
+  address      = local.downstream_vault_endpoint
   ca_cert_file = local.vault_pki_cert_path
 
   # The JWT-SVID arrives through TERRAFORM_VAULT_AUTH_JWT from tools/terraform-operator.sh and stays out of the state.
   auth_login_jwt {
-    mount = local.downstream_operator.auth_mount
-    role  = local.downstream_operator.role_name
+    mount = local.keycloak_operator.auth_mount
+    role  = local.keycloak_operator.role_name
   }
   skip_child_token = true
 }
@@ -48,7 +48,7 @@ provider "vault" {
 provider "helm" {
   registries = [
     {
-      url      = "oci://${local.registry_mirror.host}"
+      url      = "oci://${local.harbor_registry_mirror.host}"
       username = ephemeral.vault_kv_secret_v2.harbor_origin_robot.data["username_puller"]
       password = ephemeral.vault_kv_secret_v2.harbor_origin_robot.data["password_puller"]
     }

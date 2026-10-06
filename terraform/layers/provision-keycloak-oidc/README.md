@@ -51,5 +51,5 @@ terraform apply -replace='keycloak_user.users["E-xxxx"]'
 To view the complete list exported to downstream layers (including UUIDs), run:
 
 ```bash
-terraform output -json oidc_users
+terraform output -json keycloak_oidc_users
 ```
