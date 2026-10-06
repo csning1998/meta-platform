@@ -12,7 +12,8 @@ utils_spire_agent_unit_name: >-
   spire-agent{{ ('-' ~ utils_spire_agent_instance) if utils_spire_agent_instance | length > 0 else '' }}
 
 # The SPIRE server to which the agent attests. Kind parent runs the server commands on the Parent host over SSH.
-# Kind child runs the commands in the pod of the Child server, and the kubeconfig of the Child comes from the KV of the operator Vault.
+# Kind child runs the commands in the pod of the Child server.
+# The kubeconfig of the Child comes from the KV of the operator Vault.
 utils_spire_agent_server_kind: "parent"
 utils_spire_agent_server_address: "{{ spire_parent_node_ip }}"
 utils_spire_agent_server_port: "{{ spire_server_port }}"

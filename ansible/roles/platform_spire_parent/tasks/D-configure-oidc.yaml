@@ -18,10 +18,16 @@
         group: "{{ spire_group }}"
         mode: "0644"
 
-    # A certificate from a rebuilt pki-platform fails the chain check, and a certificate inside the renewal window fails checkend.
+    # A certificate from a rebuilt pki-platform fails the chain check.
+    # A certificate inside the renewal window fails checkend.
     - name: "D1c. Verify the held listener certificate against the CA chain"
       ansible.builtin.command:
-        argv: ["openssl", "verify", "-CAfile", "{{ platform_spire_parent_oidc_ca_path }}", "{{ platform_spire_parent_oidc_cert_path }}"]
+        argv:
+          - openssl
+          - verify
+          - -CAfile
+          - "{{ platform_spire_parent_oidc_ca_path }}"
+          - "{{ platform_spire_parent_oidc_cert_path }}"
       register: _platform_spire_parent_oidc_cert_chain
       changed_when: false
       failed_when: false
@@ -73,7 +79,8 @@
 
         - name: "D1e-iii. Write the server certificate followed by the issuing intermediate"
           ansible.builtin.copy:
-            content: "{{ _platform_spire_parent_oidc_issue.json.data.certificate ~ '\n' ~ _platform_spire_parent_oidc_issue.json.data.issuing_ca ~ '\n' }}"
+            content: "{{ _platform_spire_parent_oidc_issue.json.data.certificate ~ '\n'
+              ~ _platform_spire_parent_oidc_issue.json.data.issuing_ca ~ '\n' }}"
             dest: "{{ platform_spire_parent_oidc_cert_path }}"
             owner: "{{ spire_owner }}"
             group: "{{ spire_group }}"

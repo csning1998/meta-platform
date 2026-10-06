@@ -59,7 +59,8 @@
       loop: "{{ _utils_terraform_operator_identity_names }}"
 
 # Validates the wrappers without privilege escalation to verify drop-in sudoers permissions.
-# The Vault login with each JWT-SVID belongs to security-vault-downstream-tenants, after the Downstream Vault trusts the SPIRE Parent.
+# The Vault login with each JWT-SVID belongs to security-vault-downstream-tenants.
+# The login succeeds after the Downstream Vault trusts the SPIRE Parent.
 - name: "Play [Terraform Operator Verify]: Fetch a JWT-SVID as each operator identity"
   hosts: "{{ 'host_terraform_operator' if 'host_terraform_operator' in groups else [] }}"
   become: false
