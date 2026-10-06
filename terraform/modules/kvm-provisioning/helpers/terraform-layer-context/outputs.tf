@@ -50,7 +50,7 @@ output "storage_pool_name" {
 }
 
 output "topology_cluster" {
-  description = "Assembled topology_cluster object for ha-service-kvm-general middleware."
+  description = "Assembled topology_cluster object for the linux-generic-cluster middleware."
   value       = local.topology_cluster
 }
 

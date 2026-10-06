@@ -1,6 +1,6 @@
 
-module "hypervisor_kvm" {
-  source = "../cluster-provision/hypervisor-kvm"
+module "linux_generic_domain" {
+  source = "../../configure/linux-generic-domain"
 
   guest_config = local.guest_config
 
@@ -18,21 +18,21 @@ resource "local_file" "known_hosts" {
   directory_permission = "0700"
   content = join("", [
     for k, v in local.flat_node_map :
-    "${v.ip} ${module.hypervisor_kvm.guest_host_public_keys[k]}\n"
+    "${v.ip} ${module.linux_generic_domain.guest_host_public_keys[k]}\n"
   ])
 }
 
 # Provisioning execution MUST block until guests complete SSH handshakes
 # to bridge the convergence interval between domain creation and operating system readiness.
 resource "sshclient_reachability" "guest_ready" {
-  depends_on = [module.hypervisor_kvm, local_file.known_hosts]
+  depends_on = [module.linux_generic_domain, local_file.known_hosts]
 
   config_name = var.svc_identity.cluster_name
   hosts       = [for k, v in local.flat_node_map : v.ip]
 }
 
 module "ansible_runner" {
-  source         = "../cluster-provision/ansible-runner"
+  source         = "../../configure/ansible-runner"
   depends_on     = [sshclient_reachability.guest_ready]
   status_trigger = { (var.svc_identity.cluster_name) = local_file.known_hosts.id }
 

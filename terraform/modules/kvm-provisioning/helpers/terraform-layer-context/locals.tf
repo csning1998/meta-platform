@@ -53,8 +53,9 @@ locals {
 locals {
   prod_vault_endpoint = var.prod_vault_svc_vip != null ? "https://${var.prod_vault_svc_vip}:443" : null
 
+  # A cluster without SSH, such as a Talos cluster, does not carry a guest username.
   sec_vm_credentials = {
-    username = var.guest_usernames[local.svc_identity.cluster_name]
+    username = lookup(var.guest_usernames, local.svc_identity.cluster_name, null)
   }
 }
 

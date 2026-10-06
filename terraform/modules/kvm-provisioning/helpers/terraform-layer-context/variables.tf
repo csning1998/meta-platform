@@ -84,7 +84,7 @@ variable "global_network_baseline" {
 }
 
 variable "infrastructure_map" {
-  description = "Physical network infrastructure map from platform-cilium-frontend handover."
+  description = "Physical network infrastructure map from platform-cilium-hubble handover."
   type = map(object({
     network = object({
       hostonly = object({
@@ -192,7 +192,7 @@ variable "service_config" {
         volume = string
       })), [])
 
-      # Passed through unchanged to hypervisor-kvm.
+      # Passed through unchanged to linux-generic-domain.
       # Map key: Target libvirt network name.
       # Map value: Guest static CIDR address assigned to the corresponding target libvirt network.
       extra_networks = optional(map(string), {})

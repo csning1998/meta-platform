@@ -59,7 +59,7 @@ variable "topology_cluster" {
           os_disk_format = optional(string, "qcow2")
         })), [])
 
-        # Passed through unchanged to hypervisor-kvm.
+        # Passed through unchanged to linux-generic-domain.
         # Map key: Target libvirt network name.
         # Map value: Guest static CIDR address assigned to the corresponding target libvirt network.
         extra_networks = optional(map(string), {})
