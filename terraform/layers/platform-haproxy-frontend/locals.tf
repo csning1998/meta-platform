@@ -1,4 +1,3 @@
-
 # GitLab HTTP backend base URL. Authentication credentials must be supplied via
 # `TF_HTTP_USERNAME` and `TF_HTTP_PASSWORD` environment variables.
 locals {
@@ -12,10 +11,10 @@ locals {
 }
 
 locals {
-  project_code = local.state.foundation_libvirt_resources.foundation_vault_path.project_code
-  cluster_name = local.state.foundation_libvirt_resources.foundation_topology.identity["haproxy"]["frontend"].cluster_name
+  foundation_project_code = local.state.foundation_libvirt_resources.foundation_vault_path.project_code
+  haproxy_cluster_name    = local.state.foundation_libvirt_resources.foundation_topology.identity["haproxy"]["frontend"].cluster_name
 
-  runtime = local.state.foundation_libvirt_resources.foundation_topology.infrastructure[local.cluster_name].runtime
+  haproxy_runtime = local.state.foundation_libvirt_resources.foundation_topology.infrastructure[local.haproxy_cluster_name].runtime
 }
 
 # HAProxy precedes the Downstream Vault, which a VM runtime of the Downstream Vault exposes through the VIP of HAProxy.
@@ -43,7 +42,7 @@ locals {
 
   fronted_segments = {
     for key, seg in local.state.foundation_libvirt_resources.foundation_topology.infrastructure : key => seg
-    if key != local.cluster_name
+    if key != local.haproxy_cluster_name
     && !contains(local.kubernetes_native_runtimes, seg.runtime)
     && seg.lb_config.vip != null
     && length(seg.backend_servers) > 0
@@ -108,6 +107,37 @@ locals {
   ])
 }
 
+locals {
+  # ansible_host resolves through the operator SSH config alias, meaningless inside the
+  # guest. The stats listener needs the real address on this segment.
+  haproxy_node_ips = [
+    for node_key, node in var.service_config[var.primary_role].nodes :
+    cidrhost(module.terraform_layer_context.primary_network_config.network.hostonly.cidr, node.ip_suffix)
+  ]
+  haproxy_listen_address = sort(local.haproxy_node_ips)[0]
+
+  ansible_template_config = {
+    global_mss   = module.terraform_layer_context.global_mss
+    access_scope = module.terraform_layer_context.primary_network_config.network.hostonly.cidr
+  }
+
+  # Every value is public. The play issues the stats certificate and mints the credentials with the tenant token, outside the state.
+  ansible_extra_config = {
+    lb_service_segments            = jsonencode(local.lb_service_segments)
+    haproxy_stats_port             = module.terraform_layer_context.primary_network_config.lb_config.ports["stats"].frontend_port
+    haproxy_listen_address         = local.haproxy_listen_address
+    haproxy_credential_kv_path     = local.state.foundation_libvirt_resources.foundation_vault_path.kv_paths["haproxy"]["frontend"].app
+    platform_haproxy_ca_bundle_b64 = base64encode(local.backend_ca_bundle_pem)
+    platform_haproxy_pki_mount     = vault_pki_secret_backend_role.stats.backend
+    platform_haproxy_pki_role      = vault_pki_secret_backend_role.stats.name
+    platform_haproxy_common_name   = local.state.foundation_libvirt_resources.foundation_pki.map[module.terraform_layer_context.primary_context.pki_key].dns_san[0]
+    platform_haproxy_alt_names     = join(",", local.state.foundation_libvirt_resources.foundation_pki.map[module.terraform_layer_context.primary_context.pki_key].dns_san)
+    platform_haproxy_ip_sans       = join(",", module.terraform_layer_context.cluster_network.node_ips)
+  }
+
+  haproxy_pki_role_name = module.terraform_layer_context.cluster_identity.cluster_name
+}
+
 check "haproxy_vrid_valid" {
   assert {
     condition     = alltrue([for v in local.fronted_segment_vrids : v >= 1 && v <= 255])
@@ -124,35 +154,4 @@ check "haproxy_extra_network_offsets_safe" {
     condition     = length(local.extra_network_offset_conflicts) == 0
     error_message = "haproxy_extra_ip_offset collides with a fronted segment's own reserved node ip_range for: ${join(", ", local.extra_network_offset_conflicts)}."
   }
-}
-
-locals {
-  # ansible_host resolves through the operator SSH config alias, meaningless inside the
-  # guest. The stats listener needs the real address on this segment.
-  haproxy_node_ips = [
-    for node_key, node in var.service_config[var.primary_role].nodes :
-    cidrhost(module.terraform_layer_context.primary_net_config.network.hostonly.cidr, node.ip_suffix)
-  ]
-  haproxy_listen_address = sort(local.haproxy_node_ips)[0]
-
-  ansible_template_config = {
-    global_mss   = module.terraform_layer_context.global_mss
-    access_scope = module.terraform_layer_context.primary_net_config.network.hostonly.cidr
-  }
-
-  # Every value is public. The play issues the stats certificate and mints the credentials with the tenant token, outside the state.
-  ansible_extra_config = {
-    lb_service_segments            = jsonencode(local.lb_service_segments)
-    haproxy_stats_port             = module.terraform_layer_context.primary_net_config.lb_config.ports["stats"].frontend_port
-    haproxy_listen_address         = local.haproxy_listen_address
-    haproxy_credential_kv_path     = local.state.foundation_libvirt_resources.foundation_vault_path.kv_paths["haproxy"]["frontend"].app
-    platform_haproxy_ca_bundle_b64 = base64encode(local.backend_ca_bundle_pem)
-    platform_haproxy_pki_mount     = vault_pki_secret_backend_role.stats.backend
-    platform_haproxy_pki_role      = vault_pki_secret_backend_role.stats.name
-    platform_haproxy_common_name   = local.state.foundation_libvirt_resources.foundation_pki.map[module.terraform_layer_context.primary_context.pki_key].dns_san[0]
-    platform_haproxy_alt_names     = join(",", local.state.foundation_libvirt_resources.foundation_pki.map[module.terraform_layer_context.primary_context.pki_key].dns_san)
-    platform_haproxy_ip_sans       = join(",", module.terraform_layer_context.svc_network.node_ips)
-  }
-
-  haproxy_pki_role_name = module.terraform_layer_context.svc_identity.cluster_name
 }

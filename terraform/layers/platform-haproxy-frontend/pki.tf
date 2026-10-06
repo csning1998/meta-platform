@@ -6,12 +6,12 @@ resource "vault_pki_secret_backend_role" "stats" {
   name    = local.haproxy_pki_role_name
 
   allowed_domains    = local.state.foundation_libvirt_resources.foundation_pki.map[module.terraform_layer_context.primary_context.pki_key].dns_san
+  allow_bare_domains = true
   allow_subdomains   = false
   allow_glob_domains = false
-  allow_bare_domains = true
   allow_ip_sans      = true
-  require_cn         = true
   enforce_hostnames  = true
+  require_cn         = true
   allow_any_name     = false
 
   key_type    = "ec"
