@@ -54,6 +54,11 @@ func resolveProjectRoot(start string) (string, error) {
 	}
 }
 
+// isBootstrapRequired reports whether cmd needs the .env bootstrap before the run of cmd.
+func isBootstrapRequired(cmd *cobra.Command) bool {
+	return true
+}
+
 func execute() int {
 	out := ui.New(os.Stdout, os.Stderr)
 
