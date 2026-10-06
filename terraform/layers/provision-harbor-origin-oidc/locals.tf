@@ -8,7 +8,6 @@ locals {
 locals {
   state = {
     security_vault_downstream_tenants = data.terraform_remote_state.security_vault_downstream_tenants.outputs
-    security_vault_downstream_pki     = data.terraform_remote_state.security_vault_downstream_pki.outputs
     platform_harbor_origin_frontend   = data.terraform_remote_state.platform_harbor_origin_frontend.outputs
   }
 
