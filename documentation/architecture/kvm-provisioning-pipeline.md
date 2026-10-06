@@ -36,7 +36,7 @@ flowchart TD
 
     subgraph S4 ["Stage 4: Per-Layer Projection (layers/platform-spire-parent)"]
         LC_MOD["modules/kvm-provisioning/helpers/terraform-layer-context"]
-        LC_OUT["cluster_identity\nsvc_network\nsvc_fqdn\nprimary_net_config\nstorage_pool_name"]
+        LC_OUT["cluster_identity\ncluster_network\ncluster_fqdn\nprimary_network_config\nstorage_pool_name"]
     end
 
     subgraph S5 ["Stage 5: Middleware Orchestration (modules/kvm-provisioning/orchestrate/linux-generic-cluster)"]
@@ -228,8 +228,8 @@ flowchart LR
     end
 
     subgraph LC_EXPORTS ["Layer Outputs"]
-        SVC_OUT["cluster_identity\nsvc_network\nsvc_pki_role\nsvc_fqdn"]
-        NET_OUT["primary_network_config\ntier_network_map"]
+        SVC_OUT["cluster_identity\ncluster_network\ncluster_pki_role\ncluster_fqdn"]
+        NET_OUT["primary_network_config\nnetwork_tier_topology_map"]
         TOP_OUT["topology_cluster\nnode_identities"]
     end
 
