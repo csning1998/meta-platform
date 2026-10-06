@@ -5,11 +5,6 @@ data "terraform_remote_state" "foundation_libvirt_resources" {
   config  = { address = "${local._state_base_meta_platform}/foundation-libvirt-resources" }
 }
 
-data "terraform_remote_state" "platform_cilium_frontend" {
-  backend = "http"
-  config  = { address = "${local._state_base_meta_platform}/platform-cilium-frontend" }
-}
-
 data "terraform_remote_state" "security_vault_downstream_tenants" {
   backend = "http"
   config  = { address = "${local._state_base_meta_platform}/security-vault-downstream-tenants" }
@@ -20,19 +15,9 @@ data "terraform_remote_state" "security_vault_downstream_pki" {
   config  = { address = "${local._state_base_meta_platform}/security-pki" }
 }
 
-data "terraform_remote_state" "foundation_vault_bastion" {
-  backend = "http"
-  config  = { address = "${local._state_base_parent_group_governance}/foundation-vault-bastion" }
-}
-
 data "terraform_remote_state" "platform_spire_parent" {
   backend = "http"
   config  = { address = "${local._state_base_meta_platform}/platform-spire-parent-frontend" }
-}
-
-data "terraform_remote_state" "provision_spire_parent" {
-  backend = "http"
-  config  = { address = "${local._state_base_meta_platform}/provision-spire-parent-frontend" }
 }
 
 data "terraform_remote_state" "provision_spire_child" {
@@ -40,7 +25,15 @@ data "terraform_remote_state" "provision_spire_child" {
   config  = { address = "${local._state_base_meta_platform}/provision-spire-child" }
 }
 
-# The downstream Vault trusts the SPIRE Child only, and so the operator logs in with a JWT-SVID which the Child issued.
-data "external" "spire_jwt_downstream" {
-  program = ["/usr/local/bin/${local.state.provision_spire_child.terraform_operator_downstream["keycloak"].wrapper_name}"]
+data "terraform_remote_state" "provision_harbor_origin_frontend" {
+  backend = "http"
+  config  = { address = "${local._state_base_meta_platform}/provision-harbor-origin-frontend" }
 }
+
+# The Harbor robot pulls the charts from the private OCI project. The ephemeral read keeps the robot secret out of the state.
+ephemeral "vault_kv_secret_v2" "harbor_origin_robot" {
+  provider = vault.downstream
+  mount    = "secret"
+  name     = local.kv_paths["harbor-origin"]["frontend"].robot
+}
+
