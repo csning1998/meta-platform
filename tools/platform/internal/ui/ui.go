@@ -116,6 +116,11 @@ func (p *Printer) PrintText(text string) {
 	_, _ = fmt.Fprint(p.out, text)
 }
 
+// Diagnostic returns a printer which writes every level to the error stream, keeping standard output for a payload.
+func (p *Printer) Diagnostic() *Printer {
+	return &Printer{out: p.errOut, errOut: p.errOut}
+}
+
 // PrintDivider outputs a 60-character horizontal line using char. Defaults to "-" if char is empty.
 func (p *Printer) PrintDivider(char string) {
 	if char == "" {

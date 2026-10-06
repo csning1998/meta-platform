@@ -355,3 +355,14 @@ func TestPrintTextWritesVerbatimToOut(t *testing.T) {
 		t.Errorf("PrintText wrote out %q, errOut %q, want the text on out alone", out.String(), errOut.String())
 	}
 }
+
+func TestDiagnosticWritesEveryLevelToErrOut(t *testing.T) {
+	var out, errOut bytes.Buffer
+	p := New(&out, &errOut).Diagnostic()
+	p.Print(Info, "Network Mode: Bridge detected (virbr0).")
+	p.Print(Error, "failure")
+	p.PrintDivider("")
+	if out.Len() != 0 || !strings.Contains(errOut.String(), "Network Mode") || !strings.Contains(errOut.String(), "failure") {
+		t.Errorf("Diagnostic wrote out %q, errOut %q, want every line on errOut", out.String(), errOut.String())
+	}
+}

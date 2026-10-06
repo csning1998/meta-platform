@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/spf13/cobra"
+
+	"platform/internal/ui"
 )
 
 // TestTerraformCmdPassesEveryArgumentToTerraform covers subcommand names such as clean, which would shadow terraform arguments.
@@ -55,6 +58,46 @@ func TestClusterCmdRegistersShellAndStatus(t *testing.T) {
 			if cmd.Args == nil || cmd.Args(cmd, []string{"keycloak/frontend"}) != nil || cmd.Args(cmd, nil) == nil ||
 				cmd.Args(cmd, []string{"a/b", "c/d"}) == nil {
 				t.Errorf("cluster %s accepts other than one target", name)
+			}
+		})
+	}
+}
+
+func TestEnvCmdRegistersGet(t *testing.T) {
+	a := &app{}
+	cmd, _, err := a.envCmd().Find([]string{"get"})
+	if err != nil || cmd.Name() != "get" {
+		t.Fatalf("find get: command %q, error %v", cmd.Name(), err)
+	}
+	if cmd.Args == nil || cmd.Args(cmd, []string{"BASTION_VAULT_ADDR"}) != nil || cmd.Args(cmd, nil) == nil {
+		t.Error("env get accepts other than one key")
+	}
+	if !isBootstrapRequired(cmd) {
+		t.Error("env get skips the bootstrap, want the .env which the bootstrap creates on a new workstation")
+	}
+}
+
+// TestResolveBootstrapPrinter covers command substitution, which captures every line on standard output.
+func TestResolveBootstrapPrinter(t *testing.T) {
+	a := &app{}
+	get, _, err := a.envCmd().Find([]string{"get"})
+	if err != nil {
+		t.Fatalf("find env get: %v", err)
+	}
+	cases := []struct {
+		name      string
+		cmd       *cobra.Command
+		wantOnOut bool
+	}{
+		{"env get", get, false},
+		{"env", a.envCmd(), true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var out, errOut bytes.Buffer
+			resolveBootstrapPrinter(c.cmd, ui.New(&out, &errOut)).Print(ui.Info, "bootstrap message")
+			if (out.Len() > 0) != c.wantOnOut {
+				t.Errorf("bootstrap message on out = %q, errOut = %q, want on out %v", out.String(), errOut.String(), c.wantOnOut)
 			}
 		})
 	}

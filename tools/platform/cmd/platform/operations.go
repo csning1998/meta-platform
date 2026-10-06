@@ -249,3 +249,13 @@ func (a *app) switchStrategy() error {
 	a.out.Print(ui.Info, "Strategy 'ENVIRONMENT_STRATEGY' in .env updated to '"+next+"'.")
 	return nil
 }
+
+// printEnvValue prints the expanded .env value of key alone on standard output.
+func (a *app) printEnvValue(key string) error {
+	value, err := a.env.ResolvePublicValue(key)
+	if err != nil {
+		return err
+	}
+	a.out.PrintText(value + "\n")
+	return nil
+}

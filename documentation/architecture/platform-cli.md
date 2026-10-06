@@ -14,10 +14,11 @@
 
 ### Item B. Build and Execution Constraints
 
-1. The binary MUST be built with the command `cd tools/platform && go build -o ../../platform ./cmd/platform`.
-2. The executable MUST be invoked with the working directory inside the `meta-platform` repository. `platform terraform` MUST be invoked with the working directory set to a layer directory under `terraform/layers/`.
-3. Automatic environment initialization MUST determine `PROJECT_ROOT` from the current working directory.
-4. The compiled `platform` binary MUST NOT be tracked in version control and MUST be excluded by `.gitignore`.
+1. The binary MUST be built with `build-platform.sh`, which runs the tests, builds `tools/platform` into `meta-platform/platform`, and runs the SonarQube scan.
+2. `build-platform.sh` MUST read the workstation values `BASTION_VAULT_ADDR` and `BASTION_VAULT_CACERT` through `platform env get` unless the caller exports them, and MUST hold the repository values as `readonly` constants.
+3. The executable MUST be invoked with the working directory inside the `meta-platform` repository. `platform terraform` MUST be invoked with the working directory set to a layer directory under `terraform/layers/`.
+4. Automatic environment initialization MUST determine `PROJECT_ROOT` from the current working directory.
+5. The compiled `platform` binary MUST NOT be tracked in version control and MUST be excluded by `.gitignore`.
 
 ## Section 2. Command Reference and Group Specifications
 
@@ -43,6 +44,8 @@
 
 1. `platform env verify` MUST verify the availability of `qemu-system-x86_64`, `virsh`, `packer`, `terraform`, `tofu`, `vault`, and `ansible` on `PATH`.
 2. `platform env verify` MUST exit with status code 1 if any prerequisite tool binary is missing.
+3. `platform env get <KEY>` MUST print the expanded `.env` value of the key alone on standard output, and MUST write the bootstrap messages to standard error.
+4. `platform env get` MUST refuse `VAULT_TOKEN` and an undefined key without output.
 
 ### Item D. Packer Image Operations (`packer`)
 

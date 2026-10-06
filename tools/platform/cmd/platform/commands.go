@@ -56,6 +56,13 @@ func (a *app) envCmd() *cobra.Command {
 		Short: "Verify the full native IaC environment (non-interactive)",
 		RunE:  func(cmd *cobra.Command, args []string) error { return a.verifyEnvironment() },
 	})
+	cmd.AddCommand(&cobra.Command{
+		Use:         "get <KEY>",
+		Short:       "Print the expanded .env value of KEY alone, refusing a secret key",
+		Args:        cobra.ExactArgs(1),
+		Annotations: map[string]string{annotationStdoutPayload: "true"},
+		RunE:        func(cmd *cobra.Command, args []string) error { return a.printEnvValue(args[0]) },
+	})
 	return cmd
 }
 
