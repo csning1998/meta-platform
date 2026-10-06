@@ -54,9 +54,12 @@ func resolveProjectRoot(start string) (string, error) {
 	}
 }
 
+// annotationSkipBootstrap marks a command which runs inside a layer directory and leaves .env untouched.
+const annotationSkipBootstrap = "platform/skip-bootstrap"
+
 // isBootstrapRequired reports whether cmd needs the .env bootstrap before the run of cmd.
 func isBootstrapRequired(cmd *cobra.Command) bool {
-	return true
+	return cmd.Annotations[annotationSkipBootstrap] != "true"
 }
 
 func execute() int {
@@ -96,7 +99,7 @@ func execute() int {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			if cmd == rootCmd {
+			if cmd == rootCmd || !isBootstrapRequired(cmd) {
 				// runMenu bootstraps itself after printing the title banner.
 				return nil
 			}
