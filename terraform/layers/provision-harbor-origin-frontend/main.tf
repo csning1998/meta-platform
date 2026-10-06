@@ -1,6 +1,6 @@
 
 module "ansible_sync_oci" {
-  source = "../../modules/kvm-provisioning/cluster-provision/ansible-runner"
+  source = "../../modules/kvm-provisioning/configure/ansible-runner"
 
   depends_on = [
     vault_kv_secret_v2.robot_helm_creds,
