@@ -9,7 +9,7 @@ module "ansible_sync_oci" {
     harbor_registry.proxy_registries
   ]
 
-  status_trigger = local.state.platform_harbor_origin_frontend.topology_node
+  status_trigger = local.state.platform_harbor_origin_frontend.generic_cluster.topology_node
   ansible_config = local.ansible_config
   inventory_data = local.inventory_data
   extra_vars     = local.ansible_extra_vars

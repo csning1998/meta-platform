@@ -31,13 +31,13 @@ provider "libvirt" {
 # Authenticated as the local Terraform operator of this component through SPIRE JWT-SVID.
 provider "vault" {
   alias        = "downstream"
-  address      = local.state.security_vault_downstream_tenants.endpoint
-  ca_cert_file = local.state.security_vault_downstream_tenants.ca_cert_path
+  address      = local.state.security_vault_downstream_tenants.downstream_vault_endpoint
+  ca_cert_file = local.state.security_vault_downstream_tenants.downstream_vault_ca_cert_path
 
   # The JWT-SVID arrives through TERRAFORM_VAULT_AUTH_JWT from tools/terraform-operator.sh and stays out of the state.
   auth_login_jwt {
-    mount = local.downstream_operator.auth_mount
-    role  = local.downstream_operator.role_name
+    mount = local.harbor_origin_operator.auth_mount
+    role  = local.harbor_origin_operator.role_name
   }
   skip_child_token = true
 }

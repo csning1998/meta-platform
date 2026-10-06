@@ -1,43 +1,23 @@
 
-output "harbor_origin_fqdn" {
-  description = "The FQDN of the Harbor Origin service."
-  value       = module.terraform_layer_context.svc_fqdn
-}
-
-output "listen_ip" {
-  description = "Node IP used to reach Harbor Origin before HAProxy announces the catalog VIP."
-  value       = local.harbor_listen_ip
-}
-
-output "service_vip" {
-  description = "Catalog VIP reserved for Harbor Origin. Sequence 3 announces this address. Sequence 2 does not publish it."
-  value       = module.terraform_layer_context.primary_net_config.lb_config.vip
-}
-
-output "topology_node" {
-  description = "The actual provisioned configuration for Harbor Origin node."
-  value       = module.platform_harbor_origin.cluster_nodes
-}
-
-output "pki_key" {
-  description = "The physical SSoT PKI key associated with the Harbor Origin service."
-  value       = module.terraform_layer_context.primary_context.pki_key
-}
-
-output "ansible_inventory" {
-  description = "The generated Ansible inventory content and file path."
-  value       = module.platform_harbor_origin.ansible_inventory
-}
-
-output "ssh_config_file_path" {
-  description = "The path to the generated SSH configuration file."
-  value       = module.platform_harbor_origin.ssh_config_file_path
-}
-
-output "node_exporter_targets" {
-  description = "Node Exporter scrape target for the Harbor Origin node."
+output "harbor_endpoint" {
+  description = "Connection and endpoint facts for Harbor Origin."
   value = {
-    ips  = module.terraform_layer_context.svc_network.node_ips
-    port = module.terraform_layer_context.node_exporter_port
+    fqdn        = module.terraform_layer_context.cluster_fqdn
+    listen_ip   = local.harbor_listen_ip
+    service_vip = module.terraform_layer_context.primary_network_config.lb_config.vip
+    pki_key     = module.terraform_layer_context.primary_context.pki_key
+  }
+}
+
+output "generic_cluster" {
+  description = "Facts of the Harbor Origin VM cluster."
+  value = {
+    topology_node        = module.establish_platform_harbor_origin_generic_cluster.cluster_nodes
+    ansible_inventory    = module.establish_platform_harbor_origin_generic_cluster.ansible_inventory
+    ssh_config_file_path = module.establish_platform_harbor_origin_generic_cluster.ssh_config_file_path
+    node_exporter_targets = {
+      ips  = module.terraform_layer_context.cluster_network.node_ips
+      port = module.terraform_layer_context.node_exporter_port
+    }
   }
 }
