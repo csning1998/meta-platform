@@ -5,7 +5,17 @@ locals {
   database_name   = "keycloak"
   database_labels = { "app.kubernetes.io/name" = "keycloak-db" }
   keycloak_labels = { "app.kubernetes.io/name" = "keycloak" }
+  keycloak_home   = "/opt/keycloak"
+  home_copy_mount = "/mnt/keycloak-home"
   tls_mount       = "/opt/keycloak/certs"
+
+  # The build-time options of Keycloak 26.6, which kc.sh build --help-all lists.
+  # The build persists the options, and start --optimized reads the persisted options.
+  build_env = {
+    KC_DB              = "postgres"
+    KC_HEALTH_ENABLED  = "true"
+    KC_METRICS_ENABLED = "true"
+  }
 
   credential_env = {
     admin_user     = { name = var.credential_secret.name, key = var.credential_secret.admin_user_key }
@@ -142,14 +152,85 @@ resource "kubernetes_deployment_v1" "keycloak" {
       }
 
       spec {
+        # The root filesystem of every container is read-only, hence the Keycloak home lives in an emptyDir.
+        # The first init container copies the home of the image into the emptyDir.
+        # The copy omits -a, because the non-root user cannot change the times of the emptyDir root, which root owns.
+        init_container {
+          name    = "copy-home"
+          image   = var.keycloak_config.image
+          command = ["/bin/bash", "-c", "cp -R ${local.keycloak_home}/. ${local.home_copy_mount}/"]
+
+          volume_mount {
+            name       = "home"
+            mount_path = local.home_copy_mount
+          }
+
+          security_context {
+            run_as_non_root            = true
+            allow_privilege_escalation = false
+            read_only_root_filesystem  = true
+            capabilities {
+              drop = ["ALL"]
+            }
+            seccomp_profile {
+              type = "RuntimeDefault"
+            }
+          }
+
+          resources {
+            requests = var.keycloak_config.resources.requests
+            limits   = var.keycloak_config.resources.limits
+          }
+        }
+
+        # The second init container builds in place at the path which the server reads.
+        init_container {
+          name    = "build"
+          image   = var.keycloak_config.image
+          command = ["${local.keycloak_home}/bin/kc.sh", "build"]
+
+          dynamic "env" {
+            for_each = local.build_env
+            content {
+              name  = env.key
+              value = env.value
+            }
+          }
+
+          volume_mount {
+            name       = "home"
+            mount_path = local.keycloak_home
+          }
+          volume_mount {
+            name       = "tmp"
+            mount_path = "/tmp"
+          }
+
+          security_context {
+            run_as_non_root            = true
+            allow_privilege_escalation = false
+            read_only_root_filesystem  = true
+            capabilities {
+              drop = ["ALL"]
+            }
+            seccomp_profile {
+              type = "RuntimeDefault"
+            }
+          }
+
+          resources {
+            requests = var.keycloak_config.resources.requests
+            limits   = var.keycloak_config.resources.limits
+          }
+        }
+
         container {
           name  = "keycloak"
           image = var.keycloak_config.image
-          args  = ["start"]
+          args  = ["start", "--optimized"]
 
           dynamic "env" {
-            for_each = {
-              KC_DB                         = "postgres"
+            for_each = merge(local.build_env, {
               KC_DB_URL                     = "jdbc:postgresql://${kubernetes_service_v1.database.metadata[0].name}.${var.keycloak_config.namespace}.svc:5432/${local.database_name}"
               KC_HOSTNAME                   = var.keycloak_config.hostname
               KC_HTTPS_PORT                 = tostring(var.keycloak_config.https_port)
@@ -157,10 +238,8 @@ resource "kubernetes_deployment_v1" "keycloak" {
               KC_HTTPS_CERTIFICATE_KEY_FILE = "${local.tls_mount}/tls.key"
               KC_HTTP_ENABLED               = "false"
               KC_CACHE                      = "local"
-              KC_HEALTH_ENABLED             = "true"
-              KC_METRICS_ENABLED            = "true"
               KC_HTTP_MANAGEMENT_PORT       = tostring(var.keycloak_config.management_port)
-            }
+            })
             content {
               name  = env.key
               value = env.value
@@ -194,7 +273,7 @@ resource "kubernetes_deployment_v1" "keycloak" {
             container_port = var.keycloak_config.management_port
           }
 
-          # The first start builds the server, which takes minutes on a small node.
+          # The init container already built the server, and the threshold covers schema migration on a small node.
           startup_probe {
             http_get {
               path   = "/health/started"
@@ -224,6 +303,14 @@ resource "kubernetes_deployment_v1" "keycloak" {
           }
 
           volume_mount {
+            name       = "home"
+            mount_path = local.keycloak_home
+          }
+          volume_mount {
+            name       = "tmp"
+            mount_path = "/tmp"
+          }
+          volume_mount {
             name       = "tls"
             mount_path = local.tls_mount
             read_only  = true
@@ -232,8 +319,12 @@ resource "kubernetes_deployment_v1" "keycloak" {
           security_context {
             run_as_non_root            = true
             allow_privilege_escalation = false
+            read_only_root_filesystem  = true
             capabilities {
               drop = ["ALL"]
+            }
+            seccomp_profile {
+              type = "RuntimeDefault"
             }
           }
 
@@ -243,6 +334,19 @@ resource "kubernetes_deployment_v1" "keycloak" {
           }
         }
 
+        # The size limits bound the node disk which the copied home and the temporary files consume.
+        volume {
+          name = "home"
+          empty_dir {
+            size_limit = "512Mi"
+          }
+        }
+        volume {
+          name = "tmp"
+          empty_dir {
+            size_limit = "256Mi"
+          }
+        }
         volume {
           name = "tls"
           secret {
