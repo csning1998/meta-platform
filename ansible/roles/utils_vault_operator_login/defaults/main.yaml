@@ -6,5 +6,5 @@ utils_vault_operator_login_auth_mount: ""
 utils_vault_operator_login_endpoint: ""
 utils_vault_operator_login_ca_cert_path: ""
 
-# Ambient authentication bypass flag restricted to bootstrap layer execution.
+# Ambient mode takes the token of the calling session, restricted to the layers which run inside a tenant session.
 utils_vault_operator_login_use_ambient: false
