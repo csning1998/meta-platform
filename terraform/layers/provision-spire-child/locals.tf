@@ -15,8 +15,9 @@ locals {
 
 locals {
   # The operator of the SPIRE Child logs in to the Downstream Vault with the JWT-SVID of the SPIRE Parent.
-  spire_child_operator = local.state.security_vault_downstream_tenants.downstream_vault_component_operators["spire-child"]
-  spire_child_jwt_auth = local.state.security_vault_downstream_tenants.spire_child_jwt_auth
+  terraform_operator_subject = { service = "spire", component = "child" }
+  terraform_operator         = local.state.security_vault_downstream_tenants.downstream_vault_operators[local.terraform_operator_subject.service][local.terraform_operator_subject.component]
+  spire_child_jwt_auth       = local.state.security_vault_downstream_tenants.spire_child_jwt_auth
 
   spire_child_topology     = local.state.platform_spire_child.foundation_topology
   spire_child_identity     = local.spire_child_topology.identity["spire"]["child"]
@@ -123,8 +124,8 @@ locals {
     provision_spire_child_upstream_agent_sa        = local.spire_child_chart.upstream_agent_sa
     provision_spire_child_server_namespace         = local.spire_child_chart.server_namespace
     provision_spire_child_server_sa                = local.spire_child_chart.internal_server_sa
-    provision_spire_child_operator_wrapper         = local.spire_child_operator.wrapper_name
-    provision_spire_child_operator_role            = local.spire_child_operator.role_name
-    provision_spire_child_operator_auth_mount      = local.spire_child_operator.auth_mount
+    provision_spire_child_operator_wrapper         = local.terraform_operator.wrapper_name
+    provision_spire_child_operator_role            = local.terraform_operator.role_name
+    provision_spire_child_operator_auth_mount      = local.terraform_operator.auth_mount
   }
 }

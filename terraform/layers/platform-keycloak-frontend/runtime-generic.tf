@@ -38,9 +38,9 @@ locals {
     downstream = {
       endpoint     = local.state.security_vault_downstream_tenants.downstream_vault_endpoint
       ca_cert_path = local.state.security_vault_downstream_tenants.downstream_vault_ca_cert_path
-      auth_mount   = local.keycloak_operator.auth_mount
-      role         = local.keycloak_operator.role_name
-      wrapper      = local.keycloak_operator.wrapper_name
+      auth_mount   = local.terraform_operator.auth_mount
+      role         = local.terraform_operator.role_name
+      wrapper      = local.terraform_operator.wrapper_name
     }
   }
 
@@ -62,9 +62,9 @@ locals {
     # The join tokens and the registrar kubeconfig of the SPIRE Child live in the Downstream KV.
     operator_vault_url          = local.state.security_vault_downstream_tenants.downstream_vault_endpoint
     operator_vault_ca_cert_path = local.state.security_vault_downstream_tenants.downstream_vault_ca_cert_path
-    operator_vault_wrapper      = local.keycloak_operator.wrapper_name
-    operator_vault_role         = local.keycloak_operator.role_name
-    operator_vault_auth_mount   = local.keycloak_operator.auth_mount
+    operator_vault_wrapper      = local.terraform_operator.wrapper_name
+    operator_vault_role         = local.terraform_operator.role_name
+    operator_vault_auth_mount   = local.terraform_operator.auth_mount
   }
 }
 

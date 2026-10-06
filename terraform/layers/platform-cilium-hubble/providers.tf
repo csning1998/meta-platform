@@ -36,8 +36,8 @@ provider "vault" {
 
   # The JWT-SVID arrives through TERRAFORM_VAULT_AUTH_JWT from tools/terraform-operator.sh and stays out of the state.
   auth_login_jwt {
-    mount = local.cilium_hubble_operator.auth_mount
-    role  = local.cilium_hubble_operator.role_name
+    mount = local.terraform_operator.auth_mount
+    role  = local.terraform_operator.role_name
   }
   skip_child_token = true
 }

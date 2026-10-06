@@ -32,5 +32,6 @@ locals {
 
 # The operator of this component logs in to the Downstream Vault with the JWT-SVID of the SPIRE Parent.
 locals {
-  keycloak_operator = local.state.security_vault_downstream_tenants.downstream_vault_component_operators["keycloak"]
+  terraform_operator_subject = { service = "keycloak", component = "frontend" }
+  terraform_operator         = local.state.security_vault_downstream_tenants.downstream_vault_operators[local.terraform_operator_subject.service][local.terraform_operator_subject.component]
 }

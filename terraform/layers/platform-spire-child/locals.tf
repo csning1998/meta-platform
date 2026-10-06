@@ -14,7 +14,8 @@ locals {
 
 locals {
   # The operator of the SPIRE Child logs in to the Downstream Vault with the JWT-SVID of the SPIRE Parent.
-  spire_child_operator = local.state.security_vault_downstream_tenants.downstream_vault_component_operators["spire-child"]
+  terraform_operator_subject = { service = "spire", component = "child" }
+  terraform_operator         = local.state.security_vault_downstream_tenants.downstream_vault_operators[local.terraform_operator_subject.service][local.terraform_operator_subject.component]
 
   spire_child_cluster_identity = local.state.foundation_libvirt_resources.foundation_topology.identity["spire"]["child"]
   spire_child_cluster_network  = local.state.foundation_libvirt_resources.foundation_topology.network["spire"]["child"]

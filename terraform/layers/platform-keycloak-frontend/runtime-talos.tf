@@ -22,11 +22,11 @@ module "vault_auth_keycloak_talos" {
   pki_config = {
     mount_path         = local.state.security_vault_downstream_pki.downstream_pki_configuration.path
     role_name          = local.state.security_vault_downstream_pki.downstream_pki_configuration.leaf_roles["keycloak-frontend"].name
-    issuer_policy_name = local.keycloak_operator.cluster_issuer_policy
+    issuer_policy_name = local.terraform_operator.cluster_issuer_policy
   }
   external_secrets_config = {
     kv_paths    = [local.downstream_kv_paths["keycloak"]["frontend"].app]
-    policy_name = local.keycloak_operator.external_secrets_policy
+    policy_name = local.terraform_operator.external_secrets_policy
   }
 }
 
