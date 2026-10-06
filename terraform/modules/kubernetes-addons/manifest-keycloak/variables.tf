@@ -1,6 +1,6 @@
 
 variable "keycloak_config" {
-  description = "Keycloak server. The hostname is the public FQDN which the issued tokens carry. The TLS Secret holds tls.crt and tls.key, and Keycloak serves HTTPS on https_port and the management interface on management_port."
+  description = "Keycloak server. The hostname is the public FQDN which the issued tokens carry. The TLS Secret holds tls.crt and tls.key, and Keycloak serves HTTPS on https_port and the management interface on management_port. The resources apply to the server and to both init containers, and each map MUST set cpu and memory."
   type = object({
     namespace       = string
     image           = string
@@ -8,14 +8,19 @@ variable "keycloak_config" {
     tls_secret_name = string
     https_port      = optional(number, 8443)
     management_port = optional(number, 9000)
-    resources = optional(object({
+    resources = object({
       requests = map(string)
       limits   = map(string)
-      }), {
-      requests = { cpu = "250m", memory = "768Mi" }
-      limits   = { memory = "1536Mi" }
     })
   })
+
+  validation {
+    condition = alltrue([
+      for quantity in [var.keycloak_config.resources.requests, var.keycloak_config.resources.limits] :
+      contains(keys(quantity), "cpu") && contains(keys(quantity), "memory")
+    ])
+    error_message = "keycloak_config.resources MUST set cpu and memory in both requests and limits."
+  }
 }
 
 variable "database_config" {

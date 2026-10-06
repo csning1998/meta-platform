@@ -15,14 +15,23 @@ variable "oidc_users" {
 variable "talos_workload_config" {
   description = "Keycloak workload of the Talos runtime. The images match the VM runtime by tag and carry the digest of the tag, and the nodes pull them through the Harbor Origin mirrors. The local-path chart comes from its upstream OCI repository, as on the Downstream Vault."
   type = object({
-    keycloak_image                          = string
+    keycloak_image = string
+    keycloak_resources = object({
+      requests = map(string)
+      limits   = map(string)
+    })
     postgres_image                          = string
     database_storage_size                   = string
     local_path_provisioner_chart_repository = string
     local_path_provisioner_chart_version    = string
   })
+  # The Talos node of Keycloak has 2 vCPU and also runs the control plane and PostgreSQL, hence the CPU limit of 1.5 cores.
   default = {
-    keycloak_image                          = "quay.io/keycloak/keycloak:26.6.1@sha256:dea26401d06341095cc4ea9d66896200b55de5ca1daa1d2fcbe58493afa6e0ad"
+    keycloak_image = "quay.io/keycloak/keycloak:26.6.1@sha256:dea26401d06341095cc4ea9d66896200b55de5ca1daa1d2fcbe58493afa6e0ad"
+    keycloak_resources = {
+      requests = { cpu = "250m", memory = "768Mi" }
+      limits   = { cpu = "1500m", memory = "1536Mi" }
+    }
     postgres_image                          = "docker.io/library/postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873"
     database_storage_size                   = "10Gi"
     local_path_provisioner_chart_repository = "oci://ghcr.io/rancher/local-path-provisioner/charts"

@@ -99,6 +99,7 @@ module "manifest_keycloak" {
     image           = var.talos_workload_config.keycloak_image
     hostname        = local.keycloak_fqdn.keycloak_frontend
     tls_secret_name = local.keycloak_workload.tls_secret_name
+    resources       = var.talos_workload_config.keycloak_resources
   }
   database_config = {
     image              = var.talos_workload_config.postgres_image
