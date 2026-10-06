@@ -1,0 +1,9 @@
+
+helm_chart_version = {
+  local_path_provisioner = "0.0.37"
+  vault                  = "0.34.1"
+}
+
+vault_config = {
+  storage_size = "5Gi"
+}

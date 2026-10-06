@@ -1,7 +1,6 @@
-
 # One entry per tenant workload.
-# issuer = "child": a pod in the SPIRE Child, whose SPIFFE ID follows spiffe://<trust domain>/ns/<namespace>/sa/<service account>.
-# issuer = "parent": a workload on a VM, whose SPIFFE ID follows spiffe://<trust domain>/<owner>/<service>/<component>.
+# issuer = "child": a workload attested by the SPIRE Child, such as a pod or a VM agent of the Child. provision-spire-child creates the role.
+# issuer = "parent": a workload attested by the SPIRE Parent. This layer creates the role.
 tenants = {
   "meta-platform-e2e-probe" = {
     issuer    = "child"
@@ -10,14 +9,14 @@ tenants = {
   }
 
   "meta-platform-keycloak-frontend" = {
-    issuer        = "parent"
+    issuer        = "child"
     spiffe_id     = "spiffe://production.homelab-infra.dev/meta-platform/keycloak/frontend"
     kv_read_paths = ["meta-platform/keycloak/frontend"]
     pki_roles     = ["meta-platform-keycloak-frontend"]
   }
 
   "meta-platform-harbor-origin-frontend" = {
-    issuer        = "parent"
+    issuer        = "child"
     spiffe_id     = "spiffe://production.homelab-infra.dev/meta-platform/harbor-origin/frontend"
     kv_read_paths = ["meta-platform/harbor-origin/frontend"]
   }

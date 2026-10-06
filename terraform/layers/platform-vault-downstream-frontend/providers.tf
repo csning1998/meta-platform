@@ -9,14 +9,6 @@ terraform {
       source  = "hashicorp/vault"
       version = "5.5.0"
     }
-    tls = {
-      source  = "hashicorp/tls"
-      version = "4.4.0"
-    }
-    external = {
-      source  = "hashicorp/external"
-      version = "2.4.1"
-    }
   }
   backend "http" {
     address        = "https://gitlab.com/api/v4/projects/84608830/terraform/state/platform-vault-frontend"
@@ -32,18 +24,9 @@ provider "libvirt" {
   uri = "qemu:///system?socket=/var/run/libvirt/virtqemud-sock"
 }
 
-# Bastion Vault, authenticated as the SPIRE JWT-SVID operator of this service. SPIRE Parent exists before this layer runs.
+# The tenant session supplies VAULT_ADDR, VAULT_CACERT, and VAULT_TOKEN, hence the layer does not hold any Bastion credential.
+# The tenant token cannot create a child token, since the tenant ACL does not grant any auth/token path.
 provider "vault" {
-  alias        = "bastion"
-  address      = local.state.foundation_vault_bastion.bastion_vault.endpoint
-  ca_cert_file = local.state.foundation_vault_bastion.bastion_vault.listener_ca_cert_path
-
-  auth_login {
-    path = "auth/${local.state.platform_spire_parent.spire_oidc_auth_backend_path}/login"
-    parameters = {
-      role = local.terraform_operator.role_name
-      jwt  = data.external.spire_jwt.result.jwt
-    }
-  }
+  alias            = "bastion"
   skip_child_token = true
 }

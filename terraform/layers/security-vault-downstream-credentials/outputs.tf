@@ -6,5 +6,6 @@ output "credential_paths" {
   value = {
     keycloak_frontend      = { mount = nonsensitive(module.credential_keycloak_frontend.secret.mount), path = nonsensitive(module.credential_keycloak_frontend.secret.path) }
     harbor_origin_frontend = { mount = nonsensitive(module.credential_harbor_origin_frontend.secret.mount), path = nonsensitive(module.credential_harbor_origin_frontend.secret.path) }
+    cilium_hubble_ui       = { mount = nonsensitive(module.credential_cilium_hubble_ui.secret.mount), path = nonsensitive(module.credential_cilium_hubble_ui.secret.path) }
   }
 }

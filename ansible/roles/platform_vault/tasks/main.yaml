@@ -2,6 +2,10 @@
 - name: "Section A. Setup Vault Environment"
   ansible.builtin.include_tasks: A-setup.yaml
 
+# The service unit starts in Section B, hence the raft path mounts before the first start.
+- name: "Section A. Mount the Raft Data Disk"
+  ansible.builtin.include_tasks: A0-data-disk.yaml
+
 - name: "Section B. Configure Vault Instance"
   ansible.builtin.include_tasks: B-configure.yaml
 

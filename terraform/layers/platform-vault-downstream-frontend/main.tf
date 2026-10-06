@@ -1,56 +1,16 @@
 
-module "context" {
-  source = "../../modules/kvm-provisioning/layer-context"
+# Declarations which both runtimes share. runtime-vm.tf and runtime-talos.tf hold the declarations of one runtime each.
+module "terraform_layer_context" {
+  source = "../../modules/kvm-provisioning/helpers/terraform-layer-context"
 
   global_topology_identity = local.state.foundation_libvirt_resources.foundation_topology.identity
   global_topology_network  = local.state.foundation_libvirt_resources.foundation_topology.network
   global_pki_map           = local.state.foundation_libvirt_resources.foundation_pki.map
-  global_network_baseline  = local.state.foundation_libvirt_resources.foundation_global.network_baseline
-  infrastructure_map       = local.state.platform_cilium_frontend.foundation_topology.infrastructure
+  global_network_baseline  = local.state.foundation_libvirt_resources.foundation_network_global.network_baseline
+  infrastructure_map       = local.state.foundation_libvirt_resources.foundation_topology.infrastructure
   guest_usernames          = local.state.foundation_libvirt_resources.foundation_ssh.usernames
 
   target_clusters = var.target_clusters
   primary_role    = var.primary_role
   service_config  = var.service_config
-}
-
-# Write the Bootstrap CA cert to the tls/ directory.
-# This ensures downstream layers (e.g. 20-vault-pki) can reference it
-# as ca_cert_file without a circular dependency during provider initialization.
-resource "local_file" "bootstrap_ca" {
-  content              = local.bastion_pki_chain_pem
-  filename             = "${path.root}/tls/bootstrap-ca.crt"
-  file_permission      = "0644"
-  directory_permission = "0755"
-}
-
-# Matches the cluster inventory naming to allow automated pairing of unseal variables in the platform CLI.
-resource "local_file" "unseal_vars" {
-  content              = jsonencode(local.ansible_unseal_vars)
-  filename             = abspath("${path.root}/../../../ansible/inventory-${module.context.svc_identity.cluster_name}-unseal-vars.json")
-  file_permission      = "0644"
-  directory_permission = "0755"
-}
-
-module "platform_vault" {
-  source            = "../../modules/kvm-provisioning/ha-service-kvm-general"
-  ansible_root_path = abspath("${path.root}/../../../ansible")
-  scripts_root_path = abspath("${path.root}/../../../shell")
-
-  svc_identity               = module.context.svc_identity
-  node_identities            = module.context.node_identities
-  topology_cluster           = module.context.topology_cluster
-  network_infrastructure_map = module.context.network_infrastructure_map
-  storage_infrastructure_map = local.state.foundation_libvirt_resources.foundation_storage.infrastructure
-  ssh_config_path            = local.state.foundation_libvirt_resources.foundation_ssh.config_paths[module.context.svc_identity.cluster_name]
-
-  credentials_system = merge(module.context.sec_vm_credentials, {
-    ssh_private_key_path = local.state.foundation_libvirt_resources.foundation_ssh.identity_key_paths[module.context.svc_identity.cluster_name]
-    ssh_public_key_path  = local.state.foundation_libvirt_resources.foundation_ssh.public_key_paths[module.context.svc_identity.cluster_name]
-  })
-
-  ansible_generic_config = {
-    template_vars = local.ansible_template_config
-    extra_vars    = local.ansible_extra_config
-  }
 }

@@ -1,8 +1,6 @@
 
-# Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 1 Item C.
-# Configure Downstream Issuing Intermediate and the PKI roles of the workloads which use the Downstream PKI.
-# Generates and retains the private key locally within Downstream Vault; transmits only the CSR
-# to Bootstrap Vault for signing.
+# Configures Downstream PKI issuing intermediate and workload roles per Section 1 Item C.
+# Retains the private key locally within Downstream Vault and transmits only the CSR to Bootstrap Vault.
 module "vault_pki_setup" {
   source = "../../modules/vault-provisioning/vault-pki-setup"
   providers = {
@@ -10,9 +8,10 @@ module "vault_pki_setup" {
     vault.signing = vault.bastion
   }
 
-  prod_vault_endpoint = local.downstream_vault.endpoint
+  vault_endpoint = local.downstream_vault.endpoint
   pki_settings = {
     intermediate_ca_common_name = local.state.platform_vault_downstream_frontend.pki_identity.intermediate_ca_common_name
+    intermediate_dns_names      = [local.state.platform_vault_downstream_frontend.listener_identity.common_name]
   }
   pki_roles = local.pki_roles
   pki_engine_config = {
@@ -20,7 +19,7 @@ module "vault_pki_setup" {
     default_lease_ttl_seconds = local.pki_lease_ttl_seconds
     max_lease_ttl_seconds     = local.pki_lease_ttl_seconds
   }
-  bastion_pki_inter_mount_path = local.state.foundation_vault_bastion.bastion_vault_pki.intermediate_mount_path
+  bastion_pki_inter_mount_path = local.bastion_pki_downstream.mount_path
 }
 
 # The ACL policies of the human management identities. The policy name equals the identity name.
@@ -34,7 +33,7 @@ resource "vault_policy" "management" {
   policy = jsonencode({
     path = merge(
       {
-        "${module.vault_pki_setup.prod_pki_issuer_mount_path}/issue/${local.pki_roles[each.key].name}" = {
+        "${module.vault_pki_setup.pki_issuer_mount_path}/issue/${local.pki_roles[each.key].name}" = {
           capabilities = ["create", "update"]
         }
       },
@@ -43,18 +42,14 @@ resource "vault_policy" "management" {
   })
 }
 
-# Listener CA (`MetaProvisionVaultCA`) for Bastion Vault TLS endpoints. Distinct from PKI secrets engine roots.
-data "local_file" "bastion_listener_ca" {
-  filename = local.state.foundation_vault_bastion.bastion_vault.listener_ca_cert_path
-}
-
-# Combined certificate chain (Bastion Listener CA, Bootstrap Root/Intermediate, Production Intermediate)
-# for local trust store installation.
+# Combined certificate chain for local trust store installation: the Bastion listener CA, which is distinct from the PKI roots,
+# the Bastion root with pki-downstream, pki-platform which signs the Downstream Vault listener, and the Downstream issuer.
 resource "local_file" "trust_bundle" {
   content = join("\n", [
-    chomp(data.local_file.bastion_listener_ca.content),
+    chomp(local.registry_bastion.vault.listener_ca_cert_pem),
     chomp(local.bastion_pki_chain_pem),
-    chomp(base64decode(module.vault_pki_setup.prod_pki_issuer_cert_b64)),
+    chomp(local.registry_bastion.pki.constrained_intermediates["pki-platform"].cert_pem),
+    chomp(base64decode(module.vault_pki_setup.pki_issuer_cert_b64)),
   ])
   filename             = "${path.module}/tls/trust-bundle.crt"
   file_permission      = "0644"

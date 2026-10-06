@@ -1,6 +1,6 @@
 
 variable "tenants" {
-  description = "Tenant workload definitions mapping SPIFFE identities to JWT auth backend roles and KV/PKI ACL policies."
+  description = "Tenant workloads, each mapping a SPIFFE ID to a JWT auth role and KV and PKI ACL policies. issuer child binds a workload attested by the SPIRE Child, such as a pod or a VM agent of the Child, and provision-spire-child creates its role. issuer parent binds a workload attested by the SPIRE Parent, and this layer creates its role."
   type = map(object({
     issuer        = optional(string, "child")
     spiffe_id     = string

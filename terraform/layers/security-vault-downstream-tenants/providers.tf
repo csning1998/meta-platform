@@ -5,10 +5,6 @@ terraform {
       source  = "hashicorp/vault"
       version = "5.5.0"
     }
-    external = {
-      source  = "hashicorp/external"
-      version = "2.4.1"
-    }
   }
   backend "http" {
     address        = "https://gitlab.com/api/v4/projects/84608830/terraform/state/security-vault-downstream-tenants"
@@ -20,19 +16,9 @@ terraform {
   }
 }
 
-# Bastion Vault provider authenticates via SPIRE JWT-SVID solely to retrieve downstream initialization material.
+# The tenant session supplies VAULT_ADDR, VAULT_CACERT, and VAULT_TOKEN, and the token reads the init leaf alone.
 provider "vault" {
-  alias        = "bastion"
-  address      = local.state.foundation_vault_bastion.bastion_vault.endpoint
-  ca_cert_file = local.state.foundation_vault_bastion.bastion_vault.listener_ca_cert_path
-
-  auth_login {
-    path = "auth/${local.state.platform_spire_parent.spire_oidc_auth_backend_path}/login"
-    parameters = {
-      role = local.terraform_operator.role_name
-      jwt  = data.external.spire_jwt.result.jwt
-    }
-  }
+  alias            = "bastion"
   skip_child_token = true
 }
 

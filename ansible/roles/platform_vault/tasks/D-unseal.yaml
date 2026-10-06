@@ -5,36 +5,30 @@
   block:
     - name: "D1a. Check Current Vault Status"
       ansible.builtin.command: vault status -format=json
-      environment:
-        VAULT_ADDR: "https://127.0.0.1:{{ vault_port_api }}"
-        VAULT_SKIP_VERIFY: "true"
+      environment: "{{ platform_vault_local_cli_environment }}"
       register: platform_vault_vault_status_check
       changed_when: false
       failed_when: false
 
-    - name: "D1b. Log in to the Bastion Vault as the operator"
+    - name: "D1b. Take the token of the tenant session"
       ansible.builtin.include_role:
         name: utils_vault_operator_login
       vars:
-        utils_vault_operator_login_wrapper: "{{ platform_vault_operator_wrapper }}"
-        utils_vault_operator_login_role: "{{ platform_vault_operator_role }}"
-        utils_vault_operator_login_auth_mount: "{{ platform_vault_operator_auth_mount }}"
-        utils_vault_operator_login_endpoint: "{{ bastion_vault_url }}"
-        utils_vault_operator_login_ca_cert_path: "{{ bastion_vault_ca_cert_path }}"
+        utils_vault_operator_login_use_ambient: true
       when:
         - platform_vault_vault_status_check.rc == 2
         - platform_vault_vault_status_check.stdout | length > 0
         - (platform_vault_vault_status_check.stdout | from_json).sealed
 
-    - name: "D1c. Fetch Unseal Keys from Bootstrap Vault"
+    - name: "D1c. Fetch Unseal Keys from the Bastion Vault"
       community.hashi_vault.vault_kv2_get:
-        url: "{{ bastion_vault_url }}"
+        url: "{{ operator_vault_url }}"
         engine_mount_point: "secret"
         path: "{{ platform_vault_init_kv_path }}"
         auth_method: "token"
         token: "{{ utils_vault_operator_login_token }}"
         validate_certs: true
-        ca_cert: "{{ bastion_vault_ca_cert_path }}"
+        ca_cert: "{{ operator_vault_ca_cert_path }}"
       register: platform_vault_unseal_secrets
       delegate_to: localhost
       become: false
@@ -52,9 +46,7 @@
 
     - name: "D1f. Execute Unseal"
       ansible.builtin.command: "vault operator unseal {{ item }}"
-      environment:
-        VAULT_ADDR: "https://127.0.0.1:{{ vault_port_api }}"
-        VAULT_SKIP_VERIFY: "true"
+      environment: "{{ platform_vault_local_cli_environment }}"
       loop: "{{ platform_vault_vault_unseal_keys[: platform_vault_vault_init_key_threshold | int] }}"
       register: platform_vault_unseal_result
       changed_when: "'Sealed: false' in platform_vault_unseal_result.stdout"
@@ -72,9 +64,7 @@
   block:
     - name: "D2a. Wait for Vault to become Initialized (Raft Join)"
       ansible.builtin.command: vault status -format=json
-      environment:
-        VAULT_ADDR: "https://127.0.0.1:{{ vault_port_api }}"
-        VAULT_SKIP_VERIFY: "true"
+      environment: "{{ platform_vault_local_cli_environment }}"
       register: platform_vault_vault_init_check
       until:
         - platform_vault_vault_init_check.rc in [0, 2]
@@ -85,29 +75,25 @@
       changed_when: false
       failed_when: platform_vault_vault_init_check.rc not in [0, 2]
 
-    - name: "D2b. Log in to the Bastion Vault as the operator"
+    - name: "D2b. Take the token of the tenant session"
       ansible.builtin.include_role:
         name: utils_vault_operator_login
       vars:
-        utils_vault_operator_login_wrapper: "{{ platform_vault_operator_wrapper }}"
-        utils_vault_operator_login_role: "{{ platform_vault_operator_role }}"
-        utils_vault_operator_login_auth_mount: "{{ platform_vault_operator_auth_mount }}"
-        utils_vault_operator_login_endpoint: "{{ bastion_vault_url }}"
-        utils_vault_operator_login_ca_cert_path: "{{ bastion_vault_ca_cert_path }}"
+        utils_vault_operator_login_use_ambient: true
       when:
         - platform_vault_vault_init_check.rc == 2
         - platform_vault_vault_init_check.stdout | length > 0
         - (platform_vault_vault_init_check.stdout | from_json).sealed
 
-    - name: "D2c. Fetch Unseal Keys from Bootstrap Vault"
+    - name: "D2c. Fetch Unseal Keys from the Bastion Vault"
       community.hashi_vault.vault_kv2_get:
-        url: "{{ bastion_vault_url }}"
+        url: "{{ operator_vault_url }}"
         engine_mount_point: "secret"
         path: "{{ platform_vault_init_kv_path }}"
         auth_method: "token"
         token: "{{ utils_vault_operator_login_token }}"
         validate_certs: true
-        ca_cert: "{{ bastion_vault_ca_cert_path }}"
+        ca_cert: "{{ operator_vault_ca_cert_path }}"
       register: platform_vault_unseal_secrets
       delegate_to: localhost
       become: false
@@ -125,9 +111,7 @@
 
     - name: "D2f. Execute Unseal"
       ansible.builtin.command: "vault operator unseal {{ item }}"
-      environment:
-        VAULT_ADDR: "https://127.0.0.1:{{ vault_port_api }}"
-        VAULT_SKIP_VERIFY: "true"
+      environment: "{{ platform_vault_local_cli_environment }}"
       loop: "{{ platform_vault_vault_unseal_keys[: platform_vault_vault_init_key_threshold | int] }}"
       register: platform_vault_unseal_result
       changed_when: "'Sealed: false' in platform_vault_unseal_result.stdout"
@@ -144,7 +128,7 @@
   when:
     - inventory_hostname in groups['primary']
     - vault_vip is defined
-    - vault_ca_cert_b64 is defined
+    - platform_vault_ca_chain_b64 is defined
   block:
     - name: "D3a0. Create temporary CA file for health check"
       ansible.builtin.tempfile:
@@ -156,7 +140,7 @@
 
     - name: "D3a1. Write Vault CA to temp file"
       ansible.builtin.copy:
-        content: "{{ vault_ca_cert_b64 | b64decode }}"
+        content: "{{ platform_vault_ca_chain_b64 | b64decode }}"
         dest: "{{ platform_vault_vault_health_ca_file.path }}"
         mode: "0600"
       delegate_to: localhost

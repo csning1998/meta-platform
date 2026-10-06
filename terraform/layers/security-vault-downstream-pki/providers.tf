@@ -1,10 +1,6 @@
 
 terraform {
   required_providers {
-    external = {
-      source  = "hashicorp/external"
-      version = "2.4.1"
-    }
     vault = {
       source  = "hashicorp/vault"
       version = "5.5.0"
@@ -24,35 +20,23 @@ terraform {
   }
 }
 
-# Bastion Vault, authenticated as the SPIRE JWT-SVID operator of the Downstream Vault. The operator policy grants the signing path.
+# The tenant session supplies VAULT_ADDR, VAULT_CACERT, and VAULT_TOKEN. The tenant ACL grants sign-intermediate on pki-downstream.
 provider "vault" {
-  alias        = "bastion"
-  address      = local.state.foundation_vault_bastion.bastion_vault.endpoint
-  ca_cert_file = local.state.foundation_vault_bastion.bastion_vault.listener_ca_cert_path
-
-  auth_login {
-    path = "auth/${local.state.platform_spire_parent.spire_oidc_auth_backend_path}/login"
-    parameters = {
-      role = local.state.provision_spire_parent.terraform_operator["vault-downstream"].role_name
-      jwt  = data.external.spire_jwt_bastion.result.jwt
-    }
-  }
+  alias            = "bastion"
   skip_child_token = true
 }
 
-# Downstream Provider: the local Terraform operator through its SPIRE JWT-SVID, not the root token
+# Downstream Provider: the administrator operator through its SPIRE Parent JWT-SVID, not the root token
 # which security-vault-downstream-tenants uses for its own bootstrap operations.
 provider "vault" {
   alias        = "downstream"
   address      = local.downstream_vault.endpoint
-  ca_cert_file = local.state.platform_vault_downstream_frontend.ca_cert_path
+  ca_cert_file = local.state.platform_vault_downstream_frontend.vault_endpoint.ca_cert_path
 
-  auth_login {
-    path = "auth/${local.state.security_vault_downstream_tenants.tenant_operator.auth_mount}/login"
-    parameters = {
-      role = local.state.security_vault_downstream_tenants.tenant_operator.role_name
-      jwt  = data.external.spire_jwt_downstream.result.jwt
-    }
+  # The JWT-SVID arrives through TERRAFORM_VAULT_AUTH_JWT from tools/terraform-operator.sh and stays out of the state.
+  auth_login_jwt {
+    mount = local.state.security_vault_downstream_tenants.downstream_vault_tenant_operator.auth_mount
+    role  = local.state.security_vault_downstream_tenants.downstream_vault_tenant_operator.role_name
   }
   skip_child_token = true
 }

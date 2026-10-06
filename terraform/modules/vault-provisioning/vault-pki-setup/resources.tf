@@ -1,16 +1,4 @@
 
-# Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 1 Item C.
-locals {
-  pki_api_base_url = "${var.prod_vault_endpoint}/v1/${vault_mount.pki_issuer.path}"
-}
-
-locals {
-  issuer_key_bearing_issuer_ids = [
-    for issuer_id, key_id in data.vault_pki_secret_backend_issuers.pki_issuer_issuers.key_info :
-    issuer_id if key_id != ""
-  ]
-}
-
 data "vault_pki_secret_backend_issuers" "pki_issuer_issuers" {
   provider   = vault.issuing
   backend    = vault_mount.pki_issuer.path
@@ -27,18 +15,19 @@ resource "vault_mount" "pki_issuer" {
   max_lease_ttl_seconds     = var.pki_engine_config.max_lease_ttl_seconds
 }
 
-# Root CA resides in the upstream Bastion Vault; this engine retains only the signed intermediate CA.
+# The root CA resides in the upstream Bastion Vault. This engine retains only the signed intermediate CA.
 resource "vault_pki_secret_backend_intermediate_cert_request" "pki_issuer_csr" {
   provider = vault.issuing
   backend  = vault_mount.pki_issuer.path
 
   type        = "internal"
   common_name = var.pki_settings.intermediate_ca_common_name
-  key_type    = "rsa"
-  key_bits    = 4096
+  key_type    = "ec"
+  key_bits    = 256
 
   # Force key regeneration on mount recreation because provider state lacks a Read implementation for this resource.
-  key_name = "issuer-${vault_mount.pki_issuer.accessor}"
+  # The name carries the key type, since Vault rejects a new key type under an existing key name.
+  key_name = "issuer-ec256-${vault_mount.pki_issuer.accessor}"
 }
 
 resource "vault_pki_secret_backend_root_sign_intermediate" "pki_issuer_signed" {
@@ -47,6 +36,7 @@ resource "vault_pki_secret_backend_root_sign_intermediate" "pki_issuer_signed" {
 
   csr                  = vault_pki_secret_backend_intermediate_cert_request.pki_issuer_csr.csr
   common_name          = var.pki_settings.intermediate_ca_common_name
+  alt_names            = var.pki_settings.intermediate_dns_names
   format               = "pem"
   ttl                  = 60 * 60 * 24 * 365 # 1 Year
   exclude_cn_from_sans = true
@@ -85,17 +75,20 @@ resource "vault_pki_secret_backend_role" "pki_leaf_roles" {
   provider = vault.issuing
   for_each = var.pki_roles
 
-  backend         = vault_mount.pki_issuer.path
-  name            = each.value.name
-  allowed_domains = each.value.allowed_domains
-
-  allow_subdomains   = true
-  allow_glob_domains = false
-  allow_ip_sans      = true
+  backend            = vault_mount.pki_issuer.path
+  name               = each.value.name
+  allowed_domains    = each.value.allowed_domains
   allow_bare_domains = true
+  allow_subdomains   = true
+  allow_ip_sans      = true
+  allow_glob_domains = false
+  allow_any_name     = false
+  enforce_hostnames  = true
   require_cn         = true
 
-  key_usage = ["DigitalSignature", "KeyEncipherment", "KeyAgreement"]
+  key_type  = "ec"
+  key_bits  = 256
+  key_usage = ["DigitalSignature"]
 
   server_flag = true
   client_flag = true
@@ -104,9 +97,6 @@ resource "vault_pki_secret_backend_role" "pki_leaf_roles" {
   ttl     = each.value.ttl
 
   ou = each.value.ou
-
-  allow_any_name    = false
-  enforce_hostnames = true
 }
 
 # Mounts distinct Kubernetes auth endpoints per cluster to enforce workload identity isolation.
