@@ -179,22 +179,21 @@ variable "service_catalog" {
     error_message = "Reservation out of bounds: IPs must be between 1 and 254."
   }
 
-  # Validate Service Key Format (DNS Safe: lowercase, numbers, hyphens)
+  # A leading, trailing, or doubled hyphen yields an empty word in every name which joins service and component.
   validation {
     condition = alltrue([
-      for k, v in var.service_catalog : can(regex("^[a-z0-9-]+$", k))
+      for k, v in var.service_catalog : can(regex("^[a-z0-9]+(-[a-z0-9]+)*$", k))
     ])
-    error_message = "Service names (keys) must only contain lowercase letters, numbers, and hyphens (DNS safe)."
+    error_message = "Service names (keys) must only contain lowercase letters, numbers, and single hyphens between words."
   }
 
-  # Validate Component Key Format (DNS Safe: lowercase, numbers, hyphens)
   validation {
     condition = alltrue(flatten([
       for k, v in var.service_catalog : [
-        for c_k, c_v in v.components : can(regex("^[a-z0-9-]+$", c_k))
+        for c_k, c_v in v.components : can(regex("^[a-z0-9]+(-[a-z0-9]+)*$", c_k))
       ]
     ]))
-    error_message = "Component names (keys) must only contain lowercase letters, numbers, and hyphens (DNS safe)."
+    error_message = "Component names (keys) must only contain lowercase letters, numbers, and single hyphens between words."
   }
 
   # Validate Composite Key Uniqueness. _flat_catalog concatenates service and component
