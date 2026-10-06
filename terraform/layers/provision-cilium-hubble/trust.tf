@@ -1,12 +1,9 @@
 
-# Bridges host-level Bastion Vault authority with in-cluster cert-manager and External Secrets Operator runners.
+# Bridges the Downstream Vault with the in-cluster cert-manager and External Secrets Operator of the Cilium cluster.
 locals {
-  trust         = local.state.platform_cilium_frontend.in_cluster_trust
-  bastion_vault = local.state.foundation_vault_bastion.bastion_vault
-
-  bastion_vault_config = {
-    address = local.bastion_vault.endpoint
-    ca_cert = file(local.bastion_vault.listener_ca_cert_path)
+  downstream_vault = {
+    address = local.state.security_vault_downstream_tenants.endpoint
+    ca_cert = file(local.state.security_vault_downstream_tenants.ca_cert_path)
   }
 
   # Derives unauthenticated VIP and cluster CA facts directly to bypass ephemeral kubeconfig limitations.
@@ -35,7 +32,7 @@ data "kubernetes_resource" "cert_manager_webhook" {
 
   metadata {
     name      = "cert-manager-webhook"
-    namespace = local.trust.cluster_issuer.namespace
+    namespace = local.cluster_issuer.namespace
   }
 
   lifecycle {
@@ -54,7 +51,7 @@ data "kubernetes_resource" "external_secrets_webhook" {
 
   metadata {
     name      = "external-secrets-webhook"
-    namespace = local.trust.external_secrets.namespace
+    namespace = local.external_secrets.namespace
   }
 
   lifecycle {
@@ -65,76 +62,71 @@ data "kubernetes_resource" "external_secrets_webhook" {
   }
 }
 
-module "platform_trust_engine" {
-  source     = "../../modules/kubernetes-addons/platform-trust-engine"
-  depends_on = [data.kubernetes_resource.cert_manager_webhook]
+# Vault validates the ServiceAccount tokens of this cluster through the TokenReview API of the cluster.
+module "vault_token_reviewer" {
+  source     = "../../modules/kubernetes-addons/vault-token-reviewer"
+  depends_on = [ephemeral.talos_cluster_health.this]
+  providers  = { vault = vault.downstream }
 
-  api_server_connection = local.api_server_callback
-  vault_config = {
-    address   = local.bastion_vault_config.address
-    auth_path = local.trust.cluster_issuer.auth_path
-    ca_cert   = local.bastion_vault_config.ca_cert
-  }
-  issuer_config = {
-    name            = local.trust.cluster_issuer.name
-    namespace       = local.trust.cluster_issuer.namespace
-    vault_role_name = local.trust.cluster_issuer.role_name
-    pki_mount_path  = local.trust.cluster_issuer.pki_mount_path
-    issue_path      = local.trust.cluster_issuer.issue_path
-  }
-  reviewer_service_account = {
-    name      = "vault-reviewer"
-    namespace = local.trust.cluster_issuer.namespace
-  }
+  api_server_connection    = local.api_server_callback
+  vault_auth_path          = local.cluster_issuer.auth_path
+  reviewer_service_account = { namespace = local.cluster_issuer.namespace }
 }
 
 module "platform_cluster_issuer" {
-  source = "../../modules/kubernetes-addons/platform-cluster-issuer"
+  source     = "../../modules/kubernetes-addons/platform-cluster-issuer"
+  depends_on = [data.kubernetes_resource.cert_manager_webhook, module.vault_token_reviewer]
 
   vault_config = {
-    address   = local.bastion_vault_config.address
-    auth_path = local.trust.cluster_issuer.auth_path
-    ca_cert   = local.bastion_vault_config.ca_cert
+    address   = local.downstream_vault.address
+    auth_path = module.vault_token_reviewer.vault_auth_path
+    ca_cert   = local.downstream_vault.ca_cert
   }
-  issuer_config = {
-    name            = local.trust.cluster_issuer.name
-    vault_role_name = local.trust.cluster_issuer.role_name
-    pki_mount_path  = local.trust.cluster_issuer.pki_mount_path
-    issue_path      = local.trust.cluster_issuer.issue_path
+  issuer_config = local.cluster_issuer
+}
+
+# The Cilium chart mounts these Secrets, and the Hubble server and relay start serving mTLS once cert-manager writes the Secrets.
+module "hubble_tls_certificates" {
+  source   = "../../modules/kubernetes-addons/platform-certificate"
+  for_each = local.state.platform_cilium_hubble.hubble_tls_certificates
+
+  certificate_config = {
+    name        = each.key
+    namespace   = each.value.namespace
+    common_name = each.value.common_name
+    dns_names   = each.value.dns_names
+    usages      = each.value.usages
   }
-  token_secret = {
-    name      = module.platform_trust_engine.cluster_issuer.token_secret_name
-    namespace = module.platform_trust_engine.cluster_issuer.token_secret_namespace
-  }
+  issuer_ref = module.platform_cluster_issuer.cluster_issuer
 }
 
 resource "kubernetes_service_account_v1" "external_secrets_vault" {
   depends_on = [ephemeral.talos_cluster_health.this]
 
   metadata {
-    name      = local.trust.external_secrets.service_account
-    namespace = local.trust.external_secrets.namespace
+    name      = local.external_secrets.service_account
+    namespace = local.external_secrets.namespace
   }
 }
 
-resource "kubernetes_manifest" "bastion_vault_store" {
+resource "kubernetes_manifest" "downstream_vault_store" {
   depends_on = [data.kubernetes_resource.external_secrets_webhook]
 
   manifest = {
     apiVersion = "external-secrets.io/v1"
     kind       = "ClusterSecretStore"
-    metadata   = { name = "bastion-vault" }
+    metadata   = { name = "downstream-vault" }
     spec = {
       provider = {
         vault = {
-          server   = local.bastion_vault_config.address
-          path     = "secret"
+          server   = local.downstream_vault.address
+          path     = local.external_secrets.kv_mount_path
           version  = "v2"
-          caBundle = base64encode(local.bastion_vault_config.ca_cert)
+          caBundle = base64encode(local.downstream_vault.ca_cert)
           auth = {
             kubernetes = {
-              mountPath = local.trust.cluster_issuer.auth_path
-              role      = local.trust.external_secrets.role_name
+              mountPath = local.cluster_issuer.auth_path
+              role      = local.external_secrets.role_name
               serviceAccountRef = {
                 name      = kubernetes_service_account_v1.external_secrets_vault.metadata[0].name
                 namespace = kubernetes_service_account_v1.external_secrets_vault.metadata[0].namespace

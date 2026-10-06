@@ -1,7 +1,7 @@
 
-data "terraform_remote_state" "platform_cilium_frontend" {
+data "terraform_remote_state" "platform_cilium_hubble" {
   backend = "http"
-  config  = { address = "${local._state_base_meta_platform}/platform-cilium-frontend" }
+  config  = { address = "${local._state_base_meta_platform}/platform-cilium-hubble" }
 }
 
 data "terraform_remote_state" "foundation_libvirt_resources" {
@@ -9,41 +9,32 @@ data "terraform_remote_state" "foundation_libvirt_resources" {
   config  = { address = "${local._state_base_meta_platform}/foundation-libvirt-resources" }
 }
 
-data "terraform_remote_state" "foundation_vault_bastion" {
+data "terraform_remote_state" "security_vault_downstream_tenants" {
   backend = "http"
-  config  = { address = "${local._state_base_parent_group_governance}/foundation-vault-bastion" }
+  config  = { address = "${local._state_base_meta_platform}/security-vault-downstream-tenants" }
 }
 
-data "terraform_remote_state" "platform_spire_parent" {
+data "terraform_remote_state" "security_vault_downstream_pki" {
   backend = "http"
-  config  = { address = "${local._state_base_meta_platform}/platform-spire-parent-frontend" }
+  config  = { address = "${local._state_base_meta_platform}/security-pki" }
 }
 
-data "terraform_remote_state" "provision_spire_parent" {
-  backend = "http"
-  config  = { address = "${local._state_base_meta_platform}/provision-spire-parent-frontend" }
-}
-
-# Vault authentication MUST obtain ephemeral JWT-SVID credentials on every execution to prevent state file persistence.
-data "external" "spire_jwt" {
-  program = ["/usr/local/bin/${local.terraform_operator.wrapper_name}"]
-}
-
-ephemeral "vault_kv_secret_v2" "cilium_frontend" {
-  mount = "secret"
-  name  = local.state.platform_cilium_frontend.foundation_vault_path.kv_paths["cilium"]["frontend"].cluster_config
+ephemeral "vault_kv_secret_v2" "cilium_hubble" {
+  provider = vault.downstream
+  mount    = "secret"
+  name     = local.state.foundation_libvirt_resources.foundation_vault_path.kv_paths["cilium"]["hubble"].cluster_config
 }
 
 # Cluster readiness checks MUST re-validate quorum convergence during apply operations
 # because concurrent disk I/O from sibling layers destabilizes etcd consensus.
 ephemeral "talos_cluster_health" "this" {
   client_configuration = {
-    ca_certificate     = ephemeral.vault_kv_secret_v2.cilium_frontend.data["talos_ca_certificate_b64"]
-    client_certificate = ephemeral.vault_kv_secret_v2.cilium_frontend.data["talos_client_certificate_b64"]
-    client_key         = ephemeral.vault_kv_secret_v2.cilium_frontend.data["talos_client_key_b64"]
+    ca_certificate     = ephemeral.vault_kv_secret_v2.cilium_hubble.data["talos_ca_certificate_b64"]
+    client_certificate = ephemeral.vault_kv_secret_v2.cilium_hubble.data["talos_client_certificate_b64"]
+    client_key         = ephemeral.vault_kv_secret_v2.cilium_hubble.data["talos_client_key_b64"]
   }
-  control_plane_nodes = values(local.state.platform_cilium_frontend.hostonly_addresses)
-  endpoints           = values(local.state.platform_cilium_frontend.hostonly_addresses)
+  control_plane_nodes = values(local.state.platform_cilium_hubble.hostonly_addresses)
+  endpoints           = values(local.state.platform_cilium_hubble.hostonly_addresses)
 
   timeout = "10m"
 }

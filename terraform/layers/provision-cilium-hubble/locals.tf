@@ -2,29 +2,30 @@
 # GitLab HTTP backend base URL. Authentication credentials must be supplied via
 # `TF_HTTP_USERNAME` and `TF_HTTP_PASSWORD` environment variables.
 locals {
-  _state_base_meta_platform           = "https://gitlab.com/api/v4/projects/84608830/terraform/state"
-  _state_base_parent_group_governance = "https://gitlab.com/api/v4/projects/86417732/terraform/state"
+  _state_base_meta_platform = "https://gitlab.com/api/v4/projects/84608830/terraform/state"
 }
 
 locals {
   state = {
-    platform_cilium_frontend     = data.terraform_remote_state.platform_cilium_frontend.outputs
+    platform_cilium_hubble       = data.terraform_remote_state.platform_cilium_hubble.outputs
     foundation_libvirt_resources = data.terraform_remote_state.foundation_libvirt_resources.outputs
-    foundation_vault_bastion     = data.terraform_remote_state.foundation_vault_bastion.outputs
-    platform_spire_parent        = data.terraform_remote_state.platform_spire_parent.outputs
-    provision_spire_parent       = data.terraform_remote_state.provision_spire_parent.outputs
+
+    security_vault_downstream_tenants = data.terraform_remote_state.security_vault_downstream_tenants.outputs
+    security_vault_downstream_pki     = data.terraform_remote_state.security_vault_downstream_pki.outputs
   }
 }
 
 locals {
-  terraform_operator = local.state.provision_spire_parent.terraform_operator["cilium"]
+  cluster_issuer   = local.state.platform_cilium_hubble.cluster_issuer
+  external_secrets = local.state.platform_cilium_hubble.external_secrets
 
-  infrastructure_map = local.state.platform_cilium_frontend.foundation_topology.infrastructure
-  project_code       = local.state.platform_cilium_frontend.foundation_vault_path.project_code
+
+  infrastructure_map = local.state.foundation_libvirt_resources.foundation_topology.infrastructure
+  project_code       = local.state.foundation_libvirt_resources.foundation_vault_path.project_code
 }
 
 locals {
-  kubeconfig   = yamldecode(base64decode(ephemeral.vault_kv_secret_v2.cilium_frontend.data["content_b64"]))
+  kubeconfig   = yamldecode(base64decode(ephemeral.vault_kv_secret_v2.cilium_hubble.data["content_b64"]))
   cluster_info = local.kubeconfig.clusters[0].cluster
   user_info    = local.kubeconfig.users[0].user
 
@@ -38,7 +39,7 @@ locals {
 
 # Exclude the Cilium cluster segment from Service generation to prevent circular routing dependencies and self-referential load balancing.
 locals {
-  cilium_cluster_name = local.state.platform_cilium_frontend.foundation_topology.identity["cilium"]["frontend"].cluster_name
+  cilium_cluster_name = local.state.foundation_libvirt_resources.foundation_topology.identity["cilium"]["hubble"].cluster_name
 
   # Kubernetes-native runtimes only. Any other runtime is an external service owned end to
   # end by platform-haproxy-frontend, per the decisions.md entry retiring Cilium Service
@@ -60,6 +61,11 @@ locals {
   # Selector label binding generated Services to Cilium IPAM pools and L2 announcement
   # policies, isolating address allocations from unmanaged cluster workloads.
   lb_managed_label = {
-    "platform.io/lb-managed" = "cilium-frontend"
+    "platform.io/lb-managed" = "cilium-hubble"
   }
+}
+
+# The operator of this component logs in to the Downstream Vault with the JWT-SVID of the SPIRE Parent.
+locals {
+  downstream_operator = local.state.security_vault_downstream_tenants.component_operators["cilium"]
 }
