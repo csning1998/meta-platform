@@ -164,7 +164,6 @@ service_catalog = {
             health_check_type = "tcp",
             health_check_ssl  = false
           }
-
         }
         data_disks = [{ name_suffix = "data", capacity_gib = 20 }]
         ingress = {

@@ -4,9 +4,9 @@ output "foundation_topology" {
   value       = module.foundation_libvirt_resources.topology
 }
 
-output "foundation_global" {
+output "foundation_network_global" {
   description = "Global facts shared by every consumer: network baseline, root domain suffix, and the hostname to VIP records."
-  value       = module.foundation_libvirt_resources.global
+  value       = module.foundation_libvirt_resources.network_global
 }
 
 output "foundation_pki" {
@@ -22,9 +22,9 @@ output "foundation_storage" {
 output "foundation_vault_path" {
   description = "Vault KV coordinates of the service catalog: the project_code segment, the folder of each component, the leaf paths below each component folder, the SSH identity leaf keyed by cluster_name, and the project-wide guest VM secret."
   value = {
-    project_code     = local.project_code
+    project_code     = local.foundation_project_code
     credential_paths = module.foundation_libvirt_resources.vault_path.credential_paths
-    kv_paths         = local.kv_paths
+    kv_paths         = local.foundation_kv_paths
     ssh_credential_paths = {
       for key, base in module.foundation_libvirt_resources.vault_path.ssh_credential_paths : key => "${base}/${local.kv_leaf.ssh}"
     }
@@ -38,7 +38,7 @@ output "foundation_ssh" {
     public_key_paths   = module.ssh_identity_bootstrap.identity_key_public_paths
     config_paths       = module.ssh_identity_bootstrap.host_config_paths
     known_hosts_paths  = module.ssh_identity_bootstrap.known_hosts_paths
-    usernames          = { for key, host in module.foundation_libvirt_resources.ssh.hosts : key => host.nodes[0].user if host.enabled && length(host.nodes) > 0 }
+    usernames          = { for key, host in module.foundation_libvirt_resources.ssh_identity.hosts : key => host.nodes[0].user if host.enabled && length(host.nodes) > 0 }
   }
 }
 

@@ -1,5 +1,6 @@
 
 # Derives deterministic node IP allocations across the unmanaged vault-bastion-publish routed network segment.
+# first_host reserves host offsets below base offset, while cidr_index_origin anchors address calculation.
 locals {
   bastion_network = {
     name                = "vault-bastion-publish"
