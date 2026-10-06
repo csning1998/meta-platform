@@ -14,19 +14,8 @@ locals {
     node_name => {
       node_index = index(keys(var.guest_config.all_nodes_map), node_name)
 
-      # Constructs the NAT MAC address by appending the first 6 hexadecimal characters of md5(node_config.ip) to the KVM default OUI prefix (52:54:00).
-      nat_mac = format("52:54:00:%s:%s:%s",
-        substr(md5(node_config.ip), 0, 2),
-        substr(md5(node_config.ip), 2, 2),
-        substr(md5(node_config.ip), 4, 2)
-      )
-
-      # Constructs the HostOnly MAC address using MD5 digest bytes 6 through 11 to guarantee address isolation from the NAT interface.
-      hostonly_mac = format("52:54:00:%s:%s:%s",
-        substr(md5(node_config.ip), 6, 2),
-        substr(md5(node_config.ip), 8, 2),
-        substr(md5(node_config.ip), 10, 2)
-      )
+      nat_mac      = module.deterministic_mac.macs["${node_name}/nat"]
+      hostonly_mac = module.deterministic_mac.macs["${node_name}/hostonly"]
 
       hostonly_ip_cidr = "${node_config.ip}/${var.libvirt_infrastructure[node_config.network_tier].network.hostonly.ips.prefix}"
 
@@ -37,15 +26,26 @@ locals {
       # policy routing) do not depend on kernel PCI-slot-ordered device names.
       extra_network_interfaces = {
         for net, cidr in node_config.extra_networks : net => {
-          mac = format("52:54:00:%s:%s:%s",
-            substr(md5("${node_config.ip}-${net}"), 0, 2),
-            substr(md5("${node_config.ip}-${net}"), 2, 2),
-            substr(md5("${node_config.ip}-${net}"), 4, 2)
-          )
+          mac     = module.deterministic_mac.macs["${node_name}/${net}"]
           address = cidr
           alias   = module.interface_alias[net].alias
         }
       }
     }
   }
+}
+
+# The NAT seed is the node IP, the HostOnly seed adds a suffix, and each extra network seed adds the network name.
+module "deterministic_mac" {
+  source = "../../helpers/deterministic-mac"
+
+  seeds = merge([
+    for node_name, node_config in var.guest_config.all_nodes_map : merge(
+      {
+        "${node_name}/nat"      = node_config.ip
+        "${node_name}/hostonly" = "${node_config.ip}-hostonly"
+      },
+      { for net, cidr in node_config.extra_networks : "${node_name}/${net}" => "${node_config.ip}-${net}" }
+    )
+  ]...)
 }

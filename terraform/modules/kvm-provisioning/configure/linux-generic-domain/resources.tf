@@ -4,7 +4,7 @@ data "local_file" "ssh_public_key" {
 }
 
 module "interface_alias" {
-  source   = "../../interface-alias"
+  source   = "../../helpers/interface-alias"
   for_each = toset(flatten([for k, v in var.guest_config.all_nodes_map : keys(v.extra_networks)]))
 
   name = each.key
@@ -26,7 +26,7 @@ resource "terraform_data" "node_mac_uniqueness" {
             )
         ])))
       )
-      error_message = "Duplicate nat_mac, hostonly_mac, or extra_network_interfaces MAC entry detected among nodes in this hypervisor-kvm invocation."
+      error_message = "Duplicate nat_mac, hostonly_mac, or extra_network_interfaces MAC entry detected among nodes in this linux-generic-domain invocation."
     }
   }
 }
