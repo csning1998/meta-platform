@@ -1,57 +1,71 @@
+
 # GitLab HTTP backend base URL. Authentication credentials must be supplied via
 # `TF_HTTP_USERNAME` and `TF_HTTP_PASSWORD` environment variables.
 locals {
-  _state_base_meta_platform           = "https://gitlab.com/api/v4/projects/84608830/terraform/state"
-  _state_base_parent_group_governance = "https://gitlab.com/api/v4/projects/86417732/terraform/state"
+  _state_base_meta_platform = "https://gitlab.com/api/v4/projects/84608830/terraform/state"
 }
 
 locals {
   state = {
-    platform_cilium_frontend  = data.terraform_remote_state.platform_cilium_frontend.outputs
-    provision_cilium_frontend = data.terraform_remote_state.provision_cilium_frontend.outputs
-    foundation_vault_bastion  = data.terraform_remote_state.foundation_vault_bastion.outputs
-    platform_spire_parent     = data.terraform_remote_state.platform_spire_parent.outputs
-    provision_spire_parent    = data.terraform_remote_state.provision_spire_parent.outputs
+    foundation_libvirt_resources      = data.terraform_remote_state.foundation_libvirt_resources.outputs
+    security_vault_downstream_tenants = data.terraform_remote_state.security_vault_downstream_tenants.outputs
+    security_vault_downstream_pki     = data.terraform_remote_state.security_vault_downstream_pki.outputs
+    provision_harbor_origin_frontend  = data.terraform_remote_state.provision_harbor_origin_frontend.outputs
   }
 }
 
 locals {
-  # Workstation operator identity requires read-only KV scope for ephemeral kubeconfig retrieval.
-  terraform_operator = local.state.provision_spire_parent.terraform_operator["cilium"]
-  project_code       = local.state.platform_cilium_frontend.foundation_vault_path.project_code
+  kv_paths            = local.state.foundation_libvirt_resources.foundation_vault_path.kv_paths["cilium"]["hubble"]
+  downstream_kv_paths = local.state.security_vault_downstream_tenants.foundation_vault_path.kv_paths["cilium"]["hubble"]
 }
 
+# Provider prerequisites: Must be defined as root-level locals because provider blocks cannot reference module outputs.
 locals {
-  kubeconfig   = yamldecode(base64decode(ephemeral.vault_kv_secret_v2.cilium_frontend.data["content_b64"]))
-  cluster_info = local.kubeconfig.clusters[0].cluster
-  user_info    = local.kubeconfig.users[0].user
+  sys_vault_endpoint   = local.state.security_vault_downstream_tenants.endpoint
+  vault_pki_cert_path  = local.state.security_vault_downstream_tenants.ca_cert_path
+  harbor_robot_kv_path = local.state.security_vault_downstream_tenants.foundation_vault_path.kv_paths["harbor-origin"]["frontend"].robot
+  registry_mirror      = local.state.provision_harbor_origin_frontend.registry_mirror
+}
 
-  api_server_connection = {
-    host               = local.cluster_info.server
-    ca_cert            = base64decode(local.cluster_info["certificate-authority-data"])
-    client_certificate = base64decode(local.user_info["client-certificate-data"])
-    client_key         = base64decode(local.user_info["client-key-data"])
+# segments_map is reused from platform-haproxy-frontend.
+# The service catalog owns segments_map, not HAProxy or Cilium.
+locals {
+  segments_map = merge([
+    for s_name, components in local.state.foundation_libvirt_resources.foundation_topology.identity : {
+      for c_name, identity in components : identity.cluster_name => {
+        identity = identity
+        network  = local.state.foundation_libvirt_resources.foundation_topology.network[s_name][c_name]
+        vip      = lookup(local.state.foundation_libvirt_resources.foundation_topology.infrastructure, identity.cluster_name, { lb_config = { vip = null } }).lb_config.vip
+        s_name   = s_name
+        c_name   = c_name
+      }
+    }
+  ]...)
+
+
+  network_map = { for k, v in local.segments_map : k => v.network }
+
+  svc_cluster_name = var.talos_config.target_cluster_name
+  svc_context      = local.segments_map[local.svc_cluster_name]
+  svc_identity     = local.svc_context.identity
+  svc_pki          = local.state.foundation_libvirt_resources.foundation_pki.map["${local.svc_context.s_name}-${local.svc_context.c_name}"]
+
+  # net_service_segments excludes the CLB cluster, which has no SSoT reservation.
+  # The same defect exists on platform-haproxy-frontend and remains open.
+  net_service_segments = [
+    for name, seg in local.state.foundation_libvirt_resources.foundation_topology.segments : seg
+    if seg.name != local.svc_cluster_name && !contains(seg.tags, "self-managed-lb")
+  ]
+
+  # Each node takes the address at its position in the sorted node keys from the foundation derivation.
+  bastion_network_nodes = {
+    for idx, key in sort(keys(var.node_config)) : key => {
+      (local.state.foundation_libvirt_resources.foundation_bastion_network.network_name) = local.state.foundation_libvirt_resources.foundation_bastion_network.addresses[local.svc_cluster_name][idx]
+    }
   }
 }
 
+# The operator of this component logs in to the Downstream Vault with the JWT-SVID of the SPIRE Parent.
 locals {
-  entrypoint = local.state.provision_cilium_frontend.hubble_ui_entrypoint
-
-  hubble_ui = {
-    login_user  = "hubble"
-    proxy_image = "quay.io/oauth2-proxy/oauth2-proxy:v7.15.4@sha256:b1b2021fe8f4004573e8d690dec6c7bb29cc44364572cf8510a05bf3a0ae2ded"
-    proxy_port  = 4180
-    proxy_name  = "oauth2-proxy"
-
-    gateway_name  = "hubble-ui"
-    gateway_class = "cilium" # In-cluster Cilium agent automatically reconciles the default 'cilium' GatewayClass.
-    upstream      = "http://hubble-ui.kube-system.svc.cluster.local:80"
-    auth_secret   = "hubble-ui-auth"
-    tls_secret    = "hubble-ui-tls"
-    secret_mount  = "/etc/oauth2-proxy"
-    kv_path       = local.state.platform_cilium_frontend.in_cluster_trust.hubble_ui_kv_path
-
-    # Subdomain matches the Bastion PKI role SAN policy and requires external static DNS resolution.
-    hostname = "hubble.${local.state.platform_cilium_frontend.foundation_pki.map["cilium-frontend"].dns_san[0]}"
-  }
+  downstream_operator = local.state.security_vault_downstream_tenants.component_operators["cilium"]
 }

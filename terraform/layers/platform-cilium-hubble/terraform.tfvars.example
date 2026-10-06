@@ -1,0 +1,21 @@
+node_config = {
+  "00" = { ip_suffix = 10, vcpu = 2, ram = 3072 }
+  "01" = { ip_suffix = 11, vcpu = 2, ram = 3072 }
+  "02" = { ip_suffix = 12, vcpu = 2, ram = 3072 }
+}
+
+talos_config = {
+  target_cluster_name = "meta-platform-cilium-hubble"
+  talos_version       = "v1.13.8"
+  kubernetes_version  = "v1.36.5"
+  gateway_api = {
+    version = "v1.6.1"
+    sha256  = "24d931f22abd8e40c973264319ead7cfa09d0fb7716b7ab1ee2ff174cb063a73"
+  }
+}
+
+helm_chart_version = {
+  cilium           = "1.20.2"
+  cert_manager     = "v1.21.2"
+  external_secrets = "2.11.0"
+}
