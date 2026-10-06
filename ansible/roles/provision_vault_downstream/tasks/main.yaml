@@ -1,8 +1,6 @@
 ---
-# Initializes the Downstream Vault on Kubernetes through the API server, since Talos offers no SSH.
-# The root token and the recovery or unseal keys stay in the init leaf of the Bastion Vault.
-# The play runs inside a tenant session, whose token reads the kubeconfig and writes the init leaf.
-# Under the transit seal the servers unseal on their own, and the play only initializes the first server.
+# Initializes Downstream Vault on Kubernetes through the API server from within a tenant session.
+# Stores root token and recovery/unseal keys in the Bastion Vault init leaf; transit seal manages automatic unseal.
 
 - name: "Section 0. Assert the caller supplied the coordinates"
   ansible.builtin.assert:

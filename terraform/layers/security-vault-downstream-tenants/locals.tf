@@ -15,9 +15,9 @@ locals {
 }
 
 locals {
-  project_code = local.state.foundation_libvirt_resources.foundation_vault_path.project_code
-  kv_paths     = local.state.foundation_libvirt_resources.foundation_vault_path.kv_paths
-  trust_domain = local.state.platform_spire_parent.spire_agent_bootstrap.trust_domain
+  foundation_project_code = local.state.foundation_libvirt_resources.foundation_vault_path.project_code
+  foundation_kv_paths     = local.state.foundation_libvirt_resources.foundation_vault_path.kv_paths
+  spiffe_trust_domain     = local.state.platform_spire_parent.spire_agent_bootstrap.trust_domain
 
   downstream_vault = {
     endpoint       = local.state.platform_vault_downstream_frontend.vault_endpoint.address

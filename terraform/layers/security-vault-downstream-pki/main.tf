@@ -1,8 +1,6 @@
 
-# Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 1 Item C.
-# Configure Downstream Issuing Intermediate and the PKI roles of the workloads which use the Downstream PKI.
-# Generates and retains the private key locally within Downstream Vault; transmits only the CSR
-# to Bootstrap Vault for signing.
+# Configures Downstream PKI issuing intermediate and workload roles per Section 1 Item C.
+# Retains the private key locally within Downstream Vault and transmits only the CSR to Bootstrap Vault.
 module "vault_pki_setup" {
   source = "../../modules/vault-provisioning/vault-pki-setup"
   providers = {
@@ -10,7 +8,7 @@ module "vault_pki_setup" {
     vault.signing = vault.bastion
   }
 
-  prod_vault_endpoint = local.downstream_vault.endpoint
+  vault_endpoint = local.downstream_vault.endpoint
   pki_settings = {
     intermediate_ca_common_name = local.state.platform_vault_downstream_frontend.pki_identity.intermediate_ca_common_name
     intermediate_dns_names      = [local.state.platform_vault_downstream_frontend.listener_identity.common_name]
@@ -35,7 +33,7 @@ resource "vault_policy" "management" {
   policy = jsonencode({
     path = merge(
       {
-        "${module.vault_pki_setup.prod_pki_issuer_mount_path}/issue/${local.pki_roles[each.key].name}" = {
+        "${module.vault_pki_setup.pki_issuer_mount_path}/issue/${local.pki_roles[each.key].name}" = {
           capabilities = ["create", "update"]
         }
       },
@@ -51,7 +49,7 @@ resource "local_file" "trust_bundle" {
     chomp(local.registry_bastion.vault.listener_ca_cert_pem),
     chomp(local.bastion_pki_chain_pem),
     chomp(local.registry_bastion.pki.constrained_intermediates["pki-platform"].cert_pem),
-    chomp(base64decode(module.vault_pki_setup.prod_pki_issuer_cert_b64)),
+    chomp(base64decode(module.vault_pki_setup.pki_issuer_cert_b64)),
   ])
   filename             = "${path.module}/tls/trust-bundle.crt"
   file_permission      = "0644"

@@ -3,7 +3,7 @@
 # always exists, with null fields on the runtime which the catalog does not select.
 output "runtime" {
   description = "Runtime of the component in the service catalog, passed through from platform-vault-downstream-frontend: the runtime name, and whether the runtime is Kubernetes native."
-  value       = local.runtime
+  value       = local.vault_downstream_runtime
 }
 
 output "talos_cluster" {

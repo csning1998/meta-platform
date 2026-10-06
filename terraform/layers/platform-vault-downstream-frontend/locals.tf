@@ -9,7 +9,7 @@ locals {
   state = {
     foundation_libvirt_resources = data.terraform_remote_state.foundation_libvirt_resources.outputs
   }
-  project_code = local.state.foundation_libvirt_resources.foundation_vault_path.project_code
+  foundation_project_code = local.state.foundation_libvirt_resources.foundation_vault_path.project_code
 }
 
 # Each registry field holds one category in JSON. The facts are not secret, while the provider marks every KV value as sensitive.
@@ -25,8 +25,8 @@ locals {
 
 # The runtime of the component in the service catalog selects the declarations of runtime-talos.tf or runtime-vm.tf.
 locals {
-  svc_cluster_name = module.terraform_layer_context.svc_identity.cluster_name
-  svc_runtime      = local.state.foundation_libvirt_resources.foundation_topology.infrastructure[local.svc_cluster_name].runtime
-  is_runtime_talos = contains(local.state.foundation_libvirt_resources.foundation_topology.kubernetes_native_runtimes, local.svc_runtime)
-  kv_paths         = local.state.foundation_libvirt_resources.foundation_vault_path.kv_paths["vault-downstream"]["frontend"]
+  vault_downstream_cluster_name    = module.terraform_layer_context.cluster_identity.cluster_name
+  vault_downstream_cluster_runtime = local.state.foundation_libvirt_resources.foundation_topology.infrastructure[local.vault_downstream_cluster_name].runtime
+  foundation_kv_paths              = local.state.foundation_libvirt_resources.foundation_vault_path.kv_paths["vault-downstream"]["frontend"]
+  is_runtime_talos                 = contains(local.state.foundation_libvirt_resources.foundation_topology.kubernetes_native_runtimes, local.vault_downstream_cluster_runtime)
 }

@@ -1,16 +1,4 @@
 
-# Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 1 Item C.
-locals {
-  pki_api_base_url = "${var.prod_vault_endpoint}/v1/${vault_mount.pki_issuer.path}"
-}
-
-locals {
-  issuer_key_bearing_issuer_ids = [
-    for issuer_id, key_id in data.vault_pki_secret_backend_issuers.pki_issuer_issuers.key_info :
-    issuer_id if key_id != ""
-  ]
-}
-
 data "vault_pki_secret_backend_issuers" "pki_issuer_issuers" {
   provider   = vault.issuing
   backend    = vault_mount.pki_issuer.path
@@ -87,14 +75,15 @@ resource "vault_pki_secret_backend_role" "pki_leaf_roles" {
   provider = vault.issuing
   for_each = var.pki_roles
 
-  backend         = vault_mount.pki_issuer.path
-  name            = each.value.name
-  allowed_domains = each.value.allowed_domains
-
-  allow_subdomains   = true
-  allow_glob_domains = false
-  allow_ip_sans      = true
+  backend            = vault_mount.pki_issuer.path
+  name               = each.value.name
+  allowed_domains    = each.value.allowed_domains
   allow_bare_domains = true
+  allow_subdomains   = true
+  allow_ip_sans      = true
+  allow_glob_domains = false
+  allow_any_name     = false
+  enforce_hostnames  = true
   require_cn         = true
 
   key_type  = "ec"
@@ -108,9 +97,6 @@ resource "vault_pki_secret_backend_role" "pki_leaf_roles" {
   ttl     = each.value.ttl
 
   ou = each.value.ou
-
-  allow_any_name    = false
-  enforce_hostnames = true
 }
 
 # Mounts distinct Kubernetes auth endpoints per cluster to enforce workload identity isolation.

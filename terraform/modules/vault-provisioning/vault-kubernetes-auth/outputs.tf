@@ -17,10 +17,10 @@ output "cluster_issuer" {
     name            = local.identity.cluster_issuer_name
     namespace       = local.identity.cert_manager_namespace
     service_account = local.identity.cluster_issuer_service_account
+    issue_path      = local.pki_action_path
+    pki_mount_path  = var.pki_config.mount_path
     auth_path       = vault_auth_backend.kubernetes.path
     vault_role_name = vault_kubernetes_auth_backend_role.cluster_issuer.role_name
-    pki_mount_path  = var.pki_config.mount_path
-    issue_path      = local.issue_path
   }
 }
 

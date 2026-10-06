@@ -1,12 +1,12 @@
 
-output "trust_bundle_path" {
+output "downstream_pki_trust_bundle_path" {
   description = "Absolute path to the combined CA trust bundle, for manual import into a local OS/browser trust store."
   value       = abspath(local_file.trust_bundle.filename)
 }
 
-output "prod_pki_issuer_cert_b64" {
+output "downstream_pki_issuer_cert_b64" {
   description = "Base64-encoded, signed Production Issuing Intermediate CA certificate only, for server-served TLS chains (excludes the Root CA)."
-  value       = module.vault_pki_setup.prod_pki_issuer_cert_b64
+  value       = module.vault_pki_setup.pki_issuer_cert_b64
 }
 
 output "bastion_pki_chain_b64" {
@@ -17,20 +17,20 @@ output "bastion_pki_chain_b64" {
   }
 }
 
-output "prod_pki_configuration" {
+output "downstream_pki_configuration" {
   description = "Export Downstream PKI mount point and service role mappings. The leaf role itself, not a client-requested value, governs its own issued certificate TTL."
   value = {
-    path       = module.vault_pki_setup.prod_pki_issuer_mount_path
-    leaf_roles = module.vault_pki_setup.prod_pki_leaf_roles
+    path       = module.vault_pki_setup.pki_issuer_mount_path
+    leaf_roles = module.vault_pki_setup.pki_leaf_roles
   }
 }
 
-output "management_policies" {
+output "downstream_pki_management_policies" {
   description = "Map of human management identities (oidc-admin, oidc-auditor, oidc-developer) to their Vault ACL policy names, for OIDC group-to-policy mapping."
   value       = { for k in local.management_identities : k => vault_policy.management[k].name }
 }
 
-output "issuer_chain_pem" {
+output "downstream_pki_issuer_chain_pem" {
   description = "Certificate chain which a leaf of the Downstream issuer appends: the Downstream issuer, pki-downstream, and the Bastion root."
-  value       = "${trimspace(base64decode(module.vault_pki_setup.prod_pki_issuer_cert_b64))}\n${trimspace(local.bastion_pki_downstream.cert_pem)}\n${trimspace(local.registry_bastion.pki.root_cert_pem)}\n"
+  value       = "${trimspace(base64decode(module.vault_pki_setup.pki_issuer_cert_b64))}\n${trimspace(local.bastion_pki_downstream.cert_pem)}\n${trimspace(local.registry_bastion.pki.root_cert_pem)}\n"
 }

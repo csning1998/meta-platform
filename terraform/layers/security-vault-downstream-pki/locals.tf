@@ -11,7 +11,7 @@ locals {
     security_vault_downstream_tenants  = data.terraform_remote_state.security_vault_downstream_tenants.outputs
     foundation_libvirt_resources       = data.terraform_remote_state.foundation_libvirt_resources.outputs
   }
-  project_code = local.state.foundation_libvirt_resources.foundation_vault_path.project_code
+  foundation_project_code = local.state.foundation_libvirt_resources.foundation_vault_path.project_code
 }
 
 # Each registry field holds one category in JSON. The facts are not secret, while the provider marks every KV value as sensitive.
@@ -30,7 +30,7 @@ locals {
   pki_lease_ttl_seconds = 60 * 60 * 24 * 365
   # The Downstream issuer chains to the Bastion root through pki-downstream.
   bastion_pki_chain_pem = "${trimspace(local.registry_bastion.pki.root_cert_pem)}\n${trimspace(local.bastion_pki_downstream.cert_pem)}\n"
-  root_domain           = local.state.foundation_libvirt_resources.foundation_global.domain_suffix
+  root_domain           = local.state.foundation_libvirt_resources.foundation_network_global.domain_suffix
 }
 
 locals {
@@ -44,7 +44,7 @@ locals {
   pki_roles = merge(
     {
       for key, item in local.state.foundation_libvirt_resources.foundation_pki.map : key => {
-        name            = "${local.project_code}-${key}"
+        name            = "${local.foundation_project_code}-${key}"
         auth_method     = item.auth_config.method
         auth_path       = item.auth_config.path
         allowed_domains = item.dns_san
@@ -91,22 +91,22 @@ locals {
   # baseline PKI issue capability.
   workload_identity_extra_rules = {
     "oidc-admin" = {
-      "secret/metadata/"                        = { capabilities = ["list"] }
-      "secret/metadata/${local.project_code}/"  = { capabilities = ["list"] }
-      "secret/data/${local.project_code}/*"     = { capabilities = ["create", "update", "read", "delete", "list"] }
-      "secret/metadata/${local.project_code}/*" = { capabilities = ["list", "read", "delete"] }
-      "auth/token/lookup-self"                  = { capabilities = ["read"] }
-      "identity/lookup/entity"                  = { capabilities = ["read", "update"] }
+      "secret/metadata/"                                   = { capabilities = ["list"] }
+      "secret/metadata/${local.foundation_project_code}/"  = { capabilities = ["list"] }
+      "secret/data/${local.foundation_project_code}/*"     = { capabilities = ["create", "update", "read", "delete", "list"] }
+      "secret/metadata/${local.foundation_project_code}/*" = { capabilities = ["list", "read", "delete"] }
+      "auth/token/lookup-self"                             = { capabilities = ["read"] }
+      "identity/lookup/entity"                             = { capabilities = ["read", "update"] }
     }
     "oidc-auditor" = {
-      "secret/metadata/*"                   = { capabilities = ["list", "read"] }
-      "secret/data/${local.project_code}/*" = { capabilities = ["read", "list"] }
-      "sys/audit"                           = { capabilities = ["read"] }
-      "sys/policies/acl"                    = { capabilities = ["list", "read"] }
+      "secret/metadata/*"                              = { capabilities = ["list", "read"] }
+      "secret/data/${local.foundation_project_code}/*" = { capabilities = ["read", "list"] }
+      "sys/audit"                                      = { capabilities = ["read"] }
+      "sys/policies/acl"                               = { capabilities = ["list", "read"] }
     }
     "oidc-developer" = {
-      "secret/data/${local.project_code}/applications/*"     = { capabilities = ["create", "update", "read", "delete", "list"] }
-      "secret/metadata/${local.project_code}/applications/*" = { capabilities = ["list", "read"] }
+      "secret/data/${local.foundation_project_code}/applications/*"     = { capabilities = ["create", "update", "read", "delete", "list"] }
+      "secret/metadata/${local.foundation_project_code}/applications/*" = { capabilities = ["list", "read"] }
     }
   }
 }

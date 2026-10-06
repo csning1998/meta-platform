@@ -36,17 +36,17 @@ provider "vault" {
 }
 
 provider "kubernetes" {
-  host                   = local.api_server_connection.host
-  cluster_ca_certificate = local.api_server_connection.ca_cert
-  client_certificate     = local.api_server_connection.client_certificate
-  client_key             = local.api_server_connection.client_key
+  host                   = local.vault_downstream_api_server_connection.host
+  cluster_ca_certificate = local.vault_downstream_api_server_connection.ca_cert
+  client_certificate     = local.vault_downstream_api_server_connection.client_certificate
+  client_key             = local.vault_downstream_api_server_connection.client_key
 }
 
 provider "helm" {
   kubernetes = {
-    host                   = local.api_server_connection.host
-    cluster_ca_certificate = local.api_server_connection.ca_cert
-    client_certificate     = local.api_server_connection.client_certificate
-    client_key             = local.api_server_connection.client_key
+    host                   = local.vault_downstream_api_server_connection.host
+    cluster_ca_certificate = local.vault_downstream_api_server_connection.ca_cert
+    client_certificate     = local.vault_downstream_api_server_connection.client_certificate
+    client_key             = local.vault_downstream_api_server_connection.client_key
   }
 }

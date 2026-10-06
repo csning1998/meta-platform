@@ -1,5 +1,5 @@
 
-variable "prod_vault_endpoint" {
+variable "vault_endpoint" {
   description = "Network endpoint address of the target Vault server where the intermediate PKI engine is mounted."
   type        = string
 }

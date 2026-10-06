@@ -2,7 +2,7 @@
 # Declarations of the Talos runtime alone. Each resource and module carries count = local.is_runtime_talos ? 1 : 0.
 locals {
   # The Downstream Vault precedes Harbor Origin, hence the charts come from the upstream registries.
-  chart_repository = {
+  vault_downstream_chart_repository = {
     cilium       = "oci://quay.io/cilium/charts"
     cert_manager = "oci://quay.io/jetstack/charts"
   }
@@ -10,7 +10,7 @@ locals {
   # Each node takes the address at its position in the sorted node keys from the foundation derivation.
   bastion_network_nodes = {
     for idx, key in sort(keys(var.node_config)) : key => {
-      (local.state.foundation_libvirt_resources.foundation_bastion_network.network_name) = local.state.foundation_libvirt_resources.foundation_bastion_network.addresses[local.svc_cluster_name][idx]
+      (local.state.foundation_libvirt_resources.foundation_bastion_network.network_name) = local.state.foundation_libvirt_resources.foundation_bastion_network.addresses[local.vault_downstream_cluster_name][idx]
     }
   }
 
@@ -22,17 +22,17 @@ locals {
   # The Service names of the chart live below <namespace>.svc.cluster.local, and the role admits each subdomain.
   vault_service_domain = "${local.vault_workload.namespace}.svc.cluster.local"
 
-  transit_unseal_consumer = local.registry_bastion.transit_unseal.consumers["${local.project_code}-vault-downstream"]
+  transit_unseal_consumer = local.registry_bastion.transit_unseal.consumers["${local.foundation_project_code}-vault-downstream"]
 
   # The transit token works only from the addresses of the Vault nodes on vault-bastion-publish.
   transit_unseal_source_cidrs = [
-    for address in local.state.foundation_libvirt_resources.foundation_bastion_network.addresses[local.svc_cluster_name] : "${split("/", address)[0]}/32"
+    for address in local.state.foundation_libvirt_resources.foundation_bastion_network.addresses[local.vault_downstream_cluster_name] : "${split("/", address)[0]}/32"
   ]
 }
 
 resource "terraform_data" "talos_inputs_validation" {
   count = local.is_runtime_talos ? 1 : 0
-  input = local.svc_runtime
+  input = local.vault_downstream_cluster_runtime
 
   lifecycle {
     precondition {
@@ -47,14 +47,14 @@ module "helm_chart_cilium" {
   source = "../../modules/kubernetes-addons/helm-chart-cilium"
 
   helm_config = {
-    chart_repository   = local.chart_repository.cilium
+    chart_repository   = local.vault_downstream_chart_repository.cilium
     version            = var.helm_chart_version.cilium
     kubernetes_version = var.talos_config.kubernetes_version
   }
   cilium_config = {
     kubeprism_port = var.talos_config.kubeprism_port
     node_count     = length(var.node_config)
-    mtu            = local.state.foundation_libvirt_resources.foundation_global.network_baseline.global_mtu
+    mtu            = local.state.foundation_libvirt_resources.foundation_network_global.network_baseline.global_mtu
   }
 }
 
@@ -65,7 +65,7 @@ module "vault_kubernetes_auth_talos" {
   source    = "../../modules/vault-provisioning/vault-kubernetes-auth"
   providers = { vault = vault.bastion }
 
-  cluster_name = local.svc_cluster_name
+  cluster_name = local.vault_downstream_cluster_name
   pki_config = {
     mount_path           = local.bastion_pki_platform.mount_path
     role_allowed_domains = concat(local.vault_listener_dns_names, [local.vault_service_domain])
@@ -80,21 +80,21 @@ module "helm_chart_cert_manager" {
   source = "../../modules/kubernetes-addons/helm-chart-cert-manager"
 
   helm_config = {
-    chart_repository   = local.chart_repository.cert_manager
+    chart_repository   = local.vault_downstream_chart_repository.cert_manager
     version            = var.helm_chart_version.cert_manager
     kubernetes_version = var.talos_config.kubernetes_version
     namespace          = module.vault_kubernetes_auth_talos[0].kubernetes_identity.cert_manager_namespace
   }
 }
 
-module "platform_vault_talos" {
+module "establish_platform_vault_talos_cluster" {
   count      = local.is_runtime_talos ? 1 : 0
   source     = "../../modules/kvm-provisioning/orchestrate/linux-talos-cluster"
   depends_on = [terraform_data.talos_inputs_validation]
 
-  svc_identity               = module.terraform_layer_context.svc_identity
-  svc_network_map            = { (local.svc_cluster_name) = module.terraform_layer_context.svc_network }
-  network_infrastructure_map = { (local.svc_cluster_name) = local.state.foundation_libvirt_resources.foundation_topology.infrastructure[local.svc_cluster_name].network }
+  cluster_identity           = module.terraform_layer_context.cluster_identity
+  cluster_network_map        = { (local.vault_downstream_cluster_name) = module.terraform_layer_context.cluster_network }
+  network_infrastructure_map = { (local.vault_downstream_cluster_name) = local.state.foundation_libvirt_resources.foundation_topology.infrastructure[local.vault_downstream_cluster_name].network }
   storage_infrastructure_map = local.state.foundation_libvirt_resources.foundation_storage.infrastructure
   talos_iso_path             = "${local.state.foundation_libvirt_resources.foundation_paths.packer_output}/talos-${trimprefix(var.talos_config.talos_version, "v")}/metal-amd64.iso"
   talos_config               = var.talos_config
@@ -113,21 +113,21 @@ module "platform_vault_talos" {
 }
 
 # The kubeconfig and the Talos client credentials follow the cluster lifecycle in the Bastion Vault.
-module "credentials_vault_talos" {
+module "credential_vault_talos" {
   count     = local.is_runtime_talos ? 1 : 0
   source    = "gitlab.com/csning1998-lab/provisioner-vault-credential/gitlab"
   version   = "0.1.1"
   providers = { vault = vault.bastion }
 
   vault_credential_context = {
-    kv_namespace = dirname(dirname(local.kv_paths.cluster_config))
-    domain       = basename(dirname(local.kv_paths.cluster_config))
-    component    = basename(local.kv_paths.cluster_config)
+    kv_namespace = dirname(dirname(local.foundation_kv_paths.cluster_config))
+    domain       = basename(dirname(local.foundation_kv_paths.cluster_config))
+    component    = basename(local.foundation_kv_paths.cluster_config)
     static = {
-      talos_ca_certificate_b64     = module.platform_vault_talos[0].client_configuration.ca_certificate
-      talos_client_certificate_b64 = module.platform_vault_talos[0].client_configuration.client_certificate
-      talos_client_key_b64         = module.platform_vault_talos[0].client_configuration.client_key
-      content_b64                  = base64encode(module.platform_vault_talos[0].kubeconfig_raw)
+      talos_ca_certificate_b64     = module.establish_platform_vault_talos_cluster[0].client_configuration.ca_certificate
+      talos_client_certificate_b64 = module.establish_platform_vault_talos_cluster[0].client_configuration.client_certificate
+      talos_client_key_b64         = module.establish_platform_vault_talos_cluster[0].client_configuration.client_key
+      content_b64                  = base64encode(module.establish_platform_vault_talos_cluster[0].kubeconfig_raw)
     }
   }
 }
@@ -139,10 +139,10 @@ resource "vault_kubernetes_auth_backend_role" "transit_unseal" {
   provider = vault.bastion
 
   backend                          = module.vault_kubernetes_auth_talos[0].cluster_issuer.auth_path
-  role_name                        = "${local.svc_cluster_name}-transit-unseal"
+  role_name                        = "${local.vault_downstream_cluster_name}-transit-unseal"
   bound_service_account_names      = [local.vault_workload.service_account]
   bound_service_account_namespaces = [local.vault_workload.namespace]
-  audience                         = "${local.svc_cluster_name}-transit-unseal"
+  audience                         = "${local.vault_downstream_cluster_name}-transit-unseal"
 
   token_policies          = [local.transit_unseal_consumer.policy_name]
   token_no_default_policy = true

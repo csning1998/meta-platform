@@ -5,19 +5,19 @@ locals {
   # Cross-component KV grants and in-cluster workloads of each component, keyed as the operators of provision-spire-parent.
   component_workloads = {
     "cilium" = {
-      kv_read_paths             = [local.kv_paths["harbor-origin"]["frontend"].robot]
+      kv_read_paths             = [local.foundation_kv_paths["harbor-origin"]["frontend"].robot]
       kv_write_folders          = []
       cluster_issuer            = true
-      external_secrets_kv_paths = ["${local.kv_paths["cilium"]["hubble"].addon}-hubble-ui"]
+      external_secrets_kv_paths = ["${local.foundation_kv_paths["cilium"]["hubble"].addon}-hubble-ui"]
     }
     "keycloak" = {
-      kv_read_paths             = [local.kv_paths["harbor-origin"]["frontend"].robot]
-      kv_write_folders          = ["${local.project_code}/keycloak/oidc/clients"]
+      kv_read_paths             = [local.foundation_kv_paths["harbor-origin"]["frontend"].robot]
+      kv_write_folders          = ["${local.foundation_project_code}/keycloak/oidc/clients"]
       cluster_issuer            = true
-      external_secrets_kv_paths = [local.kv_paths["keycloak"]["frontend"].app]
+      external_secrets_kv_paths = [local.foundation_kv_paths["keycloak"]["frontend"].app]
     }
     "harbor-origin" = {
-      kv_read_paths             = ["${local.project_code}/keycloak/oidc/clients/harbor-origin-frontend"]
+      kv_read_paths             = ["${local.foundation_project_code}/keycloak/oidc/clients/harbor-origin-frontend"]
       kv_write_folders          = []
       cluster_issuer            = false
       external_secrets_kv_paths = []
@@ -33,7 +33,7 @@ locals {
   child_tenants = { for name, t in var.tenants : name => t if t.issuer == "child" }
 
   # The JWT mount of the SPIRE Child carries the cluster name of the Child, which the owned auth scope of the Child operator covers.
-  child_jwt_auth = {
+  spire_child_jwt_auth = {
     mount_path = "${local.state.foundation_libvirt_resources.foundation_topology.identity["spire"]["child"].cluster_name}-jwt-svid-provider"
     audience   = local.state.foundation_libvirt_resources.foundation_topology.identity["vault-downstream"]["frontend"].cluster_name
   }
@@ -92,7 +92,7 @@ locals {
         "${local.downstream_vault.pki_mount_path}/roles/${operator.cluster_name}" = { capabilities = ["create", "read", "update", "delete"] }
         "${local.downstream_vault.pki_mount_path}/issue/${operator.cluster_name}" = { capabilities = ["create", "update"] }
 
-        "${vault_mount.kv.path}/data/${local.kv_paths["spire"]["child"].registrar}" = {
+        "${vault_mount.kv.path}/data/${local.foundation_kv_paths["spire"]["child"].registrar}" = {
           capabilities = key == "spire-child" ? ["create", "read", "update", "delete", "patch"] : ["read"]
         }
       },
@@ -110,8 +110,8 @@ locals {
       merge([
         for server in ["parent", "child"] : merge([
           for cluster in concat([operator.cluster_name], key == "spire-child" && server == "child" ? [local.workstation_cluster_name] : []) : {
-            "${vault_mount.kv.path}/data/${local.kv_paths["spire"][server].join_token}/${cluster}/*"     = { capabilities = ["create", "read", "update"] }
-            "${vault_mount.kv.path}/metadata/${local.kv_paths["spire"][server].join_token}/${cluster}/*" = { capabilities = ["create", "read", "update", "list"] }
+            "${vault_mount.kv.path}/data/${local.foundation_kv_paths["spire"][server].join_token}/${cluster}/*"     = { capabilities = ["create", "read", "update"] }
+            "${vault_mount.kv.path}/metadata/${local.foundation_kv_paths["spire"][server].join_token}/${cluster}/*" = { capabilities = ["create", "read", "update", "list"] }
           }
         ]...)
       ]...),
@@ -158,7 +158,7 @@ resource "vault_jwt_auth_backend_role" "component_operator" {
   role_name       = each.value.role_name
   role_type       = "jwt"
   bound_audiences = [local.jwt_auth.parent.audience]
-  bound_subject   = "spiffe://${local.trust_domain}${each.value.spiffe_path}"
+  bound_subject   = "spiffe://${local.spiffe_trust_domain}${each.value.spiffe_path}"
   user_claim      = "sub"
 
   token_policies = [vault_policy.component_operator[each.key].name]

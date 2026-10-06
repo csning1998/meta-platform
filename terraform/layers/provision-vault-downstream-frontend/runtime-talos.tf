@@ -2,10 +2,10 @@
 # Declarations of the Talos runtime alone. Each data source, ephemeral resource, resource, and module carries
 # count = local.is_runtime_talos ? 1 : 0, and every local below stays null on the VM runtime.
 locals {
-  talos_cluster = local.state.platform_vault_downstream_frontend.talos_cluster
+  vault_downstream_talos_cluster = local.state.platform_vault_downstream_frontend.talos_cluster
 
   # The Downstream Vault precedes Harbor Origin, hence every chart comes from its upstream repository.
-  chart_repository = {
+  vault_downstream_chart_repository = {
     local_path_provisioner = "oci://ghcr.io/rancher/local-path-provisioner/charts"
     vault                  = "https://helm.releases.hashicorp.com"
   }
@@ -15,13 +15,13 @@ locals {
     for field, value in nonsensitive(data.vault_generic_secret.registry_bastion[0].data) : field => jsondecode(value)
   } : null
 
-  kubeconfig = local.is_runtime_talos ? yamldecode(base64decode(ephemeral.vault_kv_secret_v2.vault_cluster[0].data["content_b64"])) : null
+  vault_downstream_kubeconfig = local.is_runtime_talos ? yamldecode(base64decode(ephemeral.vault_kv_secret_v2.vault_cluster[0].data["content_b64"])) : null
 
-  api_server_connection = local.is_runtime_talos ? {
-    host               = local.kubeconfig.clusters[0].cluster.server
-    ca_cert            = base64decode(local.kubeconfig.clusters[0].cluster["certificate-authority-data"])
-    client_certificate = base64decode(local.kubeconfig.users[0].user["client-certificate-data"])
-    client_key         = base64decode(local.kubeconfig.users[0].user["client-key-data"])
+  vault_downstream_api_server_connection = local.is_runtime_talos ? {
+    host               = local.vault_downstream_kubeconfig.clusters[0].cluster.server
+    ca_cert            = base64decode(local.vault_downstream_kubeconfig.clusters[0].cluster["certificate-authority-data"])
+    client_certificate = base64decode(local.vault_downstream_kubeconfig.users[0].user["client-certificate-data"])
+    client_key         = base64decode(local.vault_downstream_kubeconfig.users[0].user["client-key-data"])
     } : {
     host               = null
     ca_cert            = null
@@ -52,7 +52,7 @@ locals {
 
 resource "terraform_data" "talos_inputs_validation" {
   count = local.is_runtime_talos ? 1 : 0
-  input = local.runtime.name
+  input = local.vault_downstream_runtime.name
 
   lifecycle {
     precondition {
@@ -66,14 +66,14 @@ resource "terraform_data" "talos_inputs_validation" {
 data "vault_generic_secret" "registry_bastion" {
   count    = local.is_runtime_talos ? 1 : 0
   provider = vault.bastion
-  path     = "registry/${local.project_code}/bastion"
+  path     = "registry/${local.foundation_project_code}/bastion"
 }
 
 ephemeral "vault_kv_secret_v2" "vault_cluster" {
   count    = local.is_runtime_talos ? 1 : 0
   provider = vault.bastion
   mount    = "secret"
-  name     = local.kv_paths.cluster_config
+  name     = local.foundation_kv_paths.cluster_config
 }
 
 # Cluster readiness checks MUST re-validate quorum convergence during apply operations.
@@ -85,8 +85,8 @@ ephemeral "talos_cluster_health" "this" {
     client_certificate = ephemeral.vault_kv_secret_v2.vault_cluster[0].data["talos_client_certificate_b64"]
     client_key         = ephemeral.vault_kv_secret_v2.vault_cluster[0].data["talos_client_key_b64"]
   }
-  control_plane_nodes = values(local.talos_cluster.hostonly_addresses)
-  endpoints           = values(local.talos_cluster.hostonly_addresses)
+  control_plane_nodes = values(local.vault_downstream_talos_cluster.hostonly_addresses)
+  endpoints           = values(local.vault_downstream_talos_cluster.hostonly_addresses)
 
   timeout = "10m"
 }
@@ -112,7 +112,7 @@ data "kubernetes_resource" "cert_manager_webhook" {
 
   metadata {
     name      = "cert-manager-webhook"
-    namespace = local.talos_cluster.cluster_issuer.namespace
+    namespace = local.vault_downstream_talos_cluster.cluster_issuer.namespace
   }
 
   lifecycle {
@@ -135,8 +135,8 @@ module "vault_token_reviewer" {
     host    = "https://${local.vault_endpoint.service_vip}:6443"
     ca_cert = data.kubernetes_config_map_v1.root_ca[0].data["ca.crt"]
   }
-  vault_auth_path          = local.talos_cluster.cluster_issuer.auth_path
-  reviewer_service_account = { namespace = local.talos_cluster.cluster_issuer.namespace }
+  vault_auth_path          = local.vault_downstream_talos_cluster.cluster_issuer.auth_path
+  reviewer_service_account = { namespace = local.vault_downstream_talos_cluster.cluster_issuer.namespace }
 }
 
 module "platform_cluster_issuer" {
@@ -149,7 +149,7 @@ module "platform_cluster_issuer" {
     auth_path = module.vault_token_reviewer[0].vault_auth_path
     ca_cert   = local.registry_bastion.vault.listener_ca_cert_pem
   }
-  issuer_config = local.talos_cluster.cluster_issuer
+  issuer_config = local.vault_downstream_talos_cluster.cluster_issuer
 }
 
 # The raft data stays on the Talos user volume of each node, which outlives the pods.
@@ -159,11 +159,11 @@ module "local_path_provisioner" {
   depends_on = [ephemeral.talos_cluster_health.this]
 
   helm_config = {
-    chart_repository = local.chart_repository.local_path_provisioner
+    chart_repository = local.vault_downstream_chart_repository.local_path_provisioner
     version          = var.helm_chart_version.local_path_provisioner
   }
   storage_config = {
-    node_path      = local.talos_cluster.volume_mount_path
+    node_path      = local.vault_downstream_talos_cluster.volume_mount_path
     reclaim_policy = "Retain"
   }
 }
@@ -173,7 +173,7 @@ resource "kubernetes_namespace_v1" "vault" {
   depends_on = [ephemeral.talos_cluster_health.this]
 
   metadata {
-    name = local.talos_cluster.vault_workload.namespace
+    name = local.vault_downstream_talos_cluster.vault_workload.namespace
     labels = {
       "pod-security.kubernetes.io/enforce" = "baseline"
       "pod-security.kubernetes.io/audit"   = "baseline"
@@ -202,25 +202,25 @@ module "helm_chart_vault" {
   source = "../../modules/kubernetes-addons/helm-chart-vault"
 
   helm_config = {
-    chart_repository = local.chart_repository.vault
+    chart_repository = local.vault_downstream_chart_repository.vault
     version          = var.helm_chart_version.vault
     namespace        = kubernetes_namespace_v1.vault[0].metadata[0].name
   }
   raft_config = {
-    replicas = length(local.talos_cluster.hostonly_addresses)
+    replicas = length(local.vault_downstream_talos_cluster.hostonly_addresses)
   }
   vault_config = {
     tls_secret_name = module.vault_listener_certificate[0].secret_name
     storage_class   = module.local_path_provisioner[0].storage_class_name
     storage_size    = var.vault_config.storage_size
-    service_account = local.talos_cluster.vault_workload.service_account
+    service_account = local.vault_downstream_talos_cluster.vault_workload.service_account
   }
   service_config = {
     external_ip = local.vault_endpoint.service_vip
   }
 
-  # The servers auto-unseal against the Bastion Vault, see decisions.md, Downstream Vault 的 transit auto-unseal.
-  transit_seal_config = merge(local.talos_cluster.transit_unseal, {
+  # The servers auto-unseal against the Bastion Vault transit engine per decisions.md.
+  transit_seal_config = merge(local.vault_downstream_talos_cluster.transit_unseal, {
     ca_cert_pem = local.registry_bastion.vault.listener_ca_cert_pem
   })
 }
@@ -237,8 +237,8 @@ module "vault_bootstrap" {
   playbook_paths = ["${local.ansible_config.root_path}/playbooks/playbook_provision.yaml"]
   status_trigger = { (module.helm_chart_vault[0].vault_servers.namespace) = module.helm_chart_vault[0].vault_servers.release }
   extra_vars = {
-    provision_vault_downstream_kubeconfig_kv_path = local.kv_paths.cluster_config
-    provision_vault_downstream_init_kv_path       = local.kv_paths.init
+    provision_vault_downstream_kubeconfig_kv_path = local.foundation_kv_paths.cluster_config
+    provision_vault_downstream_init_kv_path       = local.foundation_kv_paths.init
     provision_vault_downstream_ca_cert_path       = local.vault_endpoint.ca_cert_path
     provision_vault_downstream_namespace          = module.helm_chart_vault[0].vault_servers.namespace
     provision_vault_downstream_container          = module.helm_chart_vault[0].vault_servers.container

@@ -3,7 +3,7 @@
 # localhost and a bare Service name.
 locals {
   vault_listener_dns_names    = local.state.foundation_libvirt_resources.foundation_pki.map[module.terraform_layer_context.primary_context.pki_key].dns_san
-  vault_listener_ip_addresses = concat([module.terraform_layer_context.primary_net_config.lb_config.vip], module.terraform_layer_context.svc_network.node_ips)
+  vault_listener_ip_addresses = concat([module.terraform_layer_context.primary_network_config.lb_config.vip], module.terraform_layer_context.cluster_network.node_ips)
 }
 
 # Write the CA chain of the listener to the tls/ directory, which the Vault provider of every Downstream layer reads.

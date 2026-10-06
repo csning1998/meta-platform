@@ -15,20 +15,20 @@ output "downstream_tenants" {
     role_spiffe_id = { for name, role in vault_jwt_auth_backend_role.tenant : name => role.bound_subject }
     tenant_login = {
       for name, t in var.tenants : name => {
-        auth_mount = t.issuer == "parent" ? local.jwt_auth.parent.mount_path : local.child_jwt_auth.mount_path
+        auth_mount = t.issuer == "parent" ? local.jwt_auth.parent.mount_path : local.spire_child_jwt_auth.mount_path
         role_name  = name
-        audience   = t.issuer == "parent" ? local.jwt_auth.parent.audience : local.child_jwt_auth.audience
+        audience   = t.issuer == "parent" ? local.jwt_auth.parent.audience : local.spire_child_jwt_auth.audience
       }
     }
   }
 }
 
-output "service_vip" {
+output "downstream_vault_service_vip" {
   description = "Service VIP of downstream Vault cluster retrieved from platform state."
   value       = local.state.platform_vault_downstream_frontend.vault_endpoint.service_vip
 }
 
-output "endpoint" {
+output "downstream_vault_endpoint" {
   description = "Downstream Vault API endpoint URL."
   value       = local.downstream_vault.endpoint
 }
@@ -43,12 +43,12 @@ output "foundation_vault_path" {
   value       = local.state.foundation_libvirt_resources.foundation_vault_path
 }
 
-output "ca_cert_path" {
+output "downstream_vault_ca_cert_path" {
   description = "Filesystem path to the CA certificate bundle validating downstream Vault listener TLS."
   value       = local.downstream_vault.ca_cert_path
 }
 
-output "tenant_operator" {
+output "downstream_vault_tenant_operator" {
   description = "Login coordinates of the administrator operator of the Downstream Vault, which only the vault-downstream SPIFFE ID assumes."
   value = {
     auth_mount   = local.jwt_auth.parent.mount_path
@@ -58,7 +58,7 @@ output "tenant_operator" {
   }
 }
 
-output "component_operators" {
+output "downstream_vault_component_operators" {
   description = "Login coordinates of the operator of each component, keyed as the terraform_operator output of provision-spire-parent: the auth mount, the role, the audience, the JWT-SVID wrapper, the cluster name, and the workload policies which the operator assigns on its Kubernetes auth mount."
   value = {
     for key, operator in local.component_operators : key => {
@@ -74,11 +74,11 @@ output "component_operators" {
   }
 }
 
-output "child_jwt_auth" {
+output "spire_child_jwt_auth" {
   description = "Mount path and audience of the JWT backend of the SPIRE Child on the Downstream Vault, which provision-spire-child creates, and the tenants whose roles the backend carries with the policy of the same name."
   value = {
-    mount_path = local.child_jwt_auth.mount_path
-    audience   = local.child_jwt_auth.audience
+    mount_path = local.spire_child_jwt_auth.mount_path
+    audience   = local.spire_child_jwt_auth.audience
     tenants    = { for name, t in local.child_tenants : name => { spiffe_id = t.spiffe_id, policy_name = vault_policy.tenant[name].name } }
   }
 }
