@@ -12,7 +12,7 @@ output "downstream_tenants" {
       role_name  = vault_jwt_auth_backend_role.operator.role_name
       audience   = local.jwt_auth.parent.audience
     }
-    role_spiffe_id = { for name, role in vault_jwt_auth_backend_role.tenant : name => role.bound_subject }
+    role_spiffe_id = { for name, t in var.tenants : name => t.spiffe_id }
     tenant_login = {
       for name, t in var.tenants : name => {
         auth_mount = t.issuer == "parent" ? local.jwt_auth.parent.mount_path : local.spire_child_jwt_auth.mount_path
