@@ -1,6 +1,6 @@
 # Service Catalog and KVM Provisioning Pipeline
 
-This specification establishes the realization requirements from the `service_catalog` declaration to an operational guest virtual machine under the Libvirt provider. The execution flow traverses the module sequence comprising `service-catalog`, `kvm-foundation-resources`, `layer-context`, `ha-service-kvm-general`, and the three `cluster-provision` submodules, followed by Packer image assembly and Ansible role execution. The `platform-spire-parent` layer serves as the primary implementation reference across this specification. Identical structural requirements govern the companion consumers of `ha-service-kvm-general`, including `platform-harbor-origin-frontend`, `platform-keycloak-frontend`, and `platform-vault-downstream-frontend`. Architectural rationale for SPIRE-specific security decisions resides in `documentation/architecture-decision-record/20260830_1530-spire-parent-bootstrap-security-posture.md` and `planning/architecture_meta-platform.md` Section 9.
+This specification establishes the realization requirements from the `service_catalog` declaration to an operational guest virtual machine under the Libvirt provider. The execution flow traverses the module sequence comprising `helpers/service-catalog`, `configure/foundation-resources`, `helpers/terraform-layer-context`, `orchestrate/linux-generic-cluster`, `configure/linux-generic-domain`, and `configure/ansible-runner` under `terraform/modules/kvm-provisioning`, followed by Packer image assembly and Ansible role execution. The `platform-spire-parent` layer serves as the primary implementation reference across this specification. Identical structural requirements govern the companion consumers of `linux-generic-cluster`, including `platform-harbor-origin-frontend`, `platform-keycloak-frontend`, and `platform-vault-downstream-frontend`. Architectural rationale for SPIRE-specific security decisions resides in `documentation/architecture-decision-record/20260830_1530-spire-parent-bootstrap-security-posture.md` and `planning/architecture_meta-platform.md` Section 9.
 
 ## Section 1. Pipeline Topology and Governance Boundary
 
@@ -8,10 +8,10 @@ This specification establishes the realization requirements from the `service_ca
 
 1. Stage 1 (Declaration): The calling layer `terraform.tfvars` MUST declare one `service_catalog` entry per service. The `foundation-libvirt-resources` layer SHALL hold the aggregated catalog for the entire repository.
 2. Stage 2 (Pure Computation): The `service-catalog` module MUST derive identity, network, and storage topology from the catalog through Terraform `locals` blocks only. The `service-catalog` module SHALL NOT declare any managed resources.
-3. Stage 3 (Foundation Realization): The `kvm-foundation-resources` module MUST invoke the `service-catalog` module and SHALL materialize the derived topology into `libvirt_network`, `libvirt_pool`, and `libvirt_volume` resources for every service defined in the catalog.
-4. Stage 4 (Per-Layer Projection): The `layer-context` module of each consuming layer MUST read the foundation outputs through a `terraform_remote_state` data source. The `layer-context` module SHALL resolve local `target_clusters`, `primary_role`, and `service_config` inputs into a layer-scoped context object.
-5. Stage 5 (Middleware Orchestration): The `ha-service-kvm-general` module MUST flatten per-node compute specifications into a node mapping. The `ha-service-kvm-general` module SHALL assemble the Ansible inventory and invoke the three `cluster-provision` submodules.
-6. Stage 6 (Guest Realization and Configuration): The `hypervisor-kvm` submodule MUST create the `libvirt_domain` resource from a pre-built Packer base image. The `ssh-manager` submodule MUST verify guest SSH connectivity. The `ansible-runner` submodule MUST execute role-based configuration against the target guest.
+3. Stage 3 (Foundation Realization): The `foundation-resources` module MUST invoke the `service-catalog` module and SHALL materialize the derived topology into `libvirt_network`, `libvirt_pool`, and `libvirt_volume` resources for every service defined in the catalog.
+4. Stage 4 (Per-Layer Projection): Each consuming layer MUST read the foundation outputs through a `terraform_remote_state` data source and MUST pass them to the `terraform-layer-context` module. The `terraform-layer-context` module SHALL resolve local `target_clusters`, `primary_role`, and `service_config` inputs into a layer-scoped context object.
+5. Stage 5 (Middleware Orchestration): The `linux-generic-cluster` module MUST flatten per-node compute specifications into a node mapping. The `linux-generic-cluster` module SHALL assemble the Ansible inventory and invoke the `linux-generic-domain` and `ansible-runner` modules.
+6. Stage 6 (Guest Realization and Configuration): The `linux-generic-domain` module MUST create the `libvirt_domain` resource from a pre-built Packer base image. The `linux-generic-cluster` module MUST write the guest host keys to a per-cluster `known_hosts` file and MUST verify guest SSH connectivity through the `sshclient_reachability` resource. The `ansible-runner` module MUST execute role-based configuration against the target guest.
 
 ### Item B. End-to-End Pipeline Overview
 
@@ -21,13 +21,13 @@ flowchart TD
         SC_VARS["service_catalog\nnetwork_baseline\ndomain_suffix"]
     end
 
-    subgraph S2 ["Stage 2: Pure Computation (modules/service-catalog)"]
+    subgraph S2 ["Stage 2: Pure Computation (modules/kvm-provisioning/helpers/service-catalog)"]
         SC_LOC["Identity Derivation\nNetwork Topology (CIDR/VIP)\nVolume Topology (Cartesian Product)"]
         SC_OUT["topology_identity\ntopology_network\npki_map\nvolume_map\ndns_records"]
     end
 
     subgraph S3 ["Stage 3: Foundation Realization (layers/foundation-libvirt-resources)"]
-        KVM_FOUND["modules/kvm-foundation-resources"]
+        KVM_FOUND["modules/kvm-provisioning/configure/foundation-resources"]
         RES_NET["libvirt_network (NAT & HostOnly)"]
         RES_POOL["libvirt_pool (Directory)"]
         RES_VOL["libvirt_volume.data_disks (5GiB QCOW2)"]
@@ -35,20 +35,20 @@ flowchart TD
     end
 
     subgraph S4 ["Stage 4: Per-Layer Projection (layers/platform-spire-parent)"]
-        LC_MOD["modules/kvm-provisioning/layer-context"]
-        LC_OUT["svc_identity\nsvc_network\nsvc_fqdn\nprimary_net_config\nstorage_pool_name"]
+        LC_MOD["modules/kvm-provisioning/helpers/terraform-layer-context"]
+        LC_OUT["cluster_identity\ncluster_network\ncluster_fqdn\nprimary_network_config\nstorage_pool_name"]
     end
 
-    subgraph S5 ["Stage 5: Middleware Orchestration (modules/ha-service-kvm-general)"]
+    subgraph S5 ["Stage 5: Middleware Orchestration (modules/kvm-provisioning/orchestrate/linux-generic-cluster)"]
         FLAT["Node Flattening & IP Allocation"]
         VOL_DISC["Storage Volume Auto-Discovery"]
         INV_GEN["Ansible Inventory Assembly"]
     end
 
-    subgraph S6 ["Stage 6: Cluster Provision Submodules & Runtime Configuration"]
-        subgraph CP ["modules/cluster-provision"]
-            HKVM["hypervisor-kvm\n(libvirt_domain)"]
-            SSHM["ssh-manager\n(known_hosts verification)"]
+    subgraph S6 ["Stage 6: Guest Realization & Runtime Configuration"]
+        subgraph CP ["modules/kvm-provisioning/configure"]
+            HKVM["linux-generic-domain\n(libvirt_domain)"]
+            SSHM["sshclient_reachability\n(known_hosts verification)"]
             ARUN["ansible-runner\n(ansible_playbook_run)"]
         end
         subgraph RUNTIME ["Guest Runtime Execution"]
@@ -68,8 +68,8 @@ flowchart TD
     LC_OUT --> FLAT & VOL_DISC & INV_GEN
 
     FLAT & VOL_DISC --> HKVM
-    HKVM -->|guest_status_trigger| SSHM
-    SSHM -->|ssh_access_ready_trigger| ARUN
+    HKVM -->|guest_host_public_keys| SSHM
+    SSHM -->|depends_on| ARUN
     INV_GEN --> ARUN
 
     ARUN --> ANS_ROLE
@@ -79,13 +79,13 @@ flowchart TD
 
 ### Item C. Global Variable Flow and Data Contract
 
-| Pipeline Stage | Processing Component                  | Input Variables                                                                                          | Derived Computations                                                                                            | Output Variables / Artifacts                                                                                                  | Consuming Downstream                                         |
-| -------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| Stage 1 to 2   | `modules/service-catalog`             | `service_catalog`, `network_baseline`, `domain_suffix`                                                   | `_flat_catalog`, `identity_map`, `network_topology`, `_volume_topology_raw`                                     | `topology_identity`, `topology_network`, `pki_map`, `volume_map`, `dns_records`, `credential_paths`                           | `kvm-foundation-resources`                                   |
-| Stage 3        | `layers/foundation-libvirt-resources` | `service-catalog` outputs                                                                                | `segments`, `global_volume_map`, `global_dns_hosts`                                                             | `foundation_topology`, `foundation_global`, `foundation_pki`, `foundation_storage`, `foundation_vault_path`, `foundation_ssh` | Consuming service layers via `terraform_remote_state`        |
-| Stage 4        | `modules/layer-context`               | Foundation remote state outputs, `target_clusters`, `primary_role`, `service_config`                     | `segments_map`, `components_context`, `primary_context`, `network_infrastructure_map`                           | `svc_identity`, `svc_network`, `svc_fqdn`, `primary_net_config`, `topology_cluster`, `node_identities`                        | Layer `main.tf`, `locals.tf`, `ha-service-kvm-general`       |
-| Stage 5        | `modules/ha-service-kvm-general`      | `layer-context` outputs, `storage_infrastructure_map`, `ansible_template_config`, `ansible_extra_config` | `flat_node_map`, `attached_volumes` (auto-discovery), `ansible_inventory_data`, `hypervisor_kvm_infrastructure` | Provision triggers, rendered `inventory.yaml`, rendered `ansible.cfg`                                                         | Submodules `hypervisor-kvm`, `ssh-manager`, `ansible-runner` |
-| Stage 6        | `cluster-provision` & Ansible         | Provision configurations, base QCOW2 image, Bastion Vault credentials                                    | Copy-on-write OS disk, deterministic MAC derivation, Cloud-init network template                                | Running KVM guest domain, active `spire-server` daemon                                                                        | Operational SPIRE Server, downstream SPIRE agents            |
+| Pipeline Stage | Processing Component                  | Input Variables                                                                                                    | Derived Computations                                                                                            | Output Variables / Artifacts                                                                                                          | Consuming Downstream                                  |
+| -------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| Stage 1 to 2   | `helpers/service-catalog`             | `service_catalog`, `network_baseline`, `domain_suffix`                                                             | `_flat_catalog`, `identity_map`, `network_topology`, `_volume_topology_raw`                                     | `topology_identity`, `topology_network`, `pki_map`, `volume_map`, `dns_records`, `credential_paths`                                   | `foundation-resources`                                |
+| Stage 3        | `layers/foundation-libvirt-resources` | `service-catalog` outputs                                                                                          | `segments`, `global_volume_map`, `global_dns_hosts`                                                             | `foundation_topology`, `foundation_network_global`, `foundation_pki`, `foundation_storage`, `foundation_vault_path`, `foundation_ssh` | Consuming service layers via `terraform_remote_state` |
+| Stage 4        | `helpers/terraform-layer-context`     | Foundation remote state outputs, `target_clusters`, `primary_role`, `service_config`                               | `segments_map`, `components_context`, `primary_context`, `network_infrastructure_map`                           | `cluster_identity`, `cluster_network`, `cluster_fqdn`, `primary_network_config`, `topology_cluster`, `node_identities`                                | Layer `main.tf`, `locals.tf`, `linux-generic-cluster` |
+| Stage 5        | `orchestrate/linux-generic-cluster`   | `terraform-layer-context` outputs, `storage_infrastructure_map`, `ansible_template_config`, `ansible_extra_config` | `flat_node_map`, `attached_volumes` (auto-discovery), `ansible_inventory_data`, `hypervisor_kvm_infrastructure` | Provision triggers, rendered `inventory.yaml`, rendered `ansible.cfg`                                                                 | Modules `linux-generic-domain`, `ansible-runner`      |
+| Stage 6        | `configure/*` & Ansible               | Provision configurations, base QCOW2 image, Bastion Vault credentials                                              | Copy-on-write OS disk, deterministic MAC derivation, Cloud-init network template                                | Running KVM guest domain, active `spire-server` daemon                                                                                | Operational SPIRE Server, downstream SPIRE agents     |
 
 ### Item D. Module Versus Layer Boundary
 
@@ -97,13 +97,13 @@ flowchart TD
 
 1. The consuming project declaring a `service_catalog` entry MUST maintain ownership of that configuration schema. The `meta-platform` repository SHALL NOT aggregate distinct project catalogs into a single state file when composite `pki_map` keys risk name collisions across identical service and component pairs.
 2. The `meta-platform` repository MUST define two global parameters consumed across all catalog entries: `network_baseline` and `domain_suffix`. The first segment of every Vault KV path derives from the `project_code` of the catalog entry.
-3. Secret material MUST NOT traverse `terraform_remote_state` outputs. The `layer-context` module SHALL accept `guest_vm_data` and `security_pki_outputs` sourced from a `vault_generic_secret` data source or an authenticated Vault API response.
+3. Secret material MUST NOT traverse `terraform_remote_state` outputs. The `terraform-layer-context` module SHALL accept `guest_vm_data` and `security_pki_outputs` sourced from a `vault_generic_secret` data source or an authenticated Vault API response.
 
 ### Item F. Libvirt Provider Connection
 
 1. The `dmacvicar/libvirt` Terraform provider implements a dedicated RPC client rather than linking against the system `libvirt.so` library, and that client resolves a bare `qemu:///system` URI to a fixed legacy socket path.
 2. The host libvirt daemon splits into modular units (`virtqemud`, `virtnetworkd`, `virtstoraged`), and that split removes the legacy compatibility socket on which the bare URI resolution depends.
-3. Every layer declaring the `libvirt` provider (`foundation-libvirt-resources`, `platform-cilium-frontend`, `platform-harbor-origin-frontend`, `platform-keycloak-frontend`, `platform-spire-parent`, and `platform-vault-downstream-frontend`) MUST set `uri` to `qemu:///system?socket=/var/run/libvirt/virtqemud-sock`, naming the modular daemon's own socket explicitly through the provider's documented `socket` query parameter.
+3. Every layer declaring the `libvirt` provider (`foundation-libvirt-resources`, `platform-cilium-hubble`, `platform-harbor-origin-frontend`, `platform-keycloak-frontend`, `platform-spire-parent`, and `platform-vault-downstream-frontend`) MUST set `uri` to `qemu:///system?socket=/var/run/libvirt/virtqemud-sock`, naming the modular daemon's own socket explicitly through the provider's documented `socket` query parameter.
 4. A real `virsh` client resolves the bare `qemu:///system` URI correctly through `libvirt.so`, and that resolution difference confines the explicit socket requirement to the Terraform provider alone.
 
 ### Item G. Libvirt Socket Permission Delegation
@@ -122,7 +122,7 @@ flowchart TD
 
 ## Section 2. Service Catalog Specification
 
-Location: `terraform/modules/service-catalog`. The module accepts `service_catalog`, `network_baseline`, and `domain_suffix` variables, and exposes six structured outputs. The module contains zero `resource` declarations.
+Location: `terraform/modules/kvm-provisioning/helpers/service-catalog`. The module accepts `service_catalog`, `network_baseline`, and `domain_suffix` variables, and exposes six structured outputs. The module contains zero `resource` declarations.
 
 ### Item A. Input Contract & Schema Specification
 
@@ -164,30 +164,30 @@ Location: `terraform/modules/service-catalog`. The module accepts `service_catal
 
 ### Item F. Output Contract & Transformation Mapping
 
-| Output Variable     | Source Derivation        | Structural Shape                                  | Consuming Module                            |
-| ------------------- | ------------------------ | ------------------------------------------------- | ------------------------------------------- |
-| `topology_network`  | `local.network_topology` | Nested `map(service -> map(component -> object))` | `kvm-foundation-resources`, `layer-context` |
-| `topology_identity` | `local.identity_map`     | Nested `map(service -> map(component -> object))` | `kvm-foundation-resources`, `layer-context` |
-| `pki_map`           | `local.pki_map`          | Flat `map(cluster_key -> object)`                 | `kvm-foundation-resources`, `layer-context` |
-| `volume_map`        | `local.volume_topology`  | Flat `map(volume_name -> object)`                 | `kvm-foundation-resources`                  |
-| `dns_records`       | `local.dns_records`      | Flat `map(fqdn -> vip)`                           | `kvm-foundation-resources`                  |
-| `credential_paths`  | `local.credential_paths` | Nested `map(service -> map(component -> string))` | Consuming service layers                    |
+| Output Variable     | Source Derivation        | Structural Shape                                  | Consuming Module                                  |
+| ------------------- | ------------------------ | ------------------------------------------------- | ------------------------------------------------- |
+| `topology_network`  | `local.network_topology` | Nested `map(service -> map(component -> object))` | `foundation-resources`, `terraform-layer-context` |
+| `topology_identity` | `local.identity_map`     | Nested `map(service -> map(component -> object))` | `foundation-resources`, `terraform-layer-context` |
+| `pki_map`           | `local.pki_map`          | Flat `map(cluster_key -> object)`                 | `foundation-resources`, `terraform-layer-context` |
+| `volume_map`        | `local.volume_topology`  | Flat `map(volume_name -> object)`                 | `foundation-resources`                            |
+| `dns_records`       | `local.dns_records`      | Flat `map(fqdn -> vip)`                           | `foundation-resources`                            |
+| `credential_paths`  | `local.credential_paths` | Nested `map(service -> map(component -> string))` | Consuming service layers                          |
 
 1. Outputs `topology_network` and `topology_identity` MUST maintain nesting structured by service name and component name.
 2. Outputs `volume_map`, `pki_map`, and `dns_records` MUST expose flat maps keyed by the composite cluster key or volume identifier.
 3. The `credential_paths` output MUST expose Vault KV path strings structured as `${project_code}/${service}/${component}`, and each string names the folder of a component. The folder SHALL NOT hold a secret itself. The output SHALL NOT contain plaintext secret data.
 4. Output `foundation_vault_path` of layer `foundation-libvirt-resources` MUST expose the leaf paths `kv_paths[service][component][leaf]` structured as `${project_code}/${service}/${component}/${leaf}`. The leaf vocabulary is `ssh`, `cluster-config`, `app`, `addon`, `init`, `join-token`, `registrar`, `parent-attestor`, and `robot`, and the entry `addon` is a prefix which a consumer completes as `addon-<name>`.
 5. Output `foundation_vault_path` MUST also expose `ssh_credential_paths`, which resolves to the `ssh` leaf of every SSH-enabled cluster, and `guest_vm_path`, the one project-wide secret which no service owns. Consumers SHALL read these paths and MUST NOT compose them.
-6. Each leaf has exactly one writer layer: `security-vault-bastion-credentials` writes the `ssh` leaf, the keepalived password at `haproxy/frontend/app`, and the Hubble UI login at `cilium/frontend/addon-hubble-ui`. The platform layer of a cluster writes the `cluster-config` leaf. Layer `platform-vault-downstream-frontend` writes the `init` leaf. Layer `provision-spire-child` writes the `registrar` and `parent-attestor` leaves. Role `utils_spire_agent` writes the `join-token` leaves below `spire/parent` and `spire/child`.
+6. Each leaf has exactly one writer layer: `security-vault-bastion-credentials` writes the `ssh` leaf and the keepalived password at `haproxy/frontend/app` to the Bastion Vault. `security-vault-downstream-credentials` writes the Hubble UI login at `cilium/hubble/addon-hubble-ui` to the Downstream Vault. The platform layer of a cluster writes the `cluster-config` leaf. Layer `platform-vault-downstream-frontend` writes the `init` leaf. Layer `provision-spire-child` writes the `registrar` and `parent-attestor` leaves. Role `utils_spire_agent` writes the `join-token` leaves below `spire/parent` and `spire/child`.
 
-## Section 3. Foundation Realization: `kvm-foundation-resources`
+## Section 3. Foundation Realization: `foundation-resources`
 
-Location: `terraform/modules/kvm-foundation-resources`, invoked from the `foundation-libvirt-resources` layer.
+Location: `terraform/modules/kvm-provisioning/configure/foundation-resources`, invoked from the `foundation-libvirt-resources` layer.
 
 ### Item A. Global Network and Storage Materialization
 
 1. The module MUST invoke `service-catalog` and re-key outputs by `identity.cluster_name` into the `segments` map.
-2. The `libvirt_network.nat_networks` and `libvirt_network.hostonly_networks` resources MUST iterate `net_infrastructure` to create one NAT bridge and one HostOnly bridge per segment. Both network resources SHALL attach `global_dns_hosts` to the `dns.host` configuration block.
+2. The `libvirt_network.nat_networks` and `libvirt_network.hostonly_networks` resources MUST iterate `network_infrastructure` to create one NAT bridge and one HostOnly bridge per segment. Both network resources SHALL attach `global_dns_hosts` to the `dns.host` configuration block.
 3. The `libvirt_pool.storage_pools` resource MUST create one directory-backed storage pool for each distinct `storage_pool_name` derived from the union of `identity_map` and `volume_map`.
 4. The `libvirt_volume.data_disks` resource MUST iterate `global_volume_map` and create persistent `qcow2` volumes. The SPIRE Parent 5 GiB data volume SHALL materialize in this foundation layer.
 5. A `check` block MUST assert that every `storage_pool_name` conforms to the regular expression `^[a-zA-Z0-9_-]+$` before storage pool creation.
@@ -195,13 +195,13 @@ Location: `terraform/modules/kvm-foundation-resources`, invoked from the `founda
 ### Item B. Foundation Output Contract
 
 1. Output `foundation_topology` MUST group the topology identity, the topology network, the segments, and the `infrastructure_map`, which merges each segment network definition with its load balancer configuration and backend server list. Consuming service layers SHALL ingest this object.
-2. Outputs `foundation_global`, `foundation_pki`, and `foundation_vault_path` MUST pass the corresponding catalog outputs and baseline parameters directly to downstream consumers. `foundation_global` groups the network baseline, domain suffix, and DNS records, `foundation_pki` groups the PKI settings and the PKI map, and `foundation_vault_path` groups the KV namespace, the credential paths, and the SSH credential paths.
+2. Outputs `foundation_network_global`, `foundation_pki`, and `foundation_vault_path` MUST pass the corresponding catalog outputs and baseline parameters directly to downstream consumers. `foundation_network_global` groups the network baseline, domain suffix, and DNS records, `foundation_pki` groups the PKI settings and the PKI map, and `foundation_vault_path` groups the KV namespace, the credential paths, and the SSH credential paths.
 3. Output `foundation_storage` MUST expose the storage infrastructure map and the global volume map for downstream disk auto-discovery.
 4. Output `foundation_ssh` MUST expose the local file paths of the SSH client material, keyed by `cluster_name`.
 
 ## Section 4. Layer Context: Per-Layer SSoT Projection
 
-Location: `terraform/modules/kvm-provisioning/layer-context`.
+Location: `terraform/modules/kvm-provisioning/helpers/terraform-layer-context`. Every caller labels the module `terraform_layer_context`.
 
 ### Item A. Context Projection Flow
 
@@ -220,7 +220,7 @@ flowchart LR
         SC["service_config\n(nodes, vcpu, ram, tier)"]
     end
 
-    subgraph LC_TRANSFORM ["layer-context Processing"]
+    subgraph LC_TRANSFORM ["terraform-layer-context Processing"]
         SEGM["segments_map\n(re-keyed by cluster_name)"]
         COMP_CTX["components_context\n(maps target_clusters to segments)"]
         PRIM_CTX["primary_context\n(selects primary_role segment)"]
@@ -228,8 +228,8 @@ flowchart LR
     end
 
     subgraph LC_EXPORTS ["Layer Outputs"]
-        SVC_OUT["svc_identity\nsvc_network\nsvc_pki_role\nsvc_fqdn"]
-        NET_OUT["primary_net_config\ntier_network_map"]
+        SVC_OUT["cluster_identity\ncluster_network\ncluster_pki_role\ncluster_fqdn"]
+        NET_OUT["primary_network_config\nnetwork_tier_topology_map"]
         TOP_OUT["topology_cluster\nnode_identities"]
     end
 
@@ -249,40 +249,34 @@ flowchart LR
 
 ### Item B. Input Contract
 
-1. Input variables `global_topology_identity`, `global_topology_network`, `global_pki_map`, `global_network_baseline`, and `infrastructure_map` MUST match the schema of the corresponding members of the foundation objects `foundation_topology`, `foundation_pki`, and `foundation_global`.
+1. Input variables `global_topology_identity`, `global_topology_network`, `global_pki_map`, `global_network_baseline`, and `infrastructure_map` MUST match the schema of the corresponding members of the foundation objects `foundation_topology`, `foundation_pki`, and `foundation_network_global`.
 2. The `target_clusters` variable MUST map layer-local role names to `cluster_name` strings. The `primary_role` variable MUST identify the primary role key within `target_clusters`.
 3. The `service_config` variable MUST define per-role compute parameters including `role`, `network_tier`, `base_image_path`, and `nodes`. Every role key in `service_config` MUST exist in `target_clusters`.
-4. Variables `prod_vault_svc_vip` and `security_pki_outputs` MUST default to `null` to accommodate bootstrap layers that execute before Downstream Vault availability.
+4. Variables `downstream_vault_service_vip` and `security_pki_outputs` MUST default to `null` to accommodate bootstrap layers that execute before Downstream Vault availability.
 
 ### Item C. Primary Role Resolution
 
 1. The `segments_map` local MUST index identity and network structures by `cluster_name`.
-2. The `components_context` local MUST map every role in `target_clusters` to its resolved segment definition. Outputs `svc_identity`, `svc_network`, `svc_pki_role`, and `svc_fqdn` SHALL derive from the role specified by `primary_role`.
+2. The `components_context` local MUST map every role in `target_clusters` to its resolved segment definition. Outputs `cluster_identity`, `cluster_network`, `cluster_pki_role`, and `cluster_fqdn` SHALL derive from the role specified by `primary_role`.
 3. Multi-role layers MUST extract non-primary role definitions directly from `components_context`.
 
 ### Item D. Network Tier Grouping
 
 1. The `network_infrastructure_map_grouped` local MUST group infrastructure records by `network_tier`. The `network_infrastructure_map` local SHALL select the initial element of each tier group.
-2. The `primary_net_config` output MUST select the infrastructure configuration matching the `network_tier` of `primary_role`.
+2. The `primary_network_config` output MUST select the infrastructure configuration matching the `network_tier` of `primary_role`.
 
 ### Item E. Vault Agent Identity Base
 
 1. The `all_vault_agent_identity_bases` local MUST evaluate to an empty map when `security_pki_outputs` equals `null`.
 2. When `security_pki_outputs` contains data, `all_vault_agent_identity_bases` MUST assemble Vault Agent identity structures excluding `secret_id`. The calling layer root module SHALL inject `secret_id` independently.
 
-### Item F. Asymmetric Static Routes
+### Item F. Output Contract
 
-1. The `asymmetric_static_routes` local MUST compute inter-tier static routes using the target tier load-balancer VIP as the next hop gateway.
-2. An output `precondition` MUST verify that multiple roles within the same `network_tier` produce identical route lists.
-3. A consuming layer MAY omit static routes when cross-tier connectivity is not required.
+1. The output interface MUST expose `cluster_identity`, `cluster_network`, `cluster_pki_role`, `cluster_fqdn`, `network_infrastructure_map`, `primary_network_config`, `network_tier_topology_map`, `security_vm_credentials`, `downstream_vault_endpoint`, `storage_pool_name`, `topology_cluster`, `node_identities`, `vault_agent_identity_base`, `global_mss`, `global_mtu`, `node_exporter_port`, `primary_context`, `components_context`, `downstream_vault_service_vip`, `all_vault_agent_identity_bases`, and `global_topology_network`.
 
-### Item G. Output Contract
+## Section 5. Linux Generic Cluster: Middleware Orchestration
 
-1. The output interface MUST expose `svc_identity`, `svc_network`, `svc_pki_role`, `svc_fqdn`, `network_infrastructure_map`, `primary_net_config`, `tier_network_map`, `sec_vm_credentials`, `prod_vault_endpoint`, `storage_pool_name`, `topology_cluster`, `node_identities`, `vault_agent_identity_base`, `global_mss`, `global_mtu`, `node_exporter_port`, `primary_context`, `components_context`, `asymmetric_static_routes`, `prod_vault_svc_vip`, `all_vault_agent_identity_bases`, and `global_topology_network`.
-
-## Section 5. HA Service KVM General: Middleware Orchestration
-
-Location: `terraform/modules/kvm-provisioning/ha-service-kvm-general`.
+Location: `terraform/modules/kvm-provisioning/orchestrate/linux-generic-cluster`.
 
 ### Item A. Middleware Orchestration Flow
 
@@ -308,9 +302,9 @@ flowchart TD
     end
 
     subgraph EXEC_TRIGGER ["Sequential Execution Triggers"]
-        H_KVM["submodules/hypervisor-kvm\n(Creates libvirt_domain)"]
-        S_MGR["submodules/ssh-manager\n(Validates SSH known_hosts)"]
-        A_RUN["submodules/ansible-runner\n(Executes ansible_playbook_run action)"]
+        H_KVM["configure/linux-generic-domain\n(Creates libvirt_domain)"]
+        S_MGR["sshclient_reachability\n(Validates SSH known_hosts)"]
+        A_RUN["configure/ansible-runner\n(Executes ansible_playbook_run action)"]
     end
 
     CTX_TOP & NET_INF --> FNM
@@ -322,8 +316,8 @@ flowchart TD
     ANS_CFG --> VARS_MERGE
 
     DEVICE_MAP & FNM --> H_KVM
-    H_KVM -->|guest_status_trigger| S_MGR
-    S_MGR -->|ssh_access_ready_trigger| A_RUN
+    H_KVM -->|guest_host_public_keys| S_MGR
+    S_MGR -->|depends_on| A_RUN
     PRI_SEC & VARS_MERGE --> A_RUN
 ```
 
@@ -341,38 +335,34 @@ flowchart TD
 
 ### Item D. Interface Translation and Submodule Triggering
 
-1. The `hypervisor_kvm_infrastructure` local MUST translate foundation network structures into the input schema required by the `hypervisor-kvm` submodule.
-2. The module MUST invoke `hypervisor_kvm` with `create_networks = false` to prevent duplicate network resource creation.
-3. The module MUST pass `guest_status_trigger` to `ssh_manager`, and SHALL pass `ssh_access_ready_trigger` to `ansible_runner` to enforce strict sequential execution ordering.
+1. The `hypervisor_kvm_infrastructure` local MUST translate foundation network structures into the input schema required by the `linux-generic-domain` module.
+2. The module MUST invoke `linux_generic_domain` with `create_networks = false` to prevent duplicate network resource creation.
+3. The `local_file.known_hosts` resource MUST write the pre-generated guest host public keys to `~/.ssh/known_hosts_<cluster_name>` before guest network initialization.
+4. The `sshclient_reachability.guest_ready` resource MUST depend on `linux_generic_domain` and `local_file.known_hosts`. The `ansible_runner` module SHALL depend on `sshclient_reachability.guest_ready` and SHALL receive the `known_hosts` file ID as its `status_trigger`.
 
-## Section 6. Cluster Provision Submodules
+## Section 6. Configure Modules
 
-Location: `terraform/modules/kvm-provisioning/cluster-provision`.
+Location: `terraform/modules/kvm-provisioning/configure`.
 
-### Item A. `hypervisor-kvm`
+### Item A. `linux-generic-domain`
 
-1. The submodule MUST compute deterministic MAC addresses from `md5(node.ip)` using byte offset 0 for NAT interfaces and byte offset 6 for HostOnly interfaces, prefixed with `52:54:00:`.
+1. The module MUST derive MAC addresses through the `helpers/deterministic-mac` module, which prefixes `52:54:00:` to the first 6 hexadecimal characters of the MD5 digest of each seed. The NAT seed is the node IP, the HostOnly seed is `<node IP>-hostonly`, and each extra network seed is `<node IP>-<network name>`.
 2. The `libvirt_volume.os_disk` resource MUST configure `backing_store` referencing the shared base image volume to provide copy-on-write storage optimization.
 3. The `libvirt_cloudinit_disk.cloud_init` resource MUST render cloud-init user data and network configurations containing deterministic MAC addresses and static IP assignments.
 4. The `libvirt_domain.nodes` resource MUST configure `cpu.mode = "host-passthrough"` and `lifecycle.ignore_changes = [devices]`. The resource SHALL attach network interfaces in fixed order: NAT interface, HostOnly interface, followed by extra interfaces.
 5. A `terraform_data.node_mac_uniqueness` resource MUST enforce a precondition verifying MAC address uniqueness across all declared interfaces prior to domain creation.
 
-### Item B. `ssh-manager`
+### Item B. `ansible-runner`
 
-1. The submodule MUST generate host configurations under `~/.ssh/<ssh_config_name>`. A `null_resource` provisioner MUST register an `Include` directive in `~/.ssh/config` on creation, and SHALL remove the directive using `sed` on destroy.
-2. The `null_resource.prepare_ssh_access` resource MUST execute `known_hosts_bootstrapper` to confirm SSH reachability before signaling readiness.
-
-### Item C. `ansible-runner`
-
-1. The submodule MUST drive Ansible execution via the `ansible/ansible` provider using `action "ansible_playbook_run"` blocks.
+1. The module MUST drive Ansible execution via the `ansible/ansible` provider using `action "ansible_playbook_run"` blocks.
 2. The `local_file.inventory` resource MUST trigger playbook execution on `after_create` and `after_update` events. The inventory file SHALL append `jsonencode(var.status_trigger)` in comments to detect upstream virtual machine recreation.
 3. The `local_file.ansible_cfg` resource MUST render absolute paths for `roles_path` and `inventory` using `var.ansible_root_path`.
 4. The `extra_vars` variable MUST declare `sensitive = true` to protect credentials from terminal logging.
 
-### Item D. Submodule Classification
+### Item C. Module Classification
 
-1. Submodules `hypervisor-kvm-talos` and `lb-interface-planner` MUST serve the Talos and Cilium execution environments through the `ha-service-kvm-talos-lb` middleware module.
-2. Submodules `hypervisor-kvm-lb` and `lb-ansible-inventory` MUST remain classified as dormant components until explicit layer requirements reference them.
+1. The `configure/linux-talos-domain` and `helpers/talos-interface-planner` modules MUST serve the Talos execution environment through the `orchestrate/linux-talos-cluster` module.
+2. The `orchestrate/linux-talos-cluster` module MUST write the Talos `RegistryMirrorConfig` and `RegistryTLSConfig` documents when the caller passes `registry_mirror_config`.
 
 ## Section 7. Worked Example: `platform-spire-parent`
 
@@ -385,15 +375,15 @@ Location: `terraform/layers/platform-spire-parent`.
 
 ### Item B. Context and Middleware Invocation
 
-1. The `main.tf` file MUST instantiate `module.context` with foundation outputs, Vault guest credentials, `target_clusters`, `primary_role`, and `service_config`.
-2. The `main.tf` file MUST instantiate `module.platform_spire_parent` with `ansible_root_path`, `scripts_root_path`, `storage_infrastructure_map`, and context outputs.
+1. The `runtime-generic.tf` file MUST instantiate `module.terraform_layer_context` with foundation outputs, Vault guest credentials, `target_clusters`, `primary_role`, and `service_config`.
+2. The `runtime-generic.tf` file MUST instantiate `module.establish_platform_spire_parent_generic_cluster` with `ansible_root_path`, `scripts_root_path`, `storage_infrastructure_map`, and context outputs.
 
 ### Item C. Trust Domain and Upstream Authority Derivation
 
-1. The `locals.tf` file MUST extract `spire_trust_domain` from `module.context.svc_fqdn` via regular expression. Plan evaluation SHALL fail if `svc_fqdn` deviates from `<service>.<stage>.<domain_suffix>`.
-2. The `locals.tf` file MUST resolve `spire_server_port` from `module.context.primary_net_config.lb_config.ports.api.frontend_port`.
-3. The `ansible_template_config.spire_parent_node_ip` variable MUST resolve to `one(module.context.svc_network.node_ips)`. The binding SHALL NOT target the load balancer VIP during the bootstrap phase.
-4. The `ansible_extra_config` local MUST pass Bastion Vault parameters comprising `spire_vault_upstream_addr`, `spire_vault_upstream_pki_mount_path`, `spire_vault_upstream_approle_mount_path`, `spire_vault_upstream_role_id`, `spire_vault_upstream_secret_id`, and `spire_vault_upstream_ca_cert_b64`. The role ID and secret ID come from the AppRole resources of the same layer, `vault_approle_auth_backend_role.spire_upstream_authority` and its secret ID.
+1. The `locals.tf` file MUST extract `spiffe_trust_domain` from `module.terraform_layer_context.cluster_fqdn` via regular expression. Plan evaluation SHALL fail if `cluster_fqdn` deviates from `<service>.<stage>.<domain_suffix>`.
+2. The `locals.tf` file MUST resolve `spire_server_port` from `module.terraform_layer_context.primary_network_config.lb_config.ports.api.frontend_port`.
+3. The `ansible_template_config.spire_parent_node_ip` variable MUST resolve to `one(module.terraform_layer_context.cluster_network.node_ips)`. The binding SHALL NOT target the load balancer VIP during the bootstrap phase.
+4. The `ansible_extra_config` local MUST pass Bastion Vault parameters comprising `spire_vault_upstream_addr`, `spire_vault_upstream_pki_mount_path`, `spire_vault_upstream_approle_mount_path`, `spire_vault_upstream_role_id`, `spire_vault_upstream_secret_id`, and `spire_vault_upstream_ca_cert_b64`. The role ID and secret ID come from the AppRole resources of the same layer, `vault_approle_auth_backend_role.spire_parent_upstream_authority` and its secret ID.
 
 ### Item D. Compute Topology
 
@@ -402,8 +392,8 @@ Location: `terraform/layers/platform-spire-parent`.
 
 ### Item E. Output Contract
 
-1. The `service_vip` output MUST expose `primary_net_config.lb_config.vip`.
-2. The `node_exporter_targets` output MUST expose the node IP list and `node_exporter_port`.
+1. The field `service_vip` of the `generic_cluster` output MUST expose `primary_network_config.lb_config.vip`.
+2. The field `node_exporter_targets` of the `generic_cluster` output MUST expose the node IP list and `node_exporter_port`.
 3. The `spire_agent_bootstrap` output MUST expose `node_ip`, `trust_domain`, and `server_port` for downstream agent registration.
 
 ## Section 8. Image Assembly and Runtime Configuration

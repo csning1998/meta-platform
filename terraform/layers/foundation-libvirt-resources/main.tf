@@ -1,6 +1,6 @@
 
 module "foundation_libvirt_resources" {
-  source = "../../modules/kvm-foundation-resources"
+  source = "../../modules/kvm-provisioning/configure/foundation-resources"
 
   domain_suffix    = var.domain_suffix
   network_baseline = var.network_baseline
@@ -12,5 +12,5 @@ module "foundation_libvirt_resources" {
 module "ssh_identity_bootstrap" {
   source = "git::https://gitlab.com/csning1998-lab/terraform/terraform-provider-sshclient.git//terraform/modules/ssh-identity-bootstrap?ref=49d7d402b9b40183649139fe0eba8be88856f29d"
 
-  identity_hosts = module.foundation_libvirt_resources.ssh_hosts
+  identity_hosts = module.foundation_libvirt_resources.ssh_identity.hosts
 }

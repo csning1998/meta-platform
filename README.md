@@ -15,11 +15,15 @@ This repository provides group-scoped governance through several Terraform layer
 
 | Usage (Service) | Component (Role)         | Network Segment (CIDR) | Service Tier | HA-able? | CoW-able? | VIP            |
 | --------------- | ------------------------ | ---------------------- | ------------ | -------- | --------- | -------------- |
-| Cilium          | Talos (etcd)             | 172.16.125.0/24        | Platform     | True     | No        | 172.16.125.250 |
-| SPIRE Parent    | SPIRE Server (baremetal) | 172.16.126.0/24        | Platform     | False    | Yes       | 172.16.126.250 |
-| Harbor Origin   | Harbor (Docker)          | 172.16.127.0/24        | Platform     | False    | Yes       | 172.16.127.250 |
-| Vault           | Vault (Raft)             | 172.16.128.0/24        | Platform     | True     | No        | 172.16.128.250 |
-| Keycloak        | Keycloak (Docker)        | 172.16.129.0/24        | Platform     | False    | Yes       | 172.16.129.250 |
+| SPIRE Parent    | SPIRE Server (baremetal) | 172.16.125.0/24        | Platform     | False    | Yes       | 172.16.125.250 |
+| SPIRE Child     | SPIRE Server (Talos)     | 172.16.126.0/24        | Platform     | True     | No        | 172.16.126.250 |
+| Vault           | Vault (Raft)             | 172.16.127.0/24        | Platform     | True     | No        | 172.16.127.250 |
+| Harbor Origin   | Harbor (Docker)          | 172.16.128.0/24        | Platform     | False    | Yes       | 172.16.128.250 |
+| Cilium Hubble   | Talos (etcd)             | 172.16.129.0/24        | Platform     | True     | No        | 172.16.129.250 |
+| Keycloak        | Keycloak (Talos)         | 172.16.130.0/24        | Platform     | False    | No        | 172.16.130.250 |
+| HAProxy         | HAProxy (baremetal)      | 172.16.131.0/24        | Platform     | False    | Yes       | 172.16.131.250 |
+
+The segment number follows the deployment order of `planning/architecture_meta-platform_deployment-chain.md`, which allocates the third octet from 125 upward.
 
 > [!NOTE]
 > CoW-able indicates role compatibility with copy-on-write host filesystems. Raft-family consensus engines (such as etcd and Vault Raft) enforce strict fsync latency and quorum-timeout budgets. Intermittent I/O stalls on copy-on-write filesystems risk consensus failures. Kubeadm Master and MicroK8s embed etcd and dqlite with liveness-probe tolerances sufficient to absorb transient I/O latency without hard failures. Copy-on-write storage for these two roles remains permissible subject to operational discretion rather than strict prohibition.
@@ -179,3 +183,113 @@ Repositories lacking a `compose.yml` file SHALL limit context registrations excl
 The `iac-runner` service within `personal/on-premise-gitlab-deployment` IS EXEMPT from this mapping specification. Due to the operational requirement of bind-mounting `${PROJECT_ROOT}` in its entirety for arbitrary Infrastructure-as-Code (IaC) execution, path-restricted scoping is technically unfeasible; the service MUST retain `security_opt: label=disable`.
 
 Omission of an explicit `restorecon` execution upon removing dynamic relabel flags (`:z`/`:Z`) leaves target files with lingering Multi-Category Security (MCS) attributes rather than restoring the baseline `container_file_t:s0` context. For example, `gitlab-ci-with-code-reviewer/runner-config` previously relied on the `:z` flag; substituting `:z` with `label=type:container_engine_t` caused `config.toml` to retain stale categories (`container_file_t:s0:c206,c409`), resulting in startup permission denials and runner failure. Executing `sudo restorecon -RFv runner-config` resolves this context drift. Consequently, initial migration away from dynamic flags REQUIRES an explicit context restoration alongside the registration procedure specified in Item B.
+
+## Section 3. Terraform Operations
+
+`planning/architecture_meta-platform_deployment-chain.md` defines the apply order of the layers. This section defines how an operator runs one layer of that order. `documentation/lexicon.md` defines the names which the layers use.
+
+### Item A. Operator Shell
+
+1. The operator shell MUST export the Bastion Vault address and the Bastion Vault listener CA.
+2. The operator shell MUST export the state backend token, which the Bastion Vault holds at `secret/parent-group-governance/terraform/state-backend` in the field `token`.
+3. The operator shell MUST export `ANSIBLE_BECOME_PASS` through `read -s`, because a value typed on the command line enters the shell history.
+4. Every command of this section MUST NOT print a token or a password.
+
+```bash
+export VAULT_ADDR='https://172.16.0.1:8200'
+export VAULT_CACERT="$HOME/GitLab/csning1998-lab/parent-group-governance/vault/tls/ca.pem"
+export TF_HTTP_USERNAME='gitlab-ci-token'
+export TF_HTTP_PASSWORD=$(VAULT_TOKEN=$(cat "$HOME/.vault-token") vault kv get -field=token secret/parent-group-governance/terraform/state-backend)
+printf 'Enter ANSIBLE_BECOME_PASS: '; read -s ANSIBLE_BECOME_PASS; export ANSIBLE_BECOME_PASS; echo
+```
+
+1. The operator MUST open a tenant session after the exports.
+2. The tenant session is a child shell whose `VAULT_TOKEN` belongs to the AppRole `meta-platform-terraform-operator`.
+3. The child shell inherits only the exported variables of the parent shell.
+4. Shell variables and shell functions of the parent shell MUST be defined again inside the child shell.
+5. Leaving the child shell revokes the token of the tenant session.
+
+```bash
+cd "$HOME/GitLab/csning1998-lab/parent-group-governance" && ./governance vault tenant-session meta-platform
+cd "$HOME/GitLab/csning1998-lab/platform-engineering-lab/meta-platform"
+vault token lookup -format=json | jq -r '.data.display_name, .data.policies'
+```
+
+The lookup MUST print `approle` and the policy `meta-platform-terraform-operator`.
+
+### Item B. Login per Layer
+
+Every layer of the deployment chain runs correctly inside one tenant session. A layer whose Downstream Vault provider logs in with a JWT-SVID MUST run through `tools/terraform-operator.sh`, which fetches the JWT-SVID of the operator of the layer.
+
+| Layer                                                                                                                                                                                            | Login                       | Command, run in the layer directory    |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------- | -------------------------------------- |
+| `foundation-libvirt-resources`                                                                                                                                                                   | State backend only          | `terraform`                            |
+| `platform-spire-parent`, `provision-spire-parent`, `platform-haproxy-frontend`, `platform-vault-downstream-frontend`, `provision-vault-downstream-frontend`, `security-vault-downstream-tenants` | Tenant session              | `terraform`                            |
+| `security-vault-downstream-pki`                                                                                                                                                                  | Tenant session and JWT-SVID | `../../../tools/terraform-operator.sh` |
+| Every other layer of the deployment chain                                                                                                                                                        | JWT-SVID                    | `../../../tools/terraform-operator.sh` |
+
+A plain `terraform` run in a JWT-SVID layer fails with `required fields are unset: [jwt]`. The `state` subcommands use the state backend only, and plain `terraform state` works in every layer.
+
+### Item C. Plan Review
+
+1. An apply MUST execute a plan which the operator reviewed.
+2. A plan which destroys or replaces a `libvirt_domain`, an operating system volume, a `tls_private_key`, or a Vault role MUST NOT be applied.
+3. A replacement of `local_file.ansible_cfg` is an expected change, since the content of the file is read from the template during the apply.
+4. The creation of `libvirt_cloudinit_disk` with an in place update of the cloud-init volume is an expected change after a host reboot.
+5. The libvirt provider stores the cloud-init ISO under `/tmp/terraform-provider-libvirt-cloudinit/`.
+6. A host reboot empties `/tmp`, since `/tmp` is mounted as tmpfs.
+7. A rename of a module call label or a resource label MUST be migrated with a one-time `terraform state mv` before the plan.
+8. A `moved` block MUST NOT be committed.
+
+### Item D. Recovery
+
+#### Item D.1. Host SPIRE Agent Without an Identity
+
+1. The symptom is the message `dial unix /run/spire-agent/public/api.sock: connect: no such file or directory` from `tools/terraform-operator.sh`.
+2. The journal of `spire-agent.service` shows `join token does not exist or has already been used`.
+3. The cause is an expired agent SVID after a host outage longer than the SVID lifetime, since a join token is valid for one attestation only.
+4. The play of `provision-spire-parent` issues a new join token when the agent health check fails.
+5. The play runs only when the inventory file is created or updated.
+6. The replacement of the inventory file MUST be requested explicitly.
+
+```bash
+cd terraform/layers/provision-spire-parent
+terraform plan -replace='module.ansible_operator_identity.local_file.inventory' -out=tfplan
+terraform apply tfplan; rm -f tfplan
+sudo spire-agent healthcheck -socketPath /run/spire-agent/public/api.sock
+```
+
+The health check MUST print `Agent is healthy.`.
+
+#### Item D.2. State Emptied While Resources Remain
+
+1. The symptom is a plan which creates every resource of a layer.
+2. The domain of the layer still appears in the output of `virsh -c qemu:///system list --all`.
+3. GitLab keeps every version of a state.
+4. The last version with resources MUST be pushed back as a newer serial.
+5. The lineage of the restored version MUST equal the lineage of the current state.
+6. The domain UUID inside the restored version MUST equal the output of `virsh -c qemu:///system domuuid <domain>`.
+7. The downloaded state holds secrets.
+8. The downloaded files MUST stay in a directory created with `umask 077`.
+9. The downloaded files MUST be deleted after the push.
+
+```bash
+NAME=<state name>; PROJECT=84608830
+S=$(terraform state pull | jq -r .serial)
+for v in $(seq "$S" -1 1); do
+  n=$(curl -s -H "Authorization: Bearer $TF_HTTP_PASSWORD" \
+    "https://gitlab.com/api/v4/projects/$PROJECT/terraform/state/$NAME/versions/$v" | jq -r '(.resources // []) | length')
+  echo "serial=$v resources=$n"
+done
+umask 077; T=$(mktemp -d)
+curl -s -H "Authorization: Bearer $TF_HTTP_PASSWORD" \
+  "https://gitlab.com/api/v4/projects/$PROJECT/terraform/state/$NAME/versions/<serial>" -o "$T/restore.json"
+jq -r '.lineage' "$T/restore.json"
+jq -r '.resources[] | select(.type == "libvirt_domain") | .instances[].attributes.uuid' "$T/restore.json"
+jq --argjson s "$((S + 1))" '.serial = $s' "$T/restore.json" > "$T/push.json"
+terraform state push "$T/push.json"; rm -rf "$T"
+```
+
+#### Item D.3. Talos Cluster Without Health
+
+A destroy of an unhealthy Talos cluster MUST pass `-refresh=false`, because `talos_cluster_health` waits until the timeout during a refresh.

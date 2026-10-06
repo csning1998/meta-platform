@@ -18,25 +18,22 @@ variable "network_baseline" {
     cidr_index_max     = optional(number, 248)
   })
 
-  # Validates IPv4 CIDR block syntax.
   validation {
     condition     = can(cidrnetmask(var.network_baseline.cidr_block))
     error_message = "The 'cidr_block' must be a valid IPv4 CIDR range (e.g., 172.16.0.0/16)."
   }
 
-  # Validates MAC address prefix syntax against colon-delimited hexadecimal format (XX:XX:XX).
   validation {
     condition     = can(regex("^([0-9a-fA-F]{2}:){2}[0-9a-fA-F]{2}$", var.network_baseline.global_mac_prefix))
     error_message = "The 'global_mac_prefix' must be in the format XX:XX:XX (e.g., 52:54:00)."
   }
 
-  # Validates the VIP offset to enforce the upper boundary for a /24 subnet.
   validation {
     condition     = var.network_baseline.host_vip_offset < 255
     error_message = "host_vip_offset must be less than 255 to fit within a /24 subnet."
   }
 
-  # Validates that cidr_nat_offset and cidr_index_max leave a non-empty, non-overlapping range.
+  # Constrains NAT and HostOnly ranges to prevent address space collisions and cidrsubnet netnum overflow.
   validation {
     condition = (
       var.network_baseline.cidr_nat_offset >= 1 &&

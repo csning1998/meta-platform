@@ -6,3 +6,17 @@ description = "JDBC connection URLs carry host, port and database name only. Cre
 targetRules = ["generic-api-key"]
 paths = ['''ansible/roles/(shared|platform)_keycloak/templates/keycloak\.env\.j2$''']
 regexes = ['''jdbc:postgresql://[^\s"']+''']
+
+[[allowlists]]
+description = "The Jinja expression writes the unseal keys of the Vault init result to the Bastion Vault at run time. The line carries an expression and holds no key."
+targetRules = ["generic-api-key"]
+paths = ['''ansible/roles/provision_vault_downstream/tasks/main\.yaml$''']
+regexTarget = "line"
+regexes = ['''prod_vault_unseal_keys.*\|\s*to_json''']
+
+[[allowlists]]
+description = "The value names the key of the Keycloak database password inside the credential Secret. The line holds no password."
+targetRules = ["hashicorp-tf-password"]
+paths = ['''terraform/layers/provision-keycloak-oidc/runtime-talos\.tf$''']
+regexTarget = "line"
+regexes = ['''db_password_key\s*=\s*"keycloak_db_password"''']
