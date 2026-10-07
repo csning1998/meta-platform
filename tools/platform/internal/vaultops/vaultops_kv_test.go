@@ -8,7 +8,7 @@ import (
 	vaultapi "github.com/hashicorp/vault/api"
 )
 
-func TestReadKVv2FieldConnectionRefusedYieldsOkFalse(t *testing.T) {
+func TestReadKVv2Field_ReturnsFalseOnConnectionRefused(t *testing.T) {
 	cfg := vaultapi.DefaultConfig()
 	cfg.Address = "http://127.0.0.1:1"
 	client, err := vaultapi.NewClient(cfg)
@@ -25,7 +25,7 @@ func TestReadKVv2FieldConnectionRefusedYieldsOkFalse(t *testing.T) {
 	}
 }
 
-func TestReadKVv2FieldFoundWithField(t *testing.T) {
+func TestReadKVv2Field_ExtractsExistingField(t *testing.T) {
 	srv := httptest.NewServer(kvv2Handler(t, "/v1/secret/data/meta-platform/credentials", map[string]interface{}{
 		"data": map[string]interface{}{
 			"data": map[string]interface{}{
@@ -45,7 +45,7 @@ func TestReadKVv2FieldFoundWithField(t *testing.T) {
 	}
 }
 
-func TestReadKVv2FieldFoundButFieldMissing(t *testing.T) {
+func TestReadKVv2Field_ReturnsFalseWhenFieldMissing(t *testing.T) {
 	srv := httptest.NewServer(kvv2Handler(t, "/v1/secret/data/some/path", map[string]interface{}{
 		"data": map[string]interface{}{
 			"data": map[string]interface{}{
@@ -65,7 +65,7 @@ func TestReadKVv2FieldFoundButFieldMissing(t *testing.T) {
 	}
 }
 
-func TestReadKVv2FieldMalformedDataShape(t *testing.T) {
+func TestReadKVv2Field_ReturnsFalseOnMalformedDataShape(t *testing.T) {
 	srv := httptest.NewServer(kvv2Handler(t, "/v1/secret/data/some/path", map[string]interface{}{
 		"data": "not-a-map",
 	}))

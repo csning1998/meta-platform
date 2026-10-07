@@ -19,7 +19,7 @@ func requireAnsiblePlaybook(t *testing.T) {
 	}
 }
 
-func TestRunPlaybookMissingPlaybookFileFails(t *testing.T) {
+func TestRunPlaybook_FailsWhenPlaybookMissing(t *testing.T) {
 	requireAnsiblePlaybook(t)
 	dir := t.TempDir()
 
@@ -29,7 +29,7 @@ func TestRunPlaybookMissingPlaybookFileFails(t *testing.T) {
 	}
 }
 
-func TestRunPlaybookSucceedsWithAbsolutePlaybookAndNoRunDir(t *testing.T) {
+func TestRunPlaybook_SucceedsWithAbsolutePlaybookAndNoRunDir(t *testing.T) {
 	requireAnsiblePlaybook(t)
 	dir := t.TempDir()
 	playbookPath := filepath.Join(dir, "noop.yaml")
@@ -42,7 +42,7 @@ func TestRunPlaybookSucceedsWithAbsolutePlaybookAndNoRunDir(t *testing.T) {
 	}
 }
 
-func TestRunPlaybookResolvesRelativePlaybookAgainstRunDir(t *testing.T) {
+func TestRunPlaybook_ResolvesRelativePlaybookAgainstRunDir(t *testing.T) {
 	requireAnsiblePlaybook(t)
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "noop.yaml"), []byte(noopPlaybookYAML), 0o644); err != nil {
@@ -54,7 +54,7 @@ func TestRunPlaybookResolvesRelativePlaybookAgainstRunDir(t *testing.T) {
 	}
 }
 
-func TestRunPlaybookRelativePlaybookWithoutRunDirFails(t *testing.T) {
+func TestRunPlaybook_FailsWithRelativePlaybookWithoutRunDir(t *testing.T) {
 	requireAnsiblePlaybook(t)
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "noop.yaml"), []byte(noopPlaybookYAML), 0o644); err != nil {
@@ -68,7 +68,7 @@ func TestRunPlaybookRelativePlaybookWithoutRunDirFails(t *testing.T) {
 	}
 }
 
-func TestRunPlaybookToleratesMissingAnsibleConfigFile(t *testing.T) {
+func TestRunPlaybook_ToleratesMissingAnsibleConfigFile(t *testing.T) {
 	requireAnsiblePlaybook(t)
 	dir := t.TempDir()
 	playbookPath := filepath.Join(dir, "noop.yaml")
@@ -83,7 +83,7 @@ func TestRunPlaybookToleratesMissingAnsibleConfigFile(t *testing.T) {
 	}
 }
 
-func TestRunPlaybookPassesThroughPlaybookOptions(t *testing.T) {
+func TestRunPlaybook_PassesThroughPlaybookOptions(t *testing.T) {
 	requireAnsiblePlaybook(t)
 	dir := t.TempDir()
 	// Passes --tags via AnsiblePlaybookOptions to validate option propagation to the underlying ansible-playbook execution.

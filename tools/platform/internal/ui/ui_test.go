@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestPrintRoutesErrorAndFatalToErrOut(t *testing.T) {
+func TestPrint_RoutesErrorAndFatalToErrOut(t *testing.T) {
 	cases := []struct {
 		name      string
 		level     Level
@@ -44,7 +44,7 @@ func assertPrintDestination(t *testing.T, level Level, wantOnErr bool) {
 	}
 }
 
-func TestPrintIncludesLevelTag(t *testing.T) {
+func TestPrint_IncludesLevelTag(t *testing.T) {
 	var out, errOut bytes.Buffer
 	New(&out, &errOut).Print(Warn, "careful")
 	if !strings.Contains(out.String(), "[WARN]") {
@@ -52,7 +52,7 @@ func TestPrintIncludesLevelTag(t *testing.T) {
 	}
 }
 
-func TestDividerDefaultsToDashes(t *testing.T) {
+func TestPrintDivider_DefaultsToDashes(t *testing.T) {
 	var out, errOut bytes.Buffer
 	New(&out, &errOut).PrintDivider("")
 	if !strings.Contains(out.String(), strings.Repeat("-", 60)) {
@@ -60,7 +60,7 @@ func TestDividerDefaultsToDashes(t *testing.T) {
 	}
 }
 
-func TestPromptReturnsDefaultOnBlankLine(t *testing.T) {
+func TestPromptInput_ReturnsDefaultOnBlankLine(t *testing.T) {
 	var out, errOut bytes.Buffer
 	got := New(&out, &errOut).PromptInput(bufio.NewReader(strings.NewReader("\n")), "name?", "fallback")
 	if got != "fallback" {
@@ -68,7 +68,7 @@ func TestPromptReturnsDefaultOnBlankLine(t *testing.T) {
 	}
 }
 
-func TestPromptReturnsTrimmedInput(t *testing.T) {
+func TestPromptInput_ReturnsTrimmedInput(t *testing.T) {
 	var out, errOut bytes.Buffer
 	got := New(&out, &errOut).PromptInput(bufio.NewReader(strings.NewReader("  custom-key  \n")), "name?", "fallback")
 	if got != "custom-key" {
@@ -76,7 +76,7 @@ func TestPromptReturnsTrimmedInput(t *testing.T) {
 	}
 }
 
-func TestSelectValidChoice(t *testing.T) {
+func TestPromptSelect_AcceptsValidChoice(t *testing.T) {
 	var out, errOut bytes.Buffer
 	index, ok := New(&out, &errOut).PromptSelect(bufio.NewReader(strings.NewReader("2\n")), "choose", []string{"a", "b", "c"})
 	if !ok || index != 1 {
@@ -84,35 +84,52 @@ func TestSelectValidChoice(t *testing.T) {
 	}
 }
 
-func TestSelectRejectsInvalidChoices(t *testing.T) {
-	cases := []string{"0\n", "4\n", "\n", "abc\n", "-1\n"}
-	for _, input := range cases {
-		var out, errOut bytes.Buffer
-		_, ok := New(&out, &errOut).PromptSelect(bufio.NewReader(strings.NewReader(input)), "choose", []string{"a", "b", "c"})
-		if ok {
-			t.Errorf("PromptSelect(%q) = ok true, want false", input)
-		}
+func TestPromptSelect_RejectsInvalidChoices(t *testing.T) {
+	cases := []struct {
+		name  string
+		input string
+	}{
+		{"zero", "0\n"},
+		{"out of range upper", "4\n"},
+		{"empty line", "\n"},
+		{"alphabetic input", "abc\n"},
+		{"negative number", "-1\n"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var out, errOut bytes.Buffer
+			_, ok := New(&out, &errOut).PromptSelect(bufio.NewReader(strings.NewReader(tc.input)), "choose", []string{"a", "b", "c"})
+			if ok {
+				t.Errorf("PromptSelect(%q) = ok true, want false", tc.input)
+			}
+		})
 	}
 }
 
-func TestConfirmAcceptsYAndyOnly(t *testing.T) {
-	cases := map[string]bool{
-		"Y\n":   true,
-		"y\n":   true,
-		"yes\n": false,
-		"n\n":   false,
-		"\n":    false,
+func TestPromptConfirm_AcceptsYAndYOnly(t *testing.T) {
+	cases := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		{"uppercase Y", "Y\n", true},
+		{"lowercase y", "y\n", true},
+		{"word yes rejected", "yes\n", false},
+		{"letter n rejected", "n\n", false},
+		{"empty input rejected", "\n", false},
 	}
-	for input, want := range cases {
-		var out, errOut bytes.Buffer
-		got := New(&out, &errOut).PromptConfirm(bufio.NewReader(strings.NewReader(input)), "confirm?")
-		if got != want {
-			t.Errorf("PromptConfirm(%q) = %v, want %v", input, got, want)
-		}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var out, errOut bytes.Buffer
+			got := New(&out, &errOut).PromptConfirm(bufio.NewReader(strings.NewReader(tc.input)), "confirm?")
+			if got != tc.want {
+				t.Errorf("PromptConfirm(%q) = %v, want %v", tc.input, got, tc.want)
+			}
+		})
 	}
 }
 
-func TestLabelUnknownLevelFallsToInfoDefault(t *testing.T) {
+func TestResolveLabel_FallsBackToInfoDefaultOnUnknownLevel(t *testing.T) {
 	var out, errOut bytes.Buffer
 	New(&out, &errOut).Print(Level(99), "msg")
 	if !strings.Contains(out.String(), "[INFO]") {
@@ -123,7 +140,7 @@ func TestLabelUnknownLevelFallsToInfoDefault(t *testing.T) {
 	}
 }
 
-func TestPrintExactFormatPerLevel(t *testing.T) {
+func TestPrint_FormatsLevelTagAndColorPerLevel(t *testing.T) {
 	const (
 		colorReset  = "\033[0m"
 		colorRed    = "\033[0;31m"
@@ -158,7 +175,7 @@ func TestPrintExactFormatPerLevel(t *testing.T) {
 	}
 }
 
-func TestDividerCustomCharExactLength(t *testing.T) {
+func TestPrintDivider_CustomCharExactLength(t *testing.T) {
 	var out, errOut bytes.Buffer
 	New(&out, &errOut).PrintDivider("=")
 	want := strings.Repeat("=", 60) + "\n"
@@ -170,7 +187,7 @@ func TestDividerCustomCharExactLength(t *testing.T) {
 	}
 }
 
-func TestDividerDefaultExactLength(t *testing.T) {
+func TestPrintDivider_DefaultExactLength(t *testing.T) {
 	var out, errOut bytes.Buffer
 	New(&out, &errOut).PrintDivider("")
 	want := strings.Repeat("-", 60) + "\n"
@@ -182,7 +199,7 @@ func TestDividerDefaultExactLength(t *testing.T) {
 	}
 }
 
-func TestDividerMultiCharRepeatsWholeString(t *testing.T) {
+func TestPrintDivider_MultiCharRepeatsWholeString(t *testing.T) {
 	var out, errOut bytes.Buffer
 	New(&out, &errOut).PrintDivider("-=")
 	want := strings.Repeat("-=", 60) + "\n"
@@ -194,23 +211,29 @@ func TestDividerMultiCharRepeatsWholeString(t *testing.T) {
 	}
 }
 
-func TestConfirmEdgeCases(t *testing.T) {
-	cases := map[string]bool{
-		"Y":     true,  // ReadString returns the read bytes before io.EOF even with no trailing newline, and the error is ignored.
-		" Y \n": true,  // surrounding whitespace trimmed before comparison
-		"YES\n": false, // must not match via prefix, only exact "Y" or "y"
-		"":      false, // an empty reader returns "" immediately from ReadString with io.EOF.
+func TestPromptConfirm_EdgeCases(t *testing.T) {
+	cases := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		{"without newline before EOF", "Y", true},
+		{"surrounding whitespace trimmed", " Y \n", true},
+		{"prefix alone does not match", "YES\n", false},
+		{"empty reader immediately EOF", "", false},
 	}
-	for input, want := range cases {
-		var out, errOut bytes.Buffer
-		got := New(&out, &errOut).PromptConfirm(bufio.NewReader(strings.NewReader(input)), "confirm?")
-		if got != want {
-			t.Errorf("PromptConfirm(%q) = %v, want %v", input, got, want)
-		}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var out, errOut bytes.Buffer
+			got := New(&out, &errOut).PromptConfirm(bufio.NewReader(strings.NewReader(tc.input)), "confirm?")
+			if got != tc.want {
+				t.Errorf("PromptConfirm(%q) = %v, want %v", tc.input, got, tc.want)
+			}
+		})
 	}
 }
 
-func TestPromptWhitespaceOnlyLineReturnsDefault(t *testing.T) {
+func TestPromptInput_WhitespaceOnlyLineReturnsDefault(t *testing.T) {
 	var out, errOut bytes.Buffer
 	got := New(&out, &errOut).PromptInput(bufio.NewReader(strings.NewReader("   \n")), "name?", "fallback")
 	if got != "fallback" {
@@ -218,7 +241,7 @@ func TestPromptWhitespaceOnlyLineReturnsDefault(t *testing.T) {
 	}
 }
 
-func TestPromptNoTrailingNewlineReturnsTrimmedInput(t *testing.T) {
+func TestPromptInput_NoTrailingNewlineReturnsTrimmedInput(t *testing.T) {
 	var out, errOut bytes.Buffer
 	got := New(&out, &errOut).PromptInput(bufio.NewReader(strings.NewReader("custom-key")), "name?", "fallback")
 	if got != "custom-key" {
@@ -226,7 +249,7 @@ func TestPromptNoTrailingNewlineReturnsTrimmedInput(t *testing.T) {
 	}
 }
 
-func TestSelectLeadingZerosOutOfRange(t *testing.T) {
+func TestPromptSelect_RejectsLeadingZerosOutOfRange(t *testing.T) {
 	var out, errOut bytes.Buffer
 	_, ok := New(&out, &errOut).PromptSelect(bufio.NewReader(strings.NewReader("007\n")), "choose", []string{"a", "b", "c"})
 	if ok {
@@ -234,7 +257,7 @@ func TestSelectLeadingZerosOutOfRange(t *testing.T) {
 	}
 }
 
-func TestSelectOverflowingNumberDoesNotPanicAndIsInvalid(t *testing.T) {
+func TestPromptSelect_RejectsOverflowingNumber(t *testing.T) {
 	var out, errOut bytes.Buffer
 	_, ok := New(&out, &errOut).PromptSelect(bufio.NewReader(strings.NewReader("99999999999999999999\n")), "choose", []string{"a", "b", "c"})
 	if ok {
@@ -244,7 +267,7 @@ func TestSelectOverflowingNumberDoesNotPanicAndIsInvalid(t *testing.T) {
 
 // Validates integer overflow handling for numerical inputs exceeding 64-bit unsigned bounds (2^64 + 2).
 // Parsing MUST NOT allow modulo 2^64 wrap-around to resolve into valid option index ranges.
-func TestSelectOverflowDoesNotWrapIntoValidRange(t *testing.T) {
+func TestPromptSelect_OverflowDoesNotWrapIntoValidRange(t *testing.T) {
 	var out, errOut bytes.Buffer
 	_, ok := New(&out, &errOut).PromptSelect(bufio.NewReader(strings.NewReader("18446744073709551618\n")), "choose", []string{"a", "b", "c"})
 	if ok {
@@ -252,7 +275,7 @@ func TestSelectOverflowDoesNotWrapIntoValidRange(t *testing.T) {
 	}
 }
 
-func TestSelectAtIntBoundaries(t *testing.T) {
+func TestPromptSelect_RejectsAtIntBoundaries(t *testing.T) {
 	cases := []struct {
 		name  string
 		input string
@@ -274,7 +297,7 @@ func TestSelectAtIntBoundaries(t *testing.T) {
 	}
 }
 
-func TestSelectExactUpperBoundaryAccepted(t *testing.T) {
+func TestPromptSelect_AcceptsExactUpperBoundary(t *testing.T) {
 	var out, errOut bytes.Buffer
 	options := []string{"a", "b", "c"}
 	index, ok := New(&out, &errOut).PromptSelect(bufio.NewReader(strings.NewReader("3\n")), "choose", options)
@@ -283,7 +306,7 @@ func TestSelectExactUpperBoundaryAccepted(t *testing.T) {
 	}
 }
 
-func TestSelectOneBeyondUpperBoundaryRejected(t *testing.T) {
+func TestPromptSelect_RejectsOneBeyondUpperBoundary(t *testing.T) {
 	var out, errOut bytes.Buffer
 	options := []string{"a", "b", "c"}
 	_, ok := New(&out, &errOut).PromptSelect(bufio.NewReader(strings.NewReader("4\n")), "choose", options)
@@ -292,17 +315,26 @@ func TestSelectOneBeyondUpperBoundaryRejected(t *testing.T) {
 	}
 }
 
-func TestSelectSignedNumbersAreInvalid(t *testing.T) {
-	for _, input := range []string{"+1\n", "-1\n"} {
-		var out, errOut bytes.Buffer
-		_, ok := New(&out, &errOut).PromptSelect(bufio.NewReader(strings.NewReader(input)), "choose", []string{"a", "b", "c"})
-		if ok {
-			t.Errorf("PromptSelect(%q) = ok true, want false", input)
-		}
+func TestPromptSelect_RejectsSignedNumbers(t *testing.T) {
+	cases := []struct {
+		name  string
+		input string
+	}{
+		{"plus sign prefix", "+1\n"},
+		{"minus sign prefix", "-1\n"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var out, errOut bytes.Buffer
+			_, ok := New(&out, &errOut).PromptSelect(bufio.NewReader(strings.NewReader(tc.input)), "choose", []string{"a", "b", "c"})
+			if ok {
+				t.Errorf("PromptSelect(%q) = ok true, want false", tc.input)
+			}
+		})
 	}
 }
 
-func TestSelectTrailingGarbageIsInvalid(t *testing.T) {
+func TestPromptSelect_RejectsTrailingGarbage(t *testing.T) {
 	var out, errOut bytes.Buffer
 	_, ok := New(&out, &errOut).PromptSelect(bufio.NewReader(strings.NewReader("2x\n")), "choose", []string{"a", "b", "c"})
 	if ok {
@@ -310,7 +342,7 @@ func TestSelectTrailingGarbageIsInvalid(t *testing.T) {
 	}
 }
 
-func TestSelectSingleOptionBoundaries(t *testing.T) {
+func TestPromptSelect_EnforcesSingleOptionBoundaries(t *testing.T) {
 	var out1, errOut1 bytes.Buffer
 	index, ok := New(&out1, &errOut1).PromptSelect(bufio.NewReader(strings.NewReader("1\n")), "choose", []string{"only"})
 	if !ok || index != 0 {
@@ -324,7 +356,7 @@ func TestSelectSingleOptionBoundaries(t *testing.T) {
 	}
 }
 
-func TestSelectPrintsOptionListExactly(t *testing.T) {
+func TestPromptSelect_PrintsOptionList(t *testing.T) {
 	var out, errOut bytes.Buffer
 	New(&out, &errOut).PromptSelect(bufio.NewReader(strings.NewReader("1\n")), "choose", []string{"a", "b"})
 
@@ -335,7 +367,7 @@ func TestSelectPrintsOptionListExactly(t *testing.T) {
 	}
 }
 
-func TestNewRoundTripsWritersWithoutSwapping(t *testing.T) {
+func TestNew_RetainsWritersWithoutSwapping(t *testing.T) {
 	var out, errOut bytes.Buffer
 	New(&out, &errOut).Print(Info, "hello")
 	if !strings.Contains(out.String(), "hello") {
@@ -346,7 +378,7 @@ func TestNewRoundTripsWritersWithoutSwapping(t *testing.T) {
 	}
 }
 
-func TestPrintTextWritesVerbatimToOut(t *testing.T) {
+func TestPrintText_WritesVerbatimToOut(t *testing.T) {
 	var out, errOut bytes.Buffer
 	p := New(&out, &errOut)
 	text := "--- /etc/hosts\n+++ /etc/hosts (candidate)\n-old\n+new\n"
@@ -356,7 +388,7 @@ func TestPrintTextWritesVerbatimToOut(t *testing.T) {
 	}
 }
 
-func TestDiagnosticWritesEveryLevelToErrOut(t *testing.T) {
+func TestDiagnostic_WritesEveryLevelToErrOut(t *testing.T) {
 	var out, errOut bytes.Buffer
 	p := New(&out, &errOut).Diagnostic()
 	p.Print(Info, "Network Mode: Bridge detected (virbr0).")

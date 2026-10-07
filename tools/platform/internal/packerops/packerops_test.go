@@ -11,7 +11,7 @@ import (
 	"platform/internal/ui"
 )
 
-func TestResolveBaseCategoryDirPrefersDistro(t *testing.T) {
+func TestResolveBaseCategoryDir_PrefersDistro(t *testing.T) {
 	dir := t.TempDir()
 	mustMkdirAll(t, filepath.Join(dir, "distro"))
 	mustMkdirAll(t, filepath.Join(dir, "services"))
@@ -25,7 +25,7 @@ func TestResolveBaseCategoryDirPrefersDistro(t *testing.T) {
 	}
 }
 
-func TestBaseExists(t *testing.T) {
+func TestBaseExists_VerifiesExistenceAcrossCategories(t *testing.T) {
 	dir := t.TempDir()
 	mustMkdirAll(t, filepath.Join(dir, "distro"))
 	mustMkdirAll(t, filepath.Join(dir, "services"))
@@ -47,7 +47,7 @@ func TestBaseExists(t *testing.T) {
 	}
 }
 
-func TestBaseExistsBothCategoriesPresentStillTrue(t *testing.T) {
+func TestBaseExists_ReturnsTrueWhenBothCategoriesPresent(t *testing.T) {
 	dir := t.TempDir()
 	mustMkdirAll(t, filepath.Join(dir, "distro"))
 	mustMkdirAll(t, filepath.Join(dir, "services"))
@@ -59,14 +59,14 @@ func TestBaseExistsBothCategoriesPresentStillTrue(t *testing.T) {
 	}
 }
 
-func TestBaseExistsNonexistentPackerDir(t *testing.T) {
+func TestBaseExists_ReturnsFalseOnNonexistentPackerDir(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "does-not-exist")
 	if BaseExists(dir, "anything") {
 		t.Error("BaseExists on a nonexistent packerDir = true, want false")
 	}
 }
 
-func TestListBasesSortsAndFiltersSuffix(t *testing.T) {
+func TestListBases_SortsAndFiltersSuffix(t *testing.T) {
 	dir := t.TempDir()
 	sub := filepath.Join(dir, "distro")
 	mustMkdirAll(t, sub)
@@ -84,7 +84,7 @@ func TestListBasesSortsAndFiltersSuffix(t *testing.T) {
 	}
 }
 
-func TestCleanRemovesOnlyRequestedBaseOutput(t *testing.T) {
+func TestClean_RemovesOnlyRequestedBaseOutput(t *testing.T) {
 	dir := t.TempDir()
 	mustMkdirAll(t, filepath.Join(dir, "output", "base-a"))
 	mustMkdirAll(t, filepath.Join(dir, "output", "base-b"))
@@ -102,7 +102,7 @@ func TestCleanRemovesOnlyRequestedBaseOutput(t *testing.T) {
 	}
 }
 
-func TestCleanIsIdempotentOnAlreadyMissingOutput(t *testing.T) {
+func TestClean_IsIdempotentOnAlreadyMissingOutput(t *testing.T) {
 	dir := t.TempDir()
 	out := ui.New(discard{}, discard{})
 	if err := Clean(dir, "never-built", nil, t.TempDir(), out); err != nil {
@@ -110,7 +110,7 @@ func TestCleanIsIdempotentOnAlreadyMissingOutput(t *testing.T) {
 	}
 }
 
-func TestCleanAllWithNoDiscoveredBasesTouchesNothing(t *testing.T) {
+func TestCleanAll_TouchesNothingWithNoDiscoveredBases(t *testing.T) {
 	dir := t.TempDir()
 	mustMkdirAll(t, filepath.Join(dir, "output", "some-other-base"))
 
@@ -124,7 +124,7 @@ func TestCleanAllWithNoDiscoveredBasesTouchesNothing(t *testing.T) {
 	}
 }
 
-func TestCleanAllRemovesEveryListedBase(t *testing.T) {
+func TestCleanAll_RemovesEveryListedBase(t *testing.T) {
 	dir := t.TempDir()
 	mustMkdirAll(t, filepath.Join(dir, "output", "base-a"))
 	mustMkdirAll(t, filepath.Join(dir, "output", "base-b"))
@@ -146,7 +146,7 @@ func TestCleanAllRemovesEveryListedBase(t *testing.T) {
 	}
 }
 
-func TestCleanCacheSweepPreservesISORemovesOtherEntries(t *testing.T) {
+func TestCleanCacheSweep_PreservesISORemovesOtherEntries(t *testing.T) {
 	dir := t.TempDir()
 	cacheDir := t.TempDir()
 	mustWriteFile(t, filepath.Join(cacheDir, "keep.iso"), "iso-content")
@@ -170,7 +170,7 @@ func TestCleanCacheSweepPreservesISORemovesOtherEntries(t *testing.T) {
 	}
 }
 
-func TestCleanCacheSweepFallsBackToSudoWhenRemoveAllFails(t *testing.T) {
+func TestCleanCacheSweep_FallsBackToSudoWhenRemoveAllFails(t *testing.T) {
 	dir := t.TempDir()
 	cacheDir := t.TempDir()
 	unremovableDir := filepath.Join(cacheDir, "locked")
@@ -189,7 +189,7 @@ func TestCleanCacheSweepFallsBackToSudoWhenRemoveAllFails(t *testing.T) {
 	}
 }
 
-func TestCleanWithNonexistentCacheDirSucceeds(t *testing.T) {
+func TestClean_SucceedsWithNonexistentCacheDir(t *testing.T) {
 	dir := t.TempDir()
 	missingCacheDir := filepath.Join(t.TempDir(), "does-not-exist")
 
@@ -199,7 +199,7 @@ func TestCleanWithNonexistentCacheDirSucceeds(t *testing.T) {
 	}
 }
 
-func TestBuildReturnsErrorWhenVarFileMissing(t *testing.T) {
+func TestBuild_ReturnsErrorWhenVarFileMissing(t *testing.T) {
 	dir := t.TempDir()
 	mustMkdirAll(t, filepath.Join(dir, "distro"))
 	mustMkdirAll(t, filepath.Join(dir, "services"))
@@ -215,7 +215,7 @@ func TestBuildReturnsErrorWhenVarFileMissing(t *testing.T) {
 	}
 }
 
-func TestResolveBaseCategoryDirBothPresentPrefersDistro(t *testing.T) {
+func TestResolveBaseCategoryDir_PrefersDistroWhenBothCategoriesPresent(t *testing.T) {
 	dir := t.TempDir()
 	mustMkdirAll(t, filepath.Join(dir, "distro"))
 	mustMkdirAll(t, filepath.Join(dir, "services"))
@@ -227,7 +227,7 @@ func TestResolveBaseCategoryDirBothPresentPrefersDistro(t *testing.T) {
 	}
 }
 
-func TestResolveBaseCategoryDirNonexistentPackerDirDefaultsToServices(t *testing.T) {
+func TestResolveBaseCategoryDir_DefaultsToServicesOnNonexistentPackerDir(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "does-not-exist")
 
 	if got := resolveBaseCategoryDir(dir, "any-base"); got != "services" {
@@ -235,7 +235,7 @@ func TestResolveBaseCategoryDirNonexistentPackerDirDefaultsToServices(t *testing
 	}
 }
 
-func TestListDistroBasesAndListServiceBasesDirectCalls(t *testing.T) {
+func TestListBases_ListsDistroAndServiceBases(t *testing.T) {
 	dir := t.TempDir()
 	mustMkdirAll(t, filepath.Join(dir, "distro"))
 	mustMkdirAll(t, filepath.Join(dir, "services"))
@@ -259,7 +259,7 @@ func TestListDistroBasesAndListServiceBasesDirectCalls(t *testing.T) {
 	}
 }
 
-func TestGenerateQcow2ChecksumMissingOutputDirReturnsNil(t *testing.T) {
+func TestGenerateQcow2Checksum_ReturnsNilWhenOutputDirMissing(t *testing.T) {
 	missingDir := filepath.Join(t.TempDir(), "does-not-exist")
 	out := ui.New(discard{}, discard{})
 	if err := generateQcow2Checksum(missingDir, out); err != nil {
@@ -267,7 +267,7 @@ func TestGenerateQcow2ChecksumMissingOutputDirReturnsNil(t *testing.T) {
 	}
 }
 
-func TestGenerateQcow2ChecksumEmptyOutputDirWritesNothing(t *testing.T) {
+func TestGenerateQcow2Checksum_WritesNothingWhenOutputDirEmpty(t *testing.T) {
 	dir := t.TempDir()
 	out := ui.New(discard{}, discard{})
 	if err := generateQcow2Checksum(dir, out); err != nil {
@@ -282,7 +282,7 @@ func TestGenerateQcow2ChecksumEmptyOutputDirWritesNothing(t *testing.T) {
 	}
 }
 
-func TestGenerateQcow2ChecksumWritesExactSha256Line(t *testing.T) {
+func TestGenerateQcow2Checksum_WritesExactSha256Line(t *testing.T) {
 	dir := t.TempDir()
 	content := "fake-qcow2-image-bytes"
 	mustWriteFile(t, filepath.Join(dir, "image.qcow2"), content)
@@ -304,7 +304,7 @@ func TestGenerateQcow2ChecksumWritesExactSha256Line(t *testing.T) {
 	}
 }
 
-func TestGenerateQcow2ChecksumOnlyChecksumsQcow2AmongOtherFileTypes(t *testing.T) {
+func TestGenerateQcow2Checksum_OnlyChecksumsQcow2AmongOtherFileTypes(t *testing.T) {
 	dir := t.TempDir()
 	mustWriteFile(t, filepath.Join(dir, "notes.txt"), "not an image")
 	mustWriteFile(t, filepath.Join(dir, "build.log"), "log output")
@@ -333,7 +333,7 @@ func TestGenerateQcow2ChecksumOnlyChecksumsQcow2AmongOtherFileTypes(t *testing.T
 	}
 }
 
-func TestGenerateQcow2ChecksumWithTwoQcow2FilesChecksumsOnlyAlphabeticallyFirst(t *testing.T) {
+func TestGenerateQcow2Checksum_ChecksumsAlphabeticallyFirstWhenMultipleQcow2(t *testing.T) {
 	dir := t.TempDir()
 	mustWriteFile(t, filepath.Join(dir, "a-image.qcow2"), "content-a")
 	mustWriteFile(t, filepath.Join(dir, "z-image.qcow2"), "content-z")

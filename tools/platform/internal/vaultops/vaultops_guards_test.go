@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestUnsealProductionNoInventoryDiscovered(t *testing.T) {
+func TestUnsealProduction_FailsWhenNoInventoryDiscovered(t *testing.T) {
 	root := t.TempDir()
 	home := t.TempDir()
 	p := Paths{ProjectRoot: root, AnsibleDir: t.TempDir(), Home: home}
@@ -22,7 +22,7 @@ func TestUnsealProductionNoInventoryDiscovered(t *testing.T) {
 	}
 }
 
-func TestUnsealProductionInventoryFileNotFound(t *testing.T) {
+func TestUnsealProduction_FailsWhenInventoryFileNotFound(t *testing.T) {
 	root := t.TempDir()
 	home := t.TempDir()
 	p := Paths{ProjectRoot: root, AnsibleDir: t.TempDir(), Home: home}
@@ -37,7 +37,7 @@ func TestUnsealProductionInventoryFileNotFound(t *testing.T) {
 	}
 }
 
-func TestUnsealProductionPlaybookFileNotFound(t *testing.T) {
+func TestUnsealProduction_FailsWhenPlaybookFileNotFound(t *testing.T) {
 	root := t.TempDir()
 	home := t.TempDir()
 	ansibleDir := t.TempDir() // no playbooks/operation_playbook.yaml under here
@@ -57,7 +57,7 @@ func TestUnsealProductionPlaybookFileNotFound(t *testing.T) {
 	}
 }
 
-func TestUnsealProductionRootTokenFileNotFound(t *testing.T) {
+func TestUnsealProduction_FailsWhenRootTokenFileNotFound(t *testing.T) {
 	root := t.TempDir()
 	home := t.TempDir() // no .vault-token here
 	ansibleDir := t.TempDir()
@@ -78,7 +78,7 @@ func TestUnsealProductionRootTokenFileNotFound(t *testing.T) {
 	}
 }
 
-func TestUnsealProductionProdCACertNotFound(t *testing.T) {
+func TestUnsealProduction_FailsWhenProdCACertNotFound(t *testing.T) {
 	root := t.TempDir()
 	home := t.TempDir()
 	ansibleDir := t.TempDir()
@@ -102,7 +102,7 @@ func TestUnsealProductionProdCACertNotFound(t *testing.T) {
 	}
 }
 
-func TestUnsealProductionAllGuardsPassReachesExecStage(t *testing.T) {
+func TestUnsealProduction_ReachesExecStageWhenAllGuardsPass(t *testing.T) {
 	if _, err := os.Stat("/usr/bin/env"); err != nil {
 		t.Skip("no /usr/bin/env available to sanity-check PATH lookups")
 	}

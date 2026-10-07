@@ -17,7 +17,7 @@ import (
 	"platform/internal/ui"
 )
 
-func TestSplitFields(t *testing.T) {
+func TestSplitWhitespaceFields_SplitsWhitespace(t *testing.T) {
 	cases := []struct {
 		name string
 		in   string
@@ -78,7 +78,7 @@ func loadTestEnv(t *testing.T, content string) *config.Env {
 	return env
 }
 
-func TestAllBases(t *testing.T) {
+func TestGetConfiguredPackerBases_ExtractsBases(t *testing.T) {
 	env := loadTestEnv(t, `ALL_PACKER_BASES="base-a base-b"`+"\n")
 	got := getConfiguredPackerBases(env)
 	want := []string{"base-a", "base-b"}
@@ -92,7 +92,7 @@ func TestAllBases(t *testing.T) {
 	}
 }
 
-func TestAllBases_KeyAbsent(t *testing.T) {
+func TestGetConfiguredPackerBases_ReturnsEmptyWhenKeyAbsent(t *testing.T) {
 	env := loadTestEnv(t, `ALL_TERRAFORM_LAYERS="layer-x"`+"\n")
 	got := getConfiguredPackerBases(env)
 	if len(got) != 0 {
@@ -100,7 +100,7 @@ func TestAllBases_KeyAbsent(t *testing.T) {
 	}
 }
 
-func TestAllTerraformLayers(t *testing.T) {
+func TestGetConfiguredTerraformLayers_ExtractsLayers(t *testing.T) {
 	env := loadTestEnv(t, `ALL_TERRAFORM_LAYERS="layer-x"`+"\n")
 	got := getConfiguredTerraformLayers(env)
 	want := []string{"layer-x"}
@@ -114,7 +114,7 @@ func TestAllTerraformLayers(t *testing.T) {
 	}
 }
 
-func TestAllTerraformLayers_KeyAbsent(t *testing.T) {
+func TestGetConfiguredTerraformLayers_ReturnsEmptyWhenKeyAbsent(t *testing.T) {
 	env := loadTestEnv(t, `ALL_PACKER_BASES="base-a"`+"\n")
 	got := getConfiguredTerraformLayers(env)
 	if len(got) != 0 {
@@ -122,7 +122,7 @@ func TestAllTerraformLayers_KeyAbsent(t *testing.T) {
 	}
 }
 
-func TestResolveProjectRoot(t *testing.T) {
+func TestResolveProjectRoot_LocatesGitRoot(t *testing.T) {
 	root := t.TempDir()
 	if err := os.Mkdir(filepath.Join(root, ".git"), 0o755); err != nil {
 		t.Fatal(err)
@@ -152,7 +152,7 @@ func TestResolveProjectRoot(t *testing.T) {
 	}
 }
 
-func TestResolveProjectRootNoGitDirectoryErrors(t *testing.T) {
+func TestResolveProjectRoot_FailsWithoutGitDirectory(t *testing.T) {
 	start := t.TempDir()
 
 	if _, err := resolveProjectRoot(start); err == nil {
@@ -160,7 +160,7 @@ func TestResolveProjectRootNoGitDirectoryErrors(t *testing.T) {
 	}
 }
 
-func TestResolveBastionVaultAddrInjectionTakesPriority(t *testing.T) {
+func TestResolveBastionVaultAddr_PrioritizesInjectedAddress(t *testing.T) {
 	env := loadTestEnv(t, `BASTION_VAULT_ADDR="https://from-env:8200"`+"\n")
 	a := &app{bastionVaultAddr: "https://from-injection:8200", env: env}
 
@@ -169,7 +169,7 @@ func TestResolveBastionVaultAddrInjectionTakesPriority(t *testing.T) {
 	}
 }
 
-func TestResolveBastionVaultAddrFallsBackToEnvBastionVaultAddr(t *testing.T) {
+func TestResolveBastionVaultAddr_FallsBackToEnvironmentVariable(t *testing.T) {
 	env := loadTestEnv(t, `BASTION_VAULT_ADDR="https://staging-bastion:8200"`+"\n")
 	a := &app{env: env}
 
@@ -178,7 +178,7 @@ func TestResolveBastionVaultAddrFallsBackToEnvBastionVaultAddr(t *testing.T) {
 	}
 }
 
-func TestResolveBastionVaultAddrEmptyWithoutInjectionOrEnv(t *testing.T) {
+func TestResolveBastionVaultAddr_ReturnsEmptyWhenUnset(t *testing.T) {
 	a := &app{}
 
 	if got := a.resolveBastionVaultAddr(); got != "" {
@@ -186,7 +186,7 @@ func TestResolveBastionVaultAddrEmptyWithoutInjectionOrEnv(t *testing.T) {
 	}
 }
 
-func TestPrintVaultStatusBannerNilEnvDoesNotPanic(t *testing.T) {
+func TestPrintVaultStatusBanner_SucceedsWithNilEnv(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/sys/seal-status", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -206,7 +206,7 @@ func TestPrintVaultStatusBannerNilEnvDoesNotPanic(t *testing.T) {
 	a.printVaultStatusBanner(context.Background())
 }
 
-func TestAppVaultPaths(t *testing.T) {
+func TestNewVaultPaths_InitializesFromAppFields(t *testing.T) {
 	a := &app{root: "/r", home: "/h", terraform: "/tf", ansibleDir: "/ans"}
 	got := a.newVaultPaths()
 
@@ -227,7 +227,7 @@ func TestAppVaultPaths(t *testing.T) {
 // TestRunMenu_Quit drives runMenu with "Quit" selected (option 10, the last entry) via an
 // in-memory reader, matching the one selection whose dispatch (chosen.run == nil) requires
 // no real infrastructure.
-func TestRunMenu_Quit(t *testing.T) {
+func TestRunMenu_ExitsOnQuitOption(t *testing.T) {
 	var buf bytes.Buffer
 	dir := t.TempDir()
 	env, err := config.Load(filepath.Join(dir, ".env"))

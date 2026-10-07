@@ -13,7 +13,7 @@ import (
 	"platform/internal/ui"
 )
 
-func TestPrintEnvironmentBannerToleratesUnreadableEnvFile(t *testing.T) {
+func TestPrintEnvironmentBanner_ToleratesUnreadableEnvFile(t *testing.T) {
 	dir := t.TempDir()
 	// config.Load(path) errors when path is a directory, exercising the guarded branch that
 	// used to dereference a nil *config.Env before printEnvironmentBanner checked the error.
@@ -31,7 +31,7 @@ func TestPrintEnvironmentBannerToleratesUnreadableEnvFile(t *testing.T) {
 	}
 }
 
-func TestPrintEnvironmentBannerMissingEnvFileDefaultsToNative(t *testing.T) {
+func TestPrintEnvironmentBanner_DefaultsToNativeOnMissingEnvFile(t *testing.T) {
 	dir := t.TempDir() // no .env written; config.Load tolerates a missing file with err == nil
 
 	var out bytes.Buffer
@@ -47,7 +47,7 @@ func TestPrintEnvironmentBannerMissingEnvFileDefaultsToNative(t *testing.T) {
 	}
 }
 
-func TestPrintEnvironmentBannerContainerStrategyPrintsPodmanEngine(t *testing.T) {
+func TestPrintEnvironmentBanner_PrintsPodmanEngineForContainerStrategy(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, ".env"), []byte(`ENVIRONMENT_STRATEGY="container"`+"\n"), 0o600); err != nil {
 		t.Fatalf("write .env: %v", err)
@@ -68,7 +68,7 @@ func TestPrintEnvironmentBannerContainerStrategyPrintsPodmanEngine(t *testing.T)
 
 // Validates printVaultStatusBanner execution when a Production Vault CA certificate exists and a.env is uninitialized (nil).
 // Execution MUST NOT panic or block when evaluating Vault configuration status.
-func TestPrintVaultStatusBannerToleratesNilEnv(t *testing.T) {
+func TestPrintVaultStatusBanner_ToleratesNilEnvWithCACert(t *testing.T) {
 	dir := t.TempDir()
 	terraform := filepath.Join(dir, "terraform")
 	caCertPath := filepath.Join(terraform, "layers", "shared-vault-frontend", "tls", "bootstrap-ca.crt")

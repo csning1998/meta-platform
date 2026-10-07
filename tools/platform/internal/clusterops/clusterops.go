@@ -182,8 +182,9 @@ func ReadCoordinates(ctx context.Context, tenantsLayerDir string) (Coordinates, 
 func (c Coordinates) ResolveOperator(target operatorops.OperatorSubject) (Operator, error) {
 	op, ok := c.Operators[target.Service][target.Component]
 	if !ok {
-		known := make([]string, 0)
-		for _, t := range c.ListTargets() {
+		targets := c.ListTargets()
+		known := make([]string, 0, len(targets))
+		for _, t := range targets {
 			known = append(known, formatTarget(t))
 		}
 		return Operator{}, fmt.Errorf("%w: %s, known targets: %s", ErrUnknownTarget, formatTarget(target), strings.Join(known, ", "))
@@ -295,15 +296,26 @@ func ReadCredential(ctx context.Context, client *vaultapi.Client, cc ClusterConf
 func RenderTalosconfig(target operatorops.OperatorSubject, nodes []string, cred Credential) string {
 	name := formatTarget(target)
 	var b strings.Builder
-	b.WriteString("context: " + name + "\ncontexts:\n  " + name + ":\n")
+	b.WriteString("context: ")
+	b.WriteString(name)
+	b.WriteString("\ncontexts:\n  ")
+	b.WriteString(name)
+	b.WriteString(":\n")
 	if len(nodes) > 0 {
 		list := "[" + strings.Join(nodes, ", ") + "]"
-		b.WriteString("    endpoints: " + list + "\n")
-		b.WriteString("    nodes: " + list + "\n")
+		b.WriteString("    endpoints: ")
+		b.WriteString(list)
+		b.WriteString("\n    nodes: ")
+		b.WriteString(list)
+		b.WriteString("\n")
 	}
-	b.WriteString("    ca: " + cred.TalosCA + "\n")
-	b.WriteString("    crt: " + cred.TalosCert + "\n")
-	b.WriteString("    key: " + cred.TalosKey + "\n")
+	b.WriteString("    ca: ")
+	b.WriteString(cred.TalosCA)
+	b.WriteString("\n    crt: ")
+	b.WriteString(cred.TalosCert)
+	b.WriteString("\n    key: ")
+	b.WriteString(cred.TalosKey)
+	b.WriteString("\n")
 	return b.String()
 }
 

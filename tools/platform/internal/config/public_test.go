@@ -28,7 +28,7 @@ VAULT_TOKEN="hvs.secret-token-value"
 	return e
 }
 
-func TestResolvePublicValue(t *testing.T) {
+func TestResolvePublicValue_ResolvesAllowedKeys(t *testing.T) {
 	e := loadPublicTestEnv(t)
 	cases := []struct {
 		key  string
@@ -48,7 +48,7 @@ func TestResolvePublicValue(t *testing.T) {
 	}
 }
 
-func TestResolvePublicValueRefuses(t *testing.T) {
+func TestResolvePublicValue_RefusesSecretAndUndefinedKeys(t *testing.T) {
 	e := loadPublicTestEnv(t)
 	cases := []struct {
 		key  string

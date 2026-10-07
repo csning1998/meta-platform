@@ -9,8 +9,8 @@ import (
 	"platform/internal/ui"
 )
 
-// TestTerraformCmdPassesEveryArgumentToTerraform covers subcommand names such as clean, which would shadow terraform arguments.
-func TestTerraformCmdPassesEveryArgumentToTerraform(t *testing.T) {
+// TestTerraformCmd_PassesEveryArgumentToTerraform covers subcommand names such as clean, which would shadow terraform arguments.
+func TestTerraformCmd_PassesEveryArgumentToTerraform(t *testing.T) {
 	a := &app{}
 	cmd := a.terraformCmd()
 	if !cmd.DisableFlagParsing {
@@ -24,7 +24,7 @@ func TestTerraformCmdPassesEveryArgumentToTerraform(t *testing.T) {
 	}
 }
 
-func TestLayerCmdRegistersClean(t *testing.T) {
+func TestLayerCmd_RegistersClean(t *testing.T) {
 	a := &app{}
 	cmd, _, err := a.layerCmd().Find([]string{"clean"})
 	if err != nil || cmd.Name() != "clean" {
@@ -35,7 +35,7 @@ func TestLayerCmdRegistersClean(t *testing.T) {
 	}
 }
 
-func TestHostsCmdRegistersSyncWithDryRunDefault(t *testing.T) {
+func TestHostsCmd_RegistersSyncWithDryRunDefault(t *testing.T) {
 	a := &app{}
 	cmd, _, err := a.hostsCmd().Find([]string{"sync"})
 	if err != nil || cmd.Name() != "sync" {
@@ -47,7 +47,7 @@ func TestHostsCmdRegistersSyncWithDryRunDefault(t *testing.T) {
 	}
 }
 
-func TestClusterCmdRegistersShellAndStatus(t *testing.T) {
+func TestClusterCmd_RegistersShellAndStatus(t *testing.T) {
 	a := &app{}
 	for _, name := range []string{"shell", "status"} {
 		t.Run(name, func(t *testing.T) {
@@ -63,7 +63,7 @@ func TestClusterCmdRegistersShellAndStatus(t *testing.T) {
 	}
 }
 
-func TestEnvCmdRegistersGet(t *testing.T) {
+func TestEnvCmd_RegistersGet(t *testing.T) {
 	a := &app{}
 	cmd, _, err := a.envCmd().Find([]string{"get"})
 	if err != nil || cmd.Name() != "get" {
@@ -77,8 +77,8 @@ func TestEnvCmdRegistersGet(t *testing.T) {
 	}
 }
 
-// TestResolveBootstrapPrinter covers command substitution, which captures every line on standard output.
-func TestResolveBootstrapPrinter(t *testing.T) {
+// TestResolveBootstrapPrinter_DirectsOutputBasedOnStdoutPayload covers command substitution, which captures every line on standard output.
+func TestResolveBootstrapPrinter_DirectsOutputBasedOnStdoutPayload(t *testing.T) {
 	a := &app{}
 	get, _, err := a.envCmd().Find([]string{"get"})
 	if err != nil {
@@ -103,8 +103,8 @@ func TestResolveBootstrapPrinter(t *testing.T) {
 	}
 }
 
-// TestIsBootstrapRequired covers terraform, hosts sync, and cluster, which MUST leave .env untouched.
-func TestIsBootstrapRequired(t *testing.T) {
+// TestIsBootstrapRequired_IdentifiesCommandsRequiringBootstrap covers terraform, hosts sync, and cluster, which MUST leave .env untouched.
+func TestIsBootstrapRequired_IdentifiesCommandsRequiringBootstrap(t *testing.T) {
 	a := &app{}
 	findSubcommand := func(parent func() *cobra.Command, name string) func(t *testing.T) *cobra.Command {
 		return func(t *testing.T) *cobra.Command {

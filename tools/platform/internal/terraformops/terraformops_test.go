@@ -11,20 +11,20 @@ import (
 	"platform/internal/ui"
 )
 
-func TestReportCleanupStatusRejectsEmptyTarget(t *testing.T) {
+func TestReportCleanupStatus_RejectsEmptyTarget(t *testing.T) {
 	if err := ReportCleanupStatus(t.TempDir(), "", nil, ui.New(io.Discard, io.Discard)); err == nil {
 		t.Error("ReportCleanupStatus(\"\") = nil error, want error")
 	}
 }
 
-func TestReportCleanupStatusSkipsMissingLayerDirWithoutError(t *testing.T) {
+func TestReportCleanupStatus_SkipsMissingLayerDirWithoutError(t *testing.T) {
 	dir := t.TempDir()
 	if err := ReportCleanupStatus(dir, "no-such-layer", nil, ui.New(io.Discard, io.Discard)); err != nil {
 		t.Errorf("Clean on a missing layer dir = %v, want nil (report-only, non-fatal)", err)
 	}
 }
 
-func TestReportCleanupStatusAllIteratesEveryLayer(t *testing.T) {
+func TestReportCleanupStatus_IteratesEveryLayerWhenTargetIsAll(t *testing.T) {
 	dir := t.TempDir()
 	for _, layer := range []string{"layer-a", "layer-b"} {
 		if err := os.MkdirAll(filepath.Join(dir, "layers", layer), 0o755); err != nil {
@@ -37,14 +37,14 @@ func TestReportCleanupStatusAllIteratesEveryLayer(t *testing.T) {
 	}
 }
 
-func TestReportCleanupStatusAllWithNilLayersIsNoopSuccess(t *testing.T) {
+func TestReportCleanupStatus_IsNoopWhenLayersIsNil(t *testing.T) {
 	dir := t.TempDir()
 	if err := ReportCleanupStatus(dir, "all", nil, ui.New(io.Discard, io.Discard)); err != nil {
 		t.Errorf("ReportCleanupStatus(\"all\", nil) = %v, want nil", err)
 	}
 }
 
-func TestReportCleanupStatusAllWithOneMissingLayerStillSucceeds(t *testing.T) {
+func TestReportCleanupStatus_SucceedsWhenOneLayerIsMissing(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "layers", "layer-a"), 0o755); err != nil {
 		t.Fatalf("mkdir layer-a: %v", err)
@@ -60,7 +60,7 @@ func TestReportCleanupStatusAllWithOneMissingLayerStillSucceeds(t *testing.T) {
 	}
 }
 
-func TestReportCleanupStatusSingleExistingLayerReportsSuccess(t *testing.T) {
+func TestReportCleanupStatus_ReportsSuccessForSingleExistingLayer(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "layers", "layer-a"), 0o755); err != nil {
 		t.Fatalf("mkdir layer-a: %v", err)
@@ -75,7 +75,7 @@ func TestReportCleanupStatusSingleExistingLayerReportsSuccess(t *testing.T) {
 	}
 }
 
-func TestReportCleanupStatusTargetAllIsCaseSensitive(t *testing.T) {
+func TestReportCleanupStatus_RequiresExactCaseForAll(t *testing.T) {
 	for _, target := range []string{"All", "ALL"} {
 		dir := t.TempDir()
 		var buf bytes.Buffer
@@ -91,7 +91,7 @@ func TestReportCleanupStatusTargetAllIsCaseSensitive(t *testing.T) {
 	}
 }
 
-func TestReportCleanupStatusTargetWithPathTraversalDoesNotPanic(t *testing.T) {
+func TestReportCleanupStatus_HandlesPathTraversalWithoutPanic(t *testing.T) {
 	dir := t.TempDir()
 	for _, target := range []string{"../etc", "sub/dir", "../../../etc/passwd"} {
 		if err := ReportCleanupStatus(dir, target, nil, ui.New(io.Discard, io.Discard)); err != nil {
@@ -100,7 +100,7 @@ func TestReportCleanupStatusTargetWithPathTraversalDoesNotPanic(t *testing.T) {
 	}
 }
 
-func TestReportCleanupStatusSingleLayerOutputOrder(t *testing.T) {
+func TestReportCleanupStatus_MaintainsOutputOrderForSingleLayer(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "layers", "layer-a"), 0o755); err != nil {
 		t.Fatalf("mkdir layer-a: %v", err)

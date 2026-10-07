@@ -72,7 +72,7 @@ func fakeSealStatusHandler(sequence ...bool) http.HandlerFunc {
 	}
 }
 
-func TestGetBastionStatusUnreachableConnectionRefused(t *testing.T) {
+func TestGetBastionStatus_UnreachableConnectionRefused(t *testing.T) {
 	p := newLiveTestPaths(t, "http://127.0.0.1:1")
 
 	running, sealed, err := GetBastionStatus(context.Background(), p)
@@ -84,7 +84,7 @@ func TestGetBastionStatusUnreachableConnectionRefused(t *testing.T) {
 	}
 }
 
-func TestInspectBastionStatusUnreachableReturnsZeroValue(t *testing.T) {
+func TestInspectBastionStatus_UnreachableReturnsZeroValue(t *testing.T) {
 	p := newLiveTestPaths(t, "http://127.0.0.1:1")
 
 	got := InspectBastionStatus(context.Background(), p)
@@ -93,7 +93,7 @@ func TestInspectBastionStatusUnreachableReturnsZeroValue(t *testing.T) {
 	}
 }
 
-func TestInspectBastionStatusReachableSealed(t *testing.T) {
+func TestInspectBastionStatus_ReachableSealed(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/sys/seal-status", fakeSealStatusHandler(true))
 	srv := httptest.NewServer(mux)
@@ -108,7 +108,7 @@ func TestInspectBastionStatusReachableSealed(t *testing.T) {
 	}
 }
 
-func TestInspectBastionStatusReachableUnsealed(t *testing.T) {
+func TestInspectBastionStatus_ReachableUnsealed(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/sys/seal-status", fakeSealStatusHandler(false))
 	srv := httptest.NewServer(mux)

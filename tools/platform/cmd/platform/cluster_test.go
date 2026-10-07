@@ -98,7 +98,7 @@ func assertNoSessionDir(t *testing.T, runtime string) {
 	}
 }
 
-func TestReportClusterStatus(t *testing.T) {
+func TestReportClusterStatus_PrintsStatusAcrossClusters(t *testing.T) {
 	cases := []struct {
 		arg  string
 		want []string
@@ -127,7 +127,7 @@ func TestReportClusterStatus(t *testing.T) {
 	}
 }
 
-func TestReportClusterStatusFails(t *testing.T) {
+func TestReportClusterStatus_RejectsInvalidTarget(t *testing.T) {
 	cases := []struct {
 		arg  string
 		want error
@@ -147,8 +147,8 @@ func TestReportClusterStatusFails(t *testing.T) {
 	}
 }
 
-// TestOpenClusterShell covers the exit status of the last command in the shell, which says nothing about the session.
-func TestOpenClusterShell(t *testing.T) {
+// TestOpenClusterShell_PassesSessionEnvironment covers the exit status of the last command in the shell, which says nothing about the session.
+func TestOpenClusterShell_PassesSessionEnvironment(t *testing.T) {
 	runtime := newClusterEnvironment(t)
 	dump := filepath.Join(t.TempDir(), "kubeconfig-of-shell")
 	shell := filepath.Join(t.TempDir(), "shell")
@@ -170,7 +170,7 @@ func TestOpenClusterShell(t *testing.T) {
 	assertNoSessionDir(t, runtime)
 }
 
-func TestOpenClusterShellRejectsInvalidTarget(t *testing.T) {
+func TestOpenClusterShell_RejectsInvalidTarget(t *testing.T) {
 	newClusterEnvironment(t)
 	a, _ := newOperationsApp(t, "")
 	err := a.openClusterShell(context.Background(), "keycloak")

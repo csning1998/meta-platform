@@ -1,7 +1,7 @@
 
 module "contexts_local_credential" {
   source  = "gitlab.com/csning1998-lab/contexts-local-credential/gitlab"
-  version = "0.3.1"
+  version = "0.4.0"
 }
 
 module "provisioner_gitlab_project" {

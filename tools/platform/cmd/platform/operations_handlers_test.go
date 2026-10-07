@@ -57,7 +57,7 @@ func generateTestCACert(t *testing.T, targetPath string) {
 	}
 }
 
-func TestSSHLoggerPrintsEveryLevel(t *testing.T) {
+func TestSSHLogger_PrintsEveryLevel(t *testing.T) {
 	var out, errOut bytes.Buffer
 	l := sshLogger{p: ui.New(&out, &errOut)}
 	cases := []struct {
@@ -89,14 +89,14 @@ func TestSSHLoggerPrintsEveryLevel(t *testing.T) {
 	}
 }
 
-func TestReportVaultStatusUnreachableReturnsError(t *testing.T) {
+func TestReportVaultStatus_FailsWhenUnreachable(t *testing.T) {
 	a, _ := newOperationsApp(t, "")
 	if err := a.reportVaultStatus(context.Background()); err == nil {
 		t.Fatal("reportVaultStatus on unreachable vault: want error, got nil")
 	}
 }
 
-func TestReportVaultStatusReachableReturnsNil(t *testing.T) {
+func TestReportVaultStatus_SucceedsWhenReachable(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/sys/seal-status", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -115,7 +115,7 @@ func TestReportVaultStatusReachableReturnsNil(t *testing.T) {
 	}
 }
 
-func TestUnsealProdVaultMissingInventory(t *testing.T) {
+func TestUnsealProdVault_FailsWhenInventoryMissing(t *testing.T) {
 	a, _ := newOperationsApp(t, "")
 	err := a.unsealProdVault(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "no Production Vault inventory") {
@@ -123,7 +123,7 @@ func TestUnsealProdVaultMissingInventory(t *testing.T) {
 	}
 }
 
-func TestGenerateSSHKeyWritesPathIntoEnv(t *testing.T) {
+func TestGenerateSSHKey_WritesKeyPathIntoEnv(t *testing.T) {
 	a, out := newOperationsApp(t, "")
 	if err := a.generateSSHKey("id_test", false); err != nil {
 		t.Fatalf("generateSSHKey: %v", err)
@@ -140,7 +140,7 @@ func TestGenerateSSHKeyWritesPathIntoEnv(t *testing.T) {
 	}
 }
 
-func TestGenerateSSHKeyRejectsInvalidName(t *testing.T) {
+func TestGenerateSSHKey_RejectsInvalidName(t *testing.T) {
 	a, _ := newOperationsApp(t, "")
 	err := a.generateSSHKey("..", false)
 	if err == nil {
@@ -148,7 +148,7 @@ func TestGenerateSSHKeyRejectsInvalidName(t *testing.T) {
 	}
 }
 
-func TestGenerateSSHKeySaveError(t *testing.T) {
+func TestGenerateSSHKey_FailsOnReadOnlyEnv(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("skipping read-only directory test when running as root")
 	}
@@ -163,7 +163,7 @@ func TestGenerateSSHKeySaveError(t *testing.T) {
 	}
 }
 
-func TestVerifySSHConnectivityExistingKeyRunsVerify(t *testing.T) {
+func TestVerifySSHConnectivity_FailsWithDummyKey(t *testing.T) {
 	a, _ := newOperationsApp(t, "")
 	keyPath := filepath.Join(a.home, "dummy-key")
 	if err := os.WriteFile(keyPath, []byte("not-a-real-key"), 0o600); err != nil {
@@ -176,7 +176,7 @@ func TestVerifySSHConnectivityExistingKeyRunsVerify(t *testing.T) {
 	}
 }
 
-func TestVerifyEnvironmentReportsToolStatus(t *testing.T) {
+func TestVerifyEnvironment_ReportsToolStatus(t *testing.T) {
 	a, out := newOperationsApp(t, "")
 	err := a.verifyEnvironment()
 	if !strings.Contains(out.String(), "Checking") {
@@ -187,7 +187,7 @@ func TestVerifyEnvironmentReportsToolStatus(t *testing.T) {
 	}
 }
 
-func TestRunHypervisorPlaybookCreateTempFailsWhenAnsibleDirMissing(t *testing.T) {
+func TestRunHypervisorPlaybook_FailsWhenAnsibleDirMissing(t *testing.T) {
 	a, _ := newOperationsApp(t, "")
 	err := a.runHypervisorPlaybook(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "create temporary inventory") {
@@ -195,7 +195,7 @@ func TestRunHypervisorPlaybookCreateTempFailsWhenAnsibleDirMissing(t *testing.T)
 	}
 }
 
-func TestRunHypervisorPlaybookFailsWhenPlaybookMissing(t *testing.T) {
+func TestRunHypervisorPlaybook_FailsWhenPlaybookMissing(t *testing.T) {
 	a, _ := newOperationsApp(t, "")
 	if err := os.MkdirAll(a.ansibleDir, 0o755); err != nil {
 		t.Fatal(err)
@@ -208,7 +208,7 @@ func TestRunHypervisorPlaybookFailsWhenPlaybookMissing(t *testing.T) {
 	}
 }
 
-func TestBuildPackerImageKnownBaseRunsCleanThenBuild(t *testing.T) {
+func TestBuildPackerImage_RunsCleanThenBuildForKnownBase(t *testing.T) {
 	a, _ := newOperationsApp(t, "")
 	if err := os.MkdirAll(filepath.Join(a.packerDir, "distro"), 0o755); err != nil {
 		t.Fatal(err)
@@ -222,7 +222,7 @@ func TestBuildPackerImageKnownBaseRunsCleanThenBuild(t *testing.T) {
 	}
 }
 
-func TestVaultStatusCommandRunsReportVaultStatus(t *testing.T) {
+func TestVaultStatusCommand_ExecutesReportVaultStatus(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/sys/seal-status", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -254,7 +254,7 @@ func TestVaultStatusCommandRunsReportVaultStatus(t *testing.T) {
 	}
 }
 
-func TestVaultUnsealProdCommandMissingInventory(t *testing.T) {
+func TestVaultUnsealProdCommand_FailsWhenInventoryMissing(t *testing.T) {
 	a, _ := newOperationsApp(t, "")
 	cmd := a.vaultCmd()
 	cmd.SetArgs([]string{"unseal-prod"})
@@ -266,7 +266,7 @@ func TestVaultUnsealProdCommandMissingInventory(t *testing.T) {
 	}
 }
 
-func TestPackerPurgeAllCommand(t *testing.T) {
+func TestPackerPurgeAllCommand_ExecutesPurgeAll(t *testing.T) {
 	a, _ := newOperationsApp(t, "")
 	cmd := a.packerCmd()
 	cmd.SetArgs([]string{"purge-all"})
@@ -277,7 +277,7 @@ func TestPackerPurgeAllCommand(t *testing.T) {
 	}
 }
 
-func TestStrategySwitchCommand(t *testing.T) {
+func TestStrategySwitchCommand_TogglesStrategy(t *testing.T) {
 	a, _ := newOperationsApp(t, "")
 	a.env.Set(config.KeyEnvironmentStrategy, config.StrategyNative)
 	cmd := a.strategyCmd()

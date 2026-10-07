@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func TestLoadMissingFileYieldsEmptyEnv(t *testing.T) {
+func TestLoad_YieldsEmptyEnvOnMissingFile(t *testing.T) {
 	e, err := Load(filepath.Join(t.TempDir(), "does-not-exist.env"))
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -18,7 +18,7 @@ func TestLoadMissingFileYieldsEmptyEnv(t *testing.T) {
 	}
 }
 
-func TestLoadSaveRoundTrip(t *testing.T) {
+func TestLoad_RoundTripsWithSave(t *testing.T) {
 	path := filepath.Join(t.TempDir(), ".env")
 	content := "PROJECT_ROOT=\"/repo\"\nUNAME=csning1998\nUHOME=${HOME}\n# comment line\n\nSONAR_DB_PASSWORD=\"secret with spaces\"\n"
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
@@ -61,7 +61,7 @@ func TestLoadSaveRoundTrip(t *testing.T) {
 	}
 }
 
-func TestEnvironExpandsReferences(t *testing.T) {
+func TestEnviron_ExpandsReferences(t *testing.T) {
 	t.Setenv("HOME", "/home/tester")
 
 	e := &Env{values: map[string]string{}}
@@ -98,7 +98,7 @@ func splitKV(kv string) (key, value string, ok bool) {
 	return kv, "", false
 }
 
-func TestLoadLineParsingEdgeCases(t *testing.T) {
+func TestLoad_HandlesLineParsingEdgeCases(t *testing.T) {
 	cases := []struct {
 		name    string
 		content string
@@ -136,7 +136,7 @@ func TestLoadLineParsingEdgeCases(t *testing.T) {
 	}
 }
 
-func TestLoadTrailingWhitespaceInUnquotedValue(t *testing.T) {
+func TestLoad_PreservesTrailingWhitespaceInUnquotedValue(t *testing.T) {
 	// envLineRe's [^"]* group is greedy. That group consumes the trailing whitespace
 	// before the optional closing quote and \s* anchor get a chance to strip that
 	// whitespace. An unquoted value keeps trailing spaces verbatim.
@@ -152,7 +152,7 @@ func TestLoadTrailingWhitespaceInUnquotedValue(t *testing.T) {
 	}
 }
 
-func TestLoadTrailingWhitespaceOutsideQuotesIsStripped(t *testing.T) {
+func TestLoad_StripsTrailingWhitespaceOutsideQuotes(t *testing.T) {
 	path := filepath.Join(t.TempDir(), ".env")
 	mustWriteFile(t, path, `KEY="value"   `+"\n")
 
@@ -165,14 +165,14 @@ func TestLoadTrailingWhitespaceOutsideQuotesIsStripped(t *testing.T) {
 	}
 }
 
-func TestLoadOnDirectoryReturnsError(t *testing.T) {
+func TestLoad_ReturnsErrorOnDirectory(t *testing.T) {
 	dir := t.TempDir()
 	if _, err := Load(dir); err == nil {
 		t.Error("Load on a directory path = nil error, want error")
 	}
 }
 
-func TestLoadDuplicateKeyLastWinsNoDuplicateOrder(t *testing.T) {
+func TestLoad_LastWinsOnDuplicateKeyWithoutDuplicateOrder(t *testing.T) {
 	path := filepath.Join(t.TempDir(), ".env")
 	mustWriteFile(t, path, "KEY=first\nKEY=second\n")
 
@@ -196,7 +196,7 @@ func TestLoadDuplicateKeyLastWinsNoDuplicateOrder(t *testing.T) {
 	}
 }
 
-func TestEnvSetPreservesOrderOnOverwrite(t *testing.T) {
+func TestEnvSet_PreservesOrderOnOverwrite(t *testing.T) {
 	e := &Env{values: map[string]string{}}
 	e.Set("FIRST", "1")
 	e.Set("SECOND", "2")
@@ -217,14 +217,14 @@ func TestEnvSetPreservesOrderOnOverwrite(t *testing.T) {
 	}
 }
 
-func TestEnvGetOnZeroValueEnv(t *testing.T) {
+func TestEnvGet_ReturnsEmptyOnZeroValueEnv(t *testing.T) {
 	e := &Env{}
 	if got := e.Get("ANYTHING"); got != "" {
 		t.Errorf("Get on zero-value Env = %q, want empty", got)
 	}
 }
 
-func TestEnvSaveEmptyEnvWritesEmptyFile(t *testing.T) {
+func TestEnvSave_WritesEmptyFileForEmptyEnv(t *testing.T) {
 	path := filepath.Join(t.TempDir(), ".env")
 	e := &Env{path: path, values: map[string]string{}}
 	if err := e.Save(); err != nil {
@@ -239,7 +239,7 @@ func TestEnvSaveEmptyEnvWritesEmptyFile(t *testing.T) {
 	}
 }
 
-func TestEnvSaveQuoteRoundTrip(t *testing.T) {
+func TestEnvSave_RoundTripsQuoting(t *testing.T) {
 	path := filepath.Join(t.TempDir(), ".env")
 	e := &Env{path: path, values: map[string]string{}}
 	e.Set("KEY", `has "quotes" inside`)
@@ -265,7 +265,7 @@ func TestEnvSaveQuoteRoundTrip(t *testing.T) {
 	}
 }
 
-func TestEnvironSelfReferenceDoesNotHangOrPanic(t *testing.T) {
+func TestEnviron_SelfReferenceDoesNotHangOrPanic(t *testing.T) {
 	t.Run("unset in process env", func(t *testing.T) {
 		e := &Env{values: map[string]string{}}
 		e.Set("A", "${A}")
@@ -296,7 +296,7 @@ func TestEnvironSelfReferenceDoesNotHangOrPanic(t *testing.T) {
 	})
 }
 
-func TestEnvironMultipleAndUnresolvedRefs(t *testing.T) {
+func TestEnviron_HandlesMultipleAndUnresolvedRefs(t *testing.T) {
 	t.Setenv("EXTERNAL_SET", "ext-value")
 	_ = os.Unsetenv("EXTERNAL_UNSET")
 
@@ -330,7 +330,7 @@ func TestEnvironMultipleAndUnresolvedRefs(t *testing.T) {
 	}
 }
 
-func TestGetExpandedAndExpand(t *testing.T) {
+func TestGetExpanded_ExpandsVariables(t *testing.T) {
 	t.Setenv("EXTERNAL_KEY", "ext-val")
 	e := &Env{values: map[string]string{}}
 	e.Set("ROOT", "/repo")

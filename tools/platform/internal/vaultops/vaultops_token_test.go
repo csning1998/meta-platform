@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestTokenSyncNeitherFileExists(t *testing.T) {
+func TestSyncVaultToken_NeitherFileExists(t *testing.T) {
 	home := t.TempDir()
 	p := Paths{ProjectRoot: t.TempDir(), Home: home}
 	env := newFakeEnv()
@@ -23,7 +23,7 @@ func TestTokenSyncNeitherFileExists(t *testing.T) {
 	}
 }
 
-func TestTokenSyncFromRootTokenFile(t *testing.T) {
+func TestSyncVaultToken_FromRootTokenFile(t *testing.T) {
 	home := t.TempDir()
 	p := Paths{ProjectRoot: t.TempDir(), Home: home}
 	if err := os.WriteFile(p.resolveRootTokenFile(), []byte("  s.xyz  \n"), 0o600); err != nil {
@@ -50,7 +50,7 @@ func TestTokenSyncFromRootTokenFile(t *testing.T) {
 	}
 }
 
-func TestTokenSyncEmptyTokenFileErrors(t *testing.T) {
+func TestSyncVaultToken_EmptyTokenFileErrors(t *testing.T) {
 	home := t.TempDir()
 	p := Paths{ProjectRoot: t.TempDir(), Home: home}
 	if err := os.WriteFile(p.resolveRootTokenFile(), []byte("   \n"), 0o600); err != nil {

@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestNewPathsAndProdCACertPath(t *testing.T) {
+func TestNewPaths_InitializesFieldsAndResolvesPaths(t *testing.T) {
 	p := NewPaths("/root", "/ansible", "/tf", "/home/u", "https://bastion:8200", "/ca.pem")
 	if p.ProjectRoot != "/root" || p.AnsibleDir != "/ansible" || p.TerraformDir != "/tf" || p.Home != "/home/u" {
 		t.Errorf("NewPaths fields = %+v", p)
@@ -21,7 +21,7 @@ func TestNewPathsAndProdCACertPath(t *testing.T) {
 	}
 }
 
-func TestPathsHelpers(t *testing.T) {
+func TestPaths_ResolvesHelperPaths(t *testing.T) {
 	p := Paths{
 		ProjectRoot:        "/root",
 		AnsibleDir:         "/ansible",

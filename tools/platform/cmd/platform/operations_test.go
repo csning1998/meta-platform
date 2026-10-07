@@ -37,7 +37,7 @@ func newOperationsApp(t *testing.T, input string) (*app, *bytes.Buffer) {
 	return a, &out
 }
 
-func TestBuildPackerExecutionEnvDoesNotDuplicateNetVars(t *testing.T) {
+func TestBuildPackerExecutionEnv_DoesNotDuplicateNetVars(t *testing.T) {
 	dir := t.TempDir()
 	env, err := config.Load(filepath.Join(dir, ".env"))
 	if err != nil {
@@ -62,7 +62,7 @@ func TestBuildPackerExecutionEnvDoesNotDuplicateNetVars(t *testing.T) {
 	assertSingleEnvEntry(t, got, config.KeyPKRVarNetDevice, config.KeyPKRVarNetDevice+"=virtio-net")
 }
 
-func TestBuildPackerImageRejectsUnknownBaseAndPreservesStaleOutput(t *testing.T) {
+func TestBuildPackerImage_RejectsUnknownBaseAndPreservesStaleOutput(t *testing.T) {
 	dir := t.TempDir()
 	packerDir := filepath.Join(dir, "packer")
 	if err := os.MkdirAll(filepath.Join(packerDir, "distro"), 0o755); err != nil {
@@ -98,7 +98,7 @@ func TestBuildPackerImageRejectsUnknownBaseAndPreservesStaleOutput(t *testing.T)
 	}
 }
 
-func TestBuildPackerExecutionEnvNetVarCombinations(t *testing.T) {
+func TestBuildPackerExecutionEnv_SetsExpectedNetVars(t *testing.T) {
 	cases := []struct {
 		name       string
 		bridge     string
@@ -152,7 +152,7 @@ func assertSingleEnvEntry(t *testing.T, environ []string, key, want string) {
 	}
 }
 
-func TestAppendKVsSkipsEntriesWithoutEquals(t *testing.T) {
+func TestAppendKVs_SkipsEntriesWithoutEquals(t *testing.T) {
 	got := map[string]string{"keep": "yes"}
 	appendKVs(got, []string{"A=1", "no-equals", "B=2", ""})
 	if got["A"] != "1" || got["B"] != "2" || got["keep"] != "yes" {
@@ -163,7 +163,7 @@ func TestAppendKVsSkipsEntriesWithoutEquals(t *testing.T) {
 	}
 }
 
-func TestAppendKVsRejectsEmptyKey(t *testing.T) {
+func TestAppendKVs_RejectsEmptyKey(t *testing.T) {
 	got := map[string]string{"keep": "yes"}
 	appendKVs(got, []string{"=empty-key-val", "VALID=123"})
 	if _, ok := got[""]; ok {
@@ -174,7 +174,7 @@ func TestAppendKVsRejectsEmptyKey(t *testing.T) {
 	}
 }
 
-func TestConfirmExecutionAbortAndAccept(t *testing.T) {
+func TestConfirmExecution_HandlesAbortAndAccept(t *testing.T) {
 	a, out := newOperationsApp(t, "n\n")
 	if a.confirmExecution() {
 		t.Fatal("confirmExecution(n) = true, want false")
@@ -189,7 +189,7 @@ func TestConfirmExecutionAbortAndAccept(t *testing.T) {
 	}
 }
 
-func TestPurgeLibvirtResourcesAbortedByUser(t *testing.T) {
+func TestPurgeLibvirtResources_AbortsWhenNotConfirmed(t *testing.T) {
 	a, out := newOperationsApp(t, "n\n")
 	if err := a.purgeLibvirtResources(); err != nil {
 		t.Fatalf("purgeLibvirtResources abort: %v", err)
@@ -199,7 +199,7 @@ func TestPurgeLibvirtResourcesAbortedByUser(t *testing.T) {
 	}
 }
 
-func TestPurgeAllInfrastructureAbortedByUser(t *testing.T) {
+func TestPurgeAllInfrastructure_AbortsWhenNotConfirmed(t *testing.T) {
 	a, out := newOperationsApp(t, "n\n")
 	if err := a.purgeAllInfrastructure(); err != nil {
 		t.Fatalf("purgeAllInfrastructure abort: %v", err)
@@ -209,7 +209,7 @@ func TestPurgeAllInfrastructureAbortedByUser(t *testing.T) {
 	}
 }
 
-func TestPurgeAllPackerArtifacts(t *testing.T) {
+func TestPurgeAllPackerArtifacts_RemovesPackerOutputArtifacts(t *testing.T) {
 	a, _ := newOperationsApp(t, "")
 	if err := os.MkdirAll(filepath.Join(a.packerDir, "output", "base-a"), 0o755); err != nil {
 		t.Fatal(err)
@@ -223,7 +223,7 @@ func TestPurgeAllPackerArtifacts(t *testing.T) {
 	}
 }
 
-func TestVerifySSHConnectivityMissingKey(t *testing.T) {
+func TestVerifySSHConnectivity_FailsWhenKeyMissing(t *testing.T) {
 	a, _ := newOperationsApp(t, "")
 	err := a.verifySSHConnectivity()
 	if err == nil || !strings.Contains(err.Error(), "SSH_PRIVATE_KEY") {
@@ -231,7 +231,7 @@ func TestVerifySSHConnectivityMissingKey(t *testing.T) {
 	}
 }
 
-func TestSwitchStrategyTogglesNativeAndContainer(t *testing.T) {
+func TestSwitchStrategy_TogglesNativeAndContainer(t *testing.T) {
 	a, _ := newOperationsApp(t, "")
 	a.env.Set(config.KeyEnvironmentStrategy, config.StrategyNative)
 	if err := a.switchStrategy(); err != nil {
@@ -252,7 +252,7 @@ func TestSwitchStrategyTogglesNativeAndContainer(t *testing.T) {
 	}
 }
 
-func TestBuildPackerImageAllCleansThenBuildsUnknownEmptySet(t *testing.T) {
+func TestBuildPackerImage_CleansAndBuildsAllWhenEmpty(t *testing.T) {
 	a, _ := newOperationsApp(t, "")
 	if err := os.MkdirAll(filepath.Join(a.packerDir, "distro"), 0o755); err != nil {
 		t.Fatal(err)
@@ -263,7 +263,7 @@ func TestBuildPackerImageAllCleansThenBuildsUnknownEmptySet(t *testing.T) {
 	}
 }
 
-func TestBuildPackerImageAllStopsWhenABaseVarFileIsMissing(t *testing.T) {
+func TestBuildPackerImage_FailsWhenBaseVarFileMissing(t *testing.T) {
 	a, _ := newOperationsApp(t, "")
 	if err := os.MkdirAll(filepath.Join(a.packerDir, "distro"), 0o755); err != nil {
 		t.Fatal(err)
@@ -275,7 +275,7 @@ func TestBuildPackerImageAllStopsWhenABaseVarFileIsMissing(t *testing.T) {
 	}
 }
 
-func TestSwitchStrategySaveError(t *testing.T) {
+func TestSwitchStrategy_FailsOnReadOnlyEnv(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("skipping read-only directory test when running as root")
 	}
@@ -290,7 +290,7 @@ func TestSwitchStrategySaveError(t *testing.T) {
 	}
 }
 
-func TestPrintEnvValuePrintsTheValueAlone(t *testing.T) {
+func TestPrintEnvValue_PrintsExpandedValue(t *testing.T) {
 	a, out := newOperationsApp(t, "")
 	a.env.Set("BASTION_VAULT_ADDR", "https://127.0.0.1:8200")
 
@@ -300,7 +300,7 @@ func TestPrintEnvValuePrintsTheValueAlone(t *testing.T) {
 	}
 }
 
-func TestPrintEnvValueRefusesTheVaultToken(t *testing.T) {
+func TestPrintEnvValue_RefusesSecretKey(t *testing.T) {
 	a, out := newOperationsApp(t, "")
 	a.env.Set("VAULT_TOKEN", "hvs.secret-token-value")
 
