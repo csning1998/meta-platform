@@ -41,7 +41,7 @@ func prefixCases() []prefixCase {
 	return cases
 }
 
-func TestHasProjectPrefix(t *testing.T) {
+func TestHasProjectPrefix_MatchesExpectedProjectCode(t *testing.T) {
 	for _, c := range prefixCases() {
 		if got := hasProjectPrefix(c.name); got != c.want {
 			t.Errorf("hasProjectPrefix(%q) = %v, want %v", c.name, got, c.want)
@@ -49,13 +49,13 @@ func TestHasProjectPrefix(t *testing.T) {
 	}
 }
 
-func TestProjectCodeIsValidCatalogCode(t *testing.T) {
+func TestProjectCode_IsValidCatalogCode(t *testing.T) {
 	if !catalogCodePattern.MatchString(ProjectCode) {
 		t.Errorf("ProjectCode = %q, want a value which matches %s", ProjectCode, catalogCodePattern)
 	}
 }
 
-func TestParseDiskPaths(t *testing.T) {
+func TestParseDiskPaths_ExtractsDiskSourceFiles(t *testing.T) {
 	cases := []struct {
 		name string
 		xml  string
