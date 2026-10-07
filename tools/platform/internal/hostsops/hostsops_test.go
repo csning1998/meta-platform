@@ -53,7 +53,7 @@ func assertRecords(t *testing.T, got, want []Record) {
 	}
 }
 
-func TestParseDNSRecords(t *testing.T) {
+func TestParseDNSRecords_FiltersByProjectPrefix(t *testing.T) {
 	got, err := ParseDNSRecords(networkXML, prefix)
 	if err != nil {
 		t.Fatalf("ParseDNSRecords: %v", err)
@@ -70,7 +70,7 @@ func TestParseDNSRecords(t *testing.T) {
 	})
 }
 
-func TestParseDNSRecordsReturnsNoneWithoutProjectRecords(t *testing.T) {
+func TestParseDNSRecords_ReturnsNoneWithoutProjectRecords(t *testing.T) {
 	for name, xml := range map[string]string{
 		"no dns element":    `<network><name>default</name></network>`,
 		"empty dns":         `<network><dns enable='yes'/></network>`,
@@ -85,7 +85,7 @@ func TestParseDNSRecordsReturnsNoneWithoutProjectRecords(t *testing.T) {
 	}
 }
 
-func TestParseDNSRecordsRejectsMalformedInput(t *testing.T) {
+func TestParseDNSRecords_RejectsMalformedInput(t *testing.T) {
 	for name, c := range map[string]struct{ xml, want string }{
 		"malformed xml":   {`<network><dns>`, "hostsops"},
 		"invalid address": {`<network><dns><host ip='172.16.300.1'><hostname>meta-platform-x.dev</hostname></host></dns></network>`, "172.16.300.1"},
@@ -99,7 +99,7 @@ func TestParseDNSRecordsRejectsMalformedInput(t *testing.T) {
 	}
 }
 
-func TestMergeRecords(t *testing.T) {
+func TestMergeRecords_MergesAndSortsByAddress(t *testing.T) {
 	vault := mustParseAddr(t, "172.16.127.250")
 	low := mustParseAddr(t, "172.16.9.1")
 	high := mustParseAddr(t, "172.16.10.1")
@@ -116,7 +116,7 @@ func TestMergeRecords(t *testing.T) {
 	})
 }
 
-func TestMergeRecordsWithoutInput(t *testing.T) {
+func TestMergeRecords_ReturnsEmptyWithoutInput(t *testing.T) {
 	got := MergeRecords()
 	if len(got) != 0 {
 		t.Errorf("MergeRecords() = %+v, want none", got)
@@ -137,7 +137,7 @@ const testBlock = BeginMark + "\n" +
 	"172.16.127.250 meta-platform-vault.dev vault.dev\n" +
 	EndMark + "\n"
 
-func TestRewriteHostsBlock(t *testing.T) {
+func TestRewriteHostsBlock_ReplacesOrAppendsManagedBlock(t *testing.T) {
 	cases := []struct {
 		name    string
 		current string
@@ -190,7 +190,7 @@ func TestRewriteHostsBlock(t *testing.T) {
 	}
 }
 
-func TestRewriteHostsBlockRejectsMalformedBlock(t *testing.T) {
+func TestRewriteHostsBlock_RejectsMalformedBlock(t *testing.T) {
 	for name, current := range map[string]string{
 		"begin without end": "127.0.0.1 localhost\n" + BeginMark + "\n172.16.1.1 meta-platform-x.dev\n192.168.1.10 nas.home\n",
 		"end without begin": "127.0.0.1 localhost\n" + EndMark + "\n",
@@ -206,8 +206,8 @@ func TestRewriteHostsBlockRejectsMalformedBlock(t *testing.T) {
 	}
 }
 
-// TestRewriteHostsBlockRejectsNoRecords covers a libvirt outage, which MUST NOT empty the managed block.
-func TestRewriteHostsBlockRejectsNoRecords(t *testing.T) {
+// TestRewriteHostsBlock_RejectsEmptyRecords covers a libvirt outage, which MUST NOT empty the managed block.
+func TestRewriteHostsBlock_RejectsEmptyRecords(t *testing.T) {
 	_, err := RewriteHostsBlock("127.0.0.1 localhost\n"+testBlock, nil)
 	if !errors.Is(err, ErrNoRecords) {
 		t.Errorf("RewriteHostsBlock error = %v, want ErrNoRecords", err)
@@ -224,7 +224,7 @@ func writeHostsFile(t *testing.T, content string) string {
 	return path
 }
 
-func TestDiffHosts(t *testing.T) {
+func TestDiffHosts_ReportsUnifiedDiff(t *testing.T) {
 	path := writeHostsFile(t, "127.0.0.1 localhost\n172.16.1.1 meta-platform-old.dev\n")
 
 	diff, changed, err := DiffHosts(context.Background(), path, "127.0.0.1 localhost\n172.16.1.1 meta-platform-new.dev\n")
@@ -238,7 +238,7 @@ func TestDiffHosts(t *testing.T) {
 	}
 }
 
-func TestDiffHostsReportsNoChange(t *testing.T) {
+func TestDiffHosts_ReportsNoChange(t *testing.T) {
 	content := "127.0.0.1 localhost\n"
 	diff, changed, err := DiffHosts(context.Background(), writeHostsFile(t, content), content)
 	if err != nil || changed || diff != "" {
@@ -246,15 +246,15 @@ func TestDiffHostsReportsNoChange(t *testing.T) {
 	}
 }
 
-func TestDiffHostsRejectsMissingFile(t *testing.T) {
+func TestDiffHosts_RejectsMissingFile(t *testing.T) {
 	_, _, err := DiffHosts(context.Background(), filepath.Join(t.TempDir(), "absent"), "x\n")
 	if err == nil {
 		t.Error("DiffHosts error = nil, want an error for an absent hosts file")
 	}
 }
 
-// TestApplyHostsWritesInPlace covers the inode of /etc/hosts, which carries the SELinux label of the file.
-func TestApplyHostsWritesInPlace(t *testing.T) {
+// TestApplyHosts_PreservesInodeAndCreatesBackup covers the inode of /etc/hosts, which carries the SELinux label of the file.
+func TestApplyHosts_PreservesInodeAndCreatesBackup(t *testing.T) {
 	original := "127.0.0.1 localhost\n"
 	candidate := original + "\n" + testBlock
 	path := writeHostsFile(t, original)
@@ -278,7 +278,7 @@ func TestApplyHostsWritesInPlace(t *testing.T) {
 	}
 }
 
-func TestApplyHostsRunsEveryWriteThroughElevate(t *testing.T) {
+func TestApplyHosts_RunsEveryWriteThroughElevate(t *testing.T) {
 	dir := t.TempDir()
 	log := filepath.Join(dir, "elevate.log")
 	elevate := filepath.Join(dir, "elevate")
@@ -296,7 +296,7 @@ func TestApplyHostsRunsEveryWriteThroughElevate(t *testing.T) {
 	assertFileContent(t, path, testBlock)
 }
 
-func TestApplyHostsKeepsTheFileWhenTheBackupFails(t *testing.T) {
+func TestApplyHosts_PreservesFileWhenBackupFails(t *testing.T) {
 	dir := t.TempDir()
 	elevate := filepath.Join(dir, "elevate")
 	err := os.WriteFile(elevate, []byte("#!/bin/sh\necho 'sudo: a password is required' >&2\nexit 1\n"), 0o700)
@@ -343,7 +343,7 @@ func currentHostsFile(t *testing.T) string {
 	return "127.0.0.1 localhost\n\n" + renderBlock(MergeRecords(records))
 }
 
-func TestSync(t *testing.T) {
+func TestSync_RewritesManagedBlock(t *testing.T) {
 	stale := "127.0.0.1 localhost\n\n" + BeginMark + "\n172.16.1.1 meta-platform-stale.dev\n" + EndMark + "\n"
 	cases := []struct {
 		name        string
@@ -386,7 +386,7 @@ func assertSyncOutcome(t *testing.T, path, current string, got SyncResult, wantW
 	}
 }
 
-func TestSyncFailsWithoutWrite(t *testing.T) {
+func TestSync_FailsWithoutWritingFile(t *testing.T) {
 	listFailure := errors.New("libvirt: connect to qemu:///system")
 	cases := []struct {
 		name      string
