@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestResolveProdTokenRefDefaults(t *testing.T) {
+func TestResolveProdTokenRef_ReturnsDefaults(t *testing.T) {
 	ref := ResolveProdTokenRef()
 	if ref.Mount != DefaultTokenMount {
 		t.Errorf("Mount = %q, want %q", ref.Mount, DefaultTokenMount)
@@ -17,7 +17,7 @@ func TestResolveProdTokenRefDefaults(t *testing.T) {
 	}
 }
 
-func TestResolveProdTokenRefEnvOverrides(t *testing.T) {
+func TestResolveProdTokenRef_AppliesEnvOverrides(t *testing.T) {
 	t.Setenv("PROD_VAULT_TOKEN_MOUNT", "custom-secret")
 	t.Setenv("PROD_VAULT_TOKEN_PATH", "custom/path")
 	t.Setenv("PROD_VAULT_TOKEN_FIELD", "custom_token")
@@ -34,7 +34,7 @@ func TestResolveProdTokenRefEnvOverrides(t *testing.T) {
 	}
 }
 
-func TestCustomProdTokenRefFallback(t *testing.T) {
+func TestCustomProdTokenRef_FallsBackToDefaultsWhenEmpty(t *testing.T) {
 	ref := CustomProdTokenRef("", "", "")
 	if ref.Mount != DefaultTokenMount || ref.Path != DefaultTokenPath || ref.Field != DefaultTokenField {
 		t.Errorf("CustomProdTokenRef empty = %+v, want defaults", ref)
@@ -46,7 +46,7 @@ func TestCustomProdTokenRefFallback(t *testing.T) {
 	}
 }
 
-func TestPathsWithProdTokenRef(t *testing.T) {
+func TestPaths_WithProdTokenRefSetsCustomReference(t *testing.T) {
 	p := Paths{}
 	if got := p.resolveProdTokenRef(); got.Mount != DefaultTokenMount {
 		t.Errorf("default resolveProdTokenRef = %+v, want default mount", got)

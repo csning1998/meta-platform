@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestContextHandlerNonProdRootTokenFileMissing(t *testing.T) {
+func TestResolveContext_SucceedsForNonProdWhenRootTokenFileMissing(t *testing.T) {
 	root := t.TempDir()
 	home := t.TempDir()
 	p := Paths{ProjectRoot: root, Home: home}
@@ -26,7 +26,7 @@ func TestContextHandlerNonProdRootTokenFileMissing(t *testing.T) {
 	}
 }
 
-func TestContextHandlerNonProdTrimsToken(t *testing.T) {
+func TestResolveContext_TrimsTokenForNonProd(t *testing.T) {
 	root := t.TempDir()
 	home := t.TempDir()
 	p := Paths{ProjectRoot: root, Home: home}
@@ -49,7 +49,7 @@ func TestContextHandlerNonProdTrimsToken(t *testing.T) {
 	}
 }
 
-func TestContextHandlerProdBastionTokenMissing(t *testing.T) {
+func TestResolveContext_FailsForProdWhenBastionTokenMissing(t *testing.T) {
 	root := t.TempDir()
 	home := t.TempDir()
 	p := Paths{ProjectRoot: root, Home: home}
@@ -61,7 +61,7 @@ func TestContextHandlerProdBastionTokenMissing(t *testing.T) {
 	}
 }
 
-func TestContextHandlerProdKVReadFailsYieldsError(t *testing.T) {
+func TestResolveContext_FailsForProdWhenKVReadFails(t *testing.T) {
 	root := t.TempDir()
 	home := t.TempDir()
 	p := Paths{ProjectRoot: root, Home: home}
@@ -76,7 +76,7 @@ func TestContextHandlerProdKVReadFailsYieldsError(t *testing.T) {
 	}
 }
 
-func TestContextHandlerCACertConsistentAcrossTargets(t *testing.T) {
+func TestResolveContext_ProvidesConsistentCACert(t *testing.T) {
 	root := t.TempDir()
 	home := t.TempDir()
 	p := Paths{ProjectRoot: root, Home: home}
