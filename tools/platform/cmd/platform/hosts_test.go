@@ -8,10 +8,11 @@ import (
 	"strings"
 	"testing"
 
+	"platform/internal/config"
 	"platform/internal/hostsops"
 )
 
-const hostsNetworkXML = `<network><dns><host ip='172.16.125.250'><hostname>platform-foundation-spire-parent.dev</hostname></host></dns></network>`
+const hostsNetworkXML = `<network><dns><host ip='172.16.125.250'><hostname>example-platform-spire-parent.dev</hostname></host></dns></network>`
 
 // hostsSyncConfig returns a sync configuration of a temporary hosts file which holds current.
 func hostsSyncConfig(t *testing.T, current string, listErr error) hostsops.SyncConfig {
@@ -23,21 +24,21 @@ func hostsSyncConfig(t *testing.T, current string, listErr error) hostsops.SyncC
 	}
 	return hostsops.SyncConfig{
 		Config:         hostsops.Config{HostsFile: path},
-		Prefix:         "platform-foundation-",
+		Prefix:         "example-platform-",
 		ListNetworkXML: func() ([]string, error) { return []string{hostsNetworkXML}, listErr },
 	}
 }
 
 func TestSyncHosts_PrintsDiffAndAppliesChanges(t *testing.T) {
-	current := hostsops.BeginMark + "\n172.16.125.250 platform-foundation-spire-parent.dev\n" + hostsops.EndMark + "\n"
+	current := hostsops.BeginMark + "\n172.16.125.250 example-platform-spire-parent.dev\n" + hostsops.EndMark + "\n"
 	cases := []struct {
 		name    string
 		current string
 		apply   bool
 		want    []string
 	}{
-		{"dry run", "127.0.0.1 localhost\n", false, []string{"+172.16.125.250 platform-foundation-spire-parent.dev", "Dry run"}},
-		{"apply", "127.0.0.1 localhost\n", true, []string{"+172.16.125.250 platform-foundation-spire-parent.dev", "backup at"}},
+		{"dry run", "127.0.0.1 localhost\n", false, []string{"+172.16.125.250 example-platform-spire-parent.dev", "Dry run"}},
+		{"apply", "127.0.0.1 localhost\n", true, []string{"+172.16.125.250 example-platform-spire-parent.dev", "backup at"}},
 		{"already current", current, true, []string{"already matches"}},
 	}
 	for _, c := range cases {
@@ -67,7 +68,7 @@ func TestSyncHosts_ReturnsTheLibvirtFailure(t *testing.T) {
 
 func TestNewHostsSyncConfig_InitializesWithDefaults(t *testing.T) {
 	cfg := newHostsSyncConfig()
-	if cfg.HostsFile != "/etc/hosts" || len(cfg.Elevate) != 1 || cfg.Elevate[0] != "sudo" || cfg.Prefix != "platform-foundation-" || cfg.ListNetworkXML == nil {
-		t.Errorf("newHostsSyncConfig = %+v, want /etc/hosts through sudo with prefix platform-foundation-", cfg)
+	if cfg.HostsFile != "/etc/hosts" || len(cfg.Elevate) != 1 || cfg.Elevate[0] != "sudo" || cfg.Prefix != config.ProjectCode+"-" || cfg.ListNetworkXML == nil {
+		t.Errorf("newHostsSyncConfig = %+v, want /etc/hosts through sudo with prefix %s-", cfg, config.ProjectCode)
 	}
 }

@@ -12,7 +12,7 @@ import (
 func loadPublicTestEnv(t *testing.T) *Env {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), ".env")
-	content := `PROJECT_ROOT="/repo/platform-foundation"
+	content := `PROJECT_ROOT="/repo/example-platform"
 BASTION_VAULT_ADDR="https://127.0.0.1:8200"
 BASTION_VAULT_CACERT="${PROJECT_ROOT}/../../parent-group-governance/vault/tls/ca.pem"
 VAULT_TOKEN="hvs.secret-token-value"
@@ -35,8 +35,8 @@ func TestResolvePublicValue_ResolvesAllowedKeys(t *testing.T) {
 		want string
 	}{
 		{KeyBastionVaultAddr, "https://127.0.0.1:8200"},
-		{KeyBastionVaultCACert, "/repo/platform-foundation/../../parent-group-governance/vault/tls/ca.pem"},
-		{KeyProjectRoot, "/repo/platform-foundation"},
+		{KeyBastionVaultCACert, "/repo/example-platform/../../parent-group-governance/vault/tls/ca.pem"},
+		{KeyProjectRoot, "/repo/example-platform"},
 	}
 	for _, c := range cases {
 		t.Run(c.key, func(t *testing.T) {

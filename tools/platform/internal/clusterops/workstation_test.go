@@ -13,7 +13,7 @@ import (
 	"platform/internal/operatorops"
 )
 
-const keycloakWrapper = "spire-fetch-platform-foundation-terraform-operator-keycloak-frontend"
+const keycloakWrapper = "spire-fetch-example-platform-terraform-operator-keycloak-frontend"
 
 // workstationFixture is a workstation whose terraform, kubectl, JWT-SVID wrapper, and Vault are test doubles.
 type workstationFixture struct {
@@ -27,9 +27,9 @@ type workstationFixture struct {
 func operatorEntry(service, component, vault string) map[string]any {
 	return map[string]any{
 		"auth_mount": "spire-parent-jwt-svid-provider",
-		"role_name":  "platform-foundation-terraform-operator-" + service + "-" + component,
+		"role_name":  "example-platform-terraform-operator-" + service + "-" + component,
 		"cluster_config": map[string]any{
-			"vault": vault, "kv_mount": "secret", "kv_path": "platform-foundation/" + service + "/" + component + "/cluster-config",
+			"vault": vault, "kv_mount": "secret", "kv_path": "example-platform/" + service + "/" + component + "/cluster-config",
 		},
 	}
 }
@@ -62,8 +62,8 @@ func newWorkstationFixture(t *testing.T, kubectlBody string) *workstationFixture
 	t.Helper()
 	f := &workstationFixture{
 		vault: newVaultFixture(t, map[string]map[string]any{
-			"platform-foundation/keycloak/frontend/cluster-config":         clusterConfigSecret(),
-			"platform-foundation/vault-downstream/frontend/cluster-config": clusterConfigSecret(),
+			"example-platform/keycloak/frontend/cluster-config":         clusterConfigSecret(),
+			"example-platform/vault-downstream/frontend/cluster-config": clusterConfigSecret(),
 		}),
 		runtime: t.TempDir(),
 	}
@@ -81,7 +81,7 @@ func newWorkstationFixture(t *testing.T, kubectlBody string) *workstationFixture
 	}
 	f.ws = Workstation{
 		TenantsLayerDir: "/repo/terraform/layers/security-vault-downstream-tenants",
-		Operator:        operatorops.Config{WrapperDir: wrappers, OwnerCode: "platform-foundation"},
+		Operator:        operatorops.Config{WrapperDir: wrappers, OwnerCode: "example-platform"},
 		Getenv:          func(key string) string { return f.env[key] },
 	}
 	return f
@@ -114,7 +114,7 @@ func TestOpenSession_AuthenticatesOnDownstreamVault(t *testing.T) {
 	// The login carries no token, which keeps the tenant token of the Bastion Vault off the Downstream Vault.
 	for _, want := range []string{
 		"PUT /v1/auth/spire-parent-jwt-svid-provider/login token=",
-		"GET /v1/secret/data/platform-foundation/keycloak/frontend/cluster-config token=s.downstream",
+		"GET /v1/secret/data/example-platform/keycloak/frontend/cluster-config token=s.downstream",
 	} {
 		if !slices.Contains(f.vault.recorded(), want) {
 			t.Errorf("requests = %q, want %q", f.vault.recorded(), want)
@@ -129,7 +129,7 @@ func TestOpenSession_AuthenticatesOnBastionVault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("OpenSession: %v", err)
 	}
-	want := []string{"GET /v1/secret/data/platform-foundation/vault-downstream/frontend/cluster-config token=s.tenant"}
+	want := []string{"GET /v1/secret/data/example-platform/vault-downstream/frontend/cluster-config token=s.tenant"}
 	if !slices.Equal(f.vault.recorded(), want) {
 		t.Errorf("requests = %q, want %q alone", f.vault.recorded(), want)
 	}

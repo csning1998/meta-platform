@@ -26,7 +26,7 @@ func TestReadKVv2Field_ReturnsFalseOnConnectionRefused(t *testing.T) {
 }
 
 func TestReadKVv2Field_ExtractsExistingField(t *testing.T) {
-	srv := httptest.NewServer(kvv2Handler(t, "/v1/secret/data/platform-foundation/credentials", map[string]interface{}{
+	srv := httptest.NewServer(kvv2Handler(t, "/v1/secret/data/example-platform/credentials", map[string]interface{}{
 		"data": map[string]interface{}{
 			"data": map[string]interface{}{
 				"prod_vault_root_token": "s.prod-token",
@@ -36,7 +36,7 @@ func TestReadKVv2Field_ExtractsExistingField(t *testing.T) {
 	defer srv.Close()
 
 	client := newTestVaultClient(t, srv.URL)
-	value, ok := ReadKVv2Field(context.Background(), client, "secret", "platform-foundation/credentials", "prod_vault_root_token")
+	value, ok := ReadKVv2Field(context.Background(), client, "secret", "example-platform/credentials", "prod_vault_root_token")
 	if !ok {
 		t.Fatal("ok = false, want true")
 	}
