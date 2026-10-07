@@ -8,7 +8,7 @@ require (
 	github.com/hashicorp/vault/api v1.23.0
 	github.com/spf13/cobra v1.10.2
 	github.com/zclconf/go-cty v1.19.0
-	gitlab.com/csning1998-lab/parent-group-governance/tools/governance v0.0.0-20260919140900-1f44c1efca38
+	gitlab.com/csning1998-lab/parent-group-governance/tools/governance v0.0.0-20261007060042-2a8ed027fbd6
 	gitlab.com/csning1998-lab/terraform/terraform-provider-sshclient v0.0.0-20260910050740-2f2427450309
 	libvirt.org/go/libvirt v1.12006.0
 )
@@ -20,7 +20,7 @@ require (
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
 	github.com/apparentlymart/go-textseg/v17 v17.0.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
@@ -36,7 +36,7 @@ require (
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/stretchr/objx v0.5.3 // indirect
