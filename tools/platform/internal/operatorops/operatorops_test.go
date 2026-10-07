@@ -28,7 +28,7 @@ func writeLayerFiles(t *testing.T, files map[string]string) string {
 	return dir
 }
 
-func TestReadOperatorSubject(t *testing.T) {
+func TestReadOperatorSubject_ParsesValidDeclarations(t *testing.T) {
 	cases := []struct {
 		name  string
 		files map[string]string
@@ -63,7 +63,7 @@ func TestReadOperatorSubject(t *testing.T) {
 	}
 }
 
-func TestReadOperatorSubjectReportsLayerWithoutSubject(t *testing.T) {
+func TestReadOperatorSubject_ReportsLayerWithoutSubject(t *testing.T) {
 	for name, files := range map[string]map[string]string{
 		"no locals":          {"main.tf": "resource \"terraform_data\" \"x\" {}\n"},
 		"other locals":       {"locals.tf": "locals {\n  terraform_operator = {}\n}\n"},
@@ -80,7 +80,7 @@ func TestReadOperatorSubjectReportsLayerWithoutSubject(t *testing.T) {
 	}
 }
 
-func TestReadOperatorSubjectRejectsInvalidDeclaration(t *testing.T) {
+func TestReadOperatorSubject_RejectsInvalidDeclaration(t *testing.T) {
 	for name, files := range map[string]map[string]string{
 		"reference":      {"locals.tf": "locals {\n  terraform_operator_subject = { service = local.service, component = \"frontend\" }\n}\n"},
 		"template":       {"locals.tf": "locals {\n  terraform_operator_subject = { service = \"${local.s}\", component = \"frontend\" }\n}\n"},
@@ -100,7 +100,7 @@ func TestReadOperatorSubjectRejectsInvalidDeclaration(t *testing.T) {
 	}
 }
 
-func TestReadOperatorSubjectRejectsSyntaxError(t *testing.T) {
+func TestReadOperatorSubject_RejectsSyntaxError(t *testing.T) {
 	dir := writeLayerFiles(t, map[string]string{"locals.tf": "locals {\n  terraform_operator_subject = {\n"})
 	_, _, err := ReadOperatorSubject(dir)
 	if err == nil || !strings.Contains(err.Error(), "locals.tf") {
@@ -164,8 +164,8 @@ func readLayerFacts(t *testing.T, dir string) layerFacts {
 	return f
 }
 
-// TestReadOperatorSubjectMatchesTheLayers enforces the Day 0 declaration of every layer of the repository.
-func TestReadOperatorSubjectMatchesTheLayers(t *testing.T) {
+// TestReadOperatorSubject_MatchesRepositoryLayers enforces the Day 0 declaration of every layer of the repository.
+func TestReadOperatorSubject_MatchesRepositoryLayers(t *testing.T) {
 	targets := readOperatorTargets(t)
 	rules := []struct {
 		isViolated func(f layerFacts) bool
@@ -197,7 +197,7 @@ func TestReadOperatorSubjectMatchesTheLayers(t *testing.T) {
 	}
 }
 
-func TestResolveWrapperPath(t *testing.T) {
+func TestResolveWrapperPath_BuildsExpectedPath(t *testing.T) {
 	cfg := Config{WrapperDir: "/usr/local/bin", OwnerCode: "meta-platform"}
 	cases := []struct {
 		subject OperatorSubject
@@ -232,7 +232,7 @@ func isPathPresent(path string) bool {
 	return err == nil
 }
 
-func TestFetchJWT(t *testing.T) {
+func TestFetchJWT_ExtractsJWTToken(t *testing.T) {
 	cases := []struct {
 		name string
 		body string
@@ -252,7 +252,7 @@ func TestFetchJWT(t *testing.T) {
 	}
 }
 
-func TestFetchJWTRejectsOutputWithoutJWT(t *testing.T) {
+func TestFetchJWT_RejectsOutputWithoutJWT(t *testing.T) {
 	for _, c := range []struct{ name, body string }{
 		{"empty jwt", `printf '{"jwt":""}'`},
 		{"null jwt", `printf '{"jwt":null}'`},
@@ -269,8 +269,8 @@ func TestFetchJWTRejectsOutputWithoutJWT(t *testing.T) {
 	}
 }
 
-// TestFetchJWTKeepsTheOutputOutOfTheError covers output which fails to parse and MAY still hold a token.
-func TestFetchJWTKeepsTheOutputOutOfTheError(t *testing.T) {
+// TestFetchJWT_KeepsOutputOutOfErrorMessage covers output which fails to parse and MAY still hold a token.
+func TestFetchJWT_KeepsOutputOutOfErrorMessage(t *testing.T) {
 	for _, c := range []struct{ name, body string }{
 		{"truncated object", `printf '{"jwt":"eyJsecret.payload.sig"'`},
 		{"non-string jwt", `printf '{"jwt":["eyJsecret.payload.sig"]}'`},
@@ -288,7 +288,7 @@ func TestFetchJWTKeepsTheOutputOutOfTheError(t *testing.T) {
 	}
 }
 
-func TestFetchJWTReportsTheWrapperFailure(t *testing.T) {
+func TestFetchJWT_ReportsWrapperFailure(t *testing.T) {
 	wrapper := writeFakeExecutable(t, t.TempDir(), "wrapper",
 		`echo "spire-agent exited 1: connect: no such file or directory" >&2; exit 1`)
 	_, err := FetchJWT(context.Background(), wrapper)
@@ -304,7 +304,7 @@ func TestFetchJWTReportsTheWrapperFailure(t *testing.T) {
 	}
 }
 
-func TestFetchJWTRejectsMissingWrapper(t *testing.T) {
+func TestFetchJWT_RejectsMissingWrapper(t *testing.T) {
 	dir := t.TempDir()
 	nonExecutable := filepath.Join(dir, "non-executable")
 	err := os.WriteFile(nonExecutable, []byte("#!/bin/sh\n"), 0o600)
@@ -328,7 +328,7 @@ func TestFetchJWTRejectsMissingWrapper(t *testing.T) {
 	}
 }
 
-func TestBuildTerraformEnv(t *testing.T) {
+func TestBuildTerraformEnv_InjectsJWTToken(t *testing.T) {
 	cases := []struct {
 		name string
 		base []string
@@ -391,7 +391,7 @@ func newPrepareFixture(t *testing.T, locals string) prepareFixture {
 	return f
 }
 
-func TestPrepareTerraform(t *testing.T) {
+func TestPrepareTerraform_PreparesValidInvocation(t *testing.T) {
 	f := newPrepareFixture(t, keycloakSubjectLocals)
 	environ := []string{"PATH=" + filepath.Dir(f.terraform), "VAULT_TOKEN=tenant"}
 
@@ -412,8 +412,8 @@ func TestPrepareTerraform(t *testing.T) {
 	}
 }
 
-// TestPrepareTerraformRunsLayerWithoutJWTLoginPlainly covers a stale JWT-SVID of the shell, which MUST NOT reach another layer.
-func TestPrepareTerraformRunsLayerWithoutJWTLoginPlainly(t *testing.T) {
+// TestPrepareTerraform_RunsLayerWithoutJWTLoginPlainly covers a stale JWT-SVID of the shell, which MUST NOT reach another layer.
+func TestPrepareTerraform_RunsLayerWithoutJWTLoginPlainly(t *testing.T) {
 	f := newPrepareFixture(t, "locals {\n  state = {}\n}\n")
 	environ := []string{JWTEnvKey + "=eyJ.stale.sig", "PATH=" + filepath.Dir(f.terraform)}
 
@@ -437,7 +437,7 @@ func TestPrepareTerraformRunsLayerWithoutJWTLoginPlainly(t *testing.T) {
 	}
 }
 
-func TestPrepareTerraformRejectsInvalidSubject(t *testing.T) {
+func TestPrepareTerraform_RejectsInvalidSubject(t *testing.T) {
 	f := newPrepareFixture(t, "locals {\n  terraform_operator_subject = { service = local.s, component = \"frontend\" }\n}\n")
 
 	_, err := PrepareTerraform(context.Background(), f.cfg, f.layerDir, []string{"plan"}, nil)
@@ -449,7 +449,7 @@ func TestPrepareTerraformRejectsInvalidSubject(t *testing.T) {
 	}
 }
 
-func TestPrepareTerraformRejectsMissingTerraform(t *testing.T) {
+func TestPrepareTerraform_RejectsMissingTerraform(t *testing.T) {
 	f := newPrepareFixture(t, keycloakSubjectLocals)
 	t.Setenv("PATH", t.TempDir())
 
