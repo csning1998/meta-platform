@@ -25,7 +25,7 @@ import (
 	"platform/internal/operatorops"
 )
 
-func TestParseTarget(t *testing.T) {
+func TestParseTarget_ExtractsServiceAndComponent(t *testing.T) {
 	cases := []struct {
 		arg  string
 		want operatorops.OperatorSubject
@@ -45,7 +45,7 @@ func TestParseTarget(t *testing.T) {
 	}
 }
 
-func TestParseTargetRejectsInvalidArgument(t *testing.T) {
+func TestParseTarget_RejectsInvalidArgument(t *testing.T) {
 	for _, arg := range []string{
 		"", "keycloak", "keycloak/", "/frontend", "/",
 		"gitlab/praefect/patroni", "keycloak//frontend",
@@ -84,7 +84,7 @@ const tenantsOutput = `{
   }}
 }`
 
-func TestDecodeCoordinates(t *testing.T) {
+func TestDecodeCoordinates_ExtractsOperators(t *testing.T) {
 	got, err := DecodeCoordinates([]byte(tenantsOutput))
 	if err != nil {
 		t.Fatalf("DecodeCoordinates: %v", err)
@@ -116,7 +116,7 @@ func replaceJSON(t *testing.T, old, new string) []byte {
 	return []byte(strings.Replace(tenantsOutput, old, new, 1))
 }
 
-func TestDecodeCoordinatesRejectsIncompleteOutput(t *testing.T) {
+func TestDecodeCoordinates_RejectsIncompleteOutput(t *testing.T) {
 	cases := map[string]struct {
 		input []byte
 		want  string
@@ -140,7 +140,7 @@ func TestDecodeCoordinatesRejectsIncompleteOutput(t *testing.T) {
 	}
 }
 
-func TestResolveOperator(t *testing.T) {
+func TestResolveOperator_ResolvesRegisteredOperator(t *testing.T) {
 	coordinates, err := DecodeCoordinates([]byte(tenantsOutput))
 	if err != nil {
 		t.Fatalf("DecodeCoordinates: %v", err)
@@ -162,7 +162,7 @@ func TestResolveOperator(t *testing.T) {
 	}
 }
 
-func TestListTargets(t *testing.T) {
+func TestListTargets_ReturnsSortedTargets(t *testing.T) {
 	coordinates, err := DecodeCoordinates([]byte(tenantsOutput))
 	if err != nil {
 		t.Fatalf("DecodeCoordinates: %v", err)
@@ -190,7 +190,7 @@ func writeExecutable(t *testing.T, dir, name, body string) string {
 	return path
 }
 
-func TestReadCoordinates(t *testing.T) {
+func TestReadCoordinates_ParsesTerraformOutput(t *testing.T) {
 	bin := t.TempDir()
 	argsFile := filepath.Join(bin, "args")
 	outputFile := filepath.Join(bin, "output.json")
@@ -215,7 +215,7 @@ func TestReadCoordinates(t *testing.T) {
 	}
 }
 
-func TestReadCoordinatesReportsTheTerraformFailure(t *testing.T) {
+func TestReadCoordinates_ReportsTerraformFailure(t *testing.T) {
 	bin := t.TempDir()
 	writeExecutable(t, bin, "terraform", `echo "Error: HTTP remote state endpoint requires auth" >&2; exit 1`)
 	t.Setenv("PATH", bin)
@@ -325,7 +325,7 @@ func clusterConfigSecret() map[string]any {
 	}
 }
 
-func TestLoginDownstreamAndReadCredential(t *testing.T) {
+func TestLoginDownstream_AuthenticatesAndReadsCredential(t *testing.T) {
 	f := newVaultFixture(t, map[string]map[string]any{"meta-platform/keycloak/frontend/cluster-config": clusterConfigSecret()})
 
 	client, err := LoginDownstream(context.Background(), f.server.URL, f.caFile, keycloakOperator, "eyJ.keycloak.sig")
@@ -345,8 +345,8 @@ func TestLoginDownstreamAndReadCredential(t *testing.T) {
 	}
 }
 
-// TestLoginDownstreamVerifiesTheListener covers the curl -k of the shell script, which this package MUST NOT repeat.
-func TestLoginDownstreamVerifiesTheListener(t *testing.T) {
+// TestLoginDownstream_VerifiesListenerAgainstCACert covers the curl -k of the shell script, which this package MUST NOT repeat.
+func TestLoginDownstream_VerifiesListenerAgainstCACert(t *testing.T) {
 	f := newVaultFixture(t, nil)
 
 	for name, caFile := range map[string]string{
@@ -368,7 +368,7 @@ func TestLoginDownstreamVerifiesTheListener(t *testing.T) {
 	}
 }
 
-func TestLoginDownstreamRejectsDeniedLogin(t *testing.T) {
+func TestLoginDownstream_RejectsDeniedLogin(t *testing.T) {
 	f := newVaultFixture(t, nil)
 	_, err := LoginDownstream(context.Background(), f.server.URL, f.caFile, keycloakOperator, "eyJ.other.sig")
 	if err == nil || strings.Contains(err.Error(), "eyJ.other.sig") {
@@ -376,7 +376,7 @@ func TestLoginDownstreamRejectsDeniedLogin(t *testing.T) {
 	}
 }
 
-func TestNewBastionClientReadsTheTenantSession(t *testing.T) {
+func TestNewBastionClient_ReadsTenantSession(t *testing.T) {
 	f := newVaultFixture(t, map[string]map[string]any{"meta-platform/vault-downstream/frontend/cluster-config": clusterConfigSecret()})
 	env := map[string]string{"VAULT_ADDR": f.server.URL, "VAULT_TOKEN": "s.tenant", "VAULT_CACERT": f.caFile}
 
@@ -396,7 +396,7 @@ func TestNewBastionClientReadsTheTenantSession(t *testing.T) {
 	}
 }
 
-func TestNewBastionClientRequiresTheTenantSession(t *testing.T) {
+func TestNewBastionClient_RequiresTenantSession(t *testing.T) {
 	for name, env := range map[string]map[string]string{
 		"no address": {"VAULT_TOKEN": "s.tenant"},
 		"no token":   {"VAULT_ADDR": "https://172.16.0.1:8200"},
@@ -411,7 +411,7 @@ func TestNewBastionClientRequiresTheTenantSession(t *testing.T) {
 	}
 }
 
-func TestReadCredentialRejectsIncompleteLeaf(t *testing.T) {
+func TestReadCredential_RejectsIncompleteLeaf(t *testing.T) {
 	invalid := clusterConfigSecret()
 	invalid["content_b64"] = "not base64 secret-material"
 	absentKey := clusterConfigSecret()
@@ -451,7 +451,7 @@ func TestReadCredentialRejectsIncompleteLeaf(t *testing.T) {
 	}
 }
 
-func TestRenderTalosconfig(t *testing.T) {
+func TestRenderTalosconfig_RendersEndpointsAndCertificates(t *testing.T) {
 	cred := Credential{TalosCA: "Y2E=", TalosCert: "Y3J0", TalosKey: "a2V5"}
 	target := operatorops.OperatorSubject{Service: "gitlab", Component: "praefect-patroni"}
 
@@ -475,7 +475,7 @@ func TestRenderTalosconfig(t *testing.T) {
 	}
 }
 
-func TestListNodeAddresses(t *testing.T) {
+func TestListNodeAddresses_ParsesInternalIPs(t *testing.T) {
 	bin := t.TempDir()
 	argsFile := filepath.Join(bin, "args")
 	writeExecutable(t, bin, "kubectl", `echo "$@" > "`+argsFile+`"; printf '172.16.140.10 172.16.140.11 '`)
@@ -495,7 +495,7 @@ func TestListNodeAddresses(t *testing.T) {
 	}
 }
 
-func TestListNodeAddressesReportsTheKubectlFailure(t *testing.T) {
+func TestListNodeAddresses_ReportsKubectlFailure(t *testing.T) {
 	bin := t.TempDir()
 	writeExecutable(t, bin, "kubectl", `echo "Unable to connect to the server: dial tcp: i/o timeout" >&2; exit 1`)
 	t.Setenv("PATH", bin)
@@ -506,7 +506,7 @@ func TestListNodeAddressesReportsTheKubectlFailure(t *testing.T) {
 	}
 }
 
-func TestResolveRuntimeDir(t *testing.T) {
+func TestResolveRuntimeDir_PrefersXDGRuntimeDir(t *testing.T) {
 	got := ResolveRuntimeDir(func(key string) string { return map[string]string{"XDG_RUNTIME_DIR": "/run/user/1000"}[key] })
 	if got != "/run/user/1000" {
 		t.Errorf("ResolveRuntimeDir = %q, want XDG_RUNTIME_DIR", got)
@@ -517,8 +517,8 @@ func TestResolveRuntimeDir(t *testing.T) {
 	}
 }
 
-// TestCreateSessionDir covers concurrent sessions of one cluster and a shared /tmp, which a fixed name would expose.
-func TestCreateSessionDir(t *testing.T) {
+// TestCreateSessionDir_CreatesDistinctDirectories covers concurrent sessions of one cluster and a shared /tmp, which a fixed name would expose.
+func TestCreateSessionDir_CreatesDistinctDirectories(t *testing.T) {
 	base := t.TempDir()
 	first, err := CreateSessionDir(base)
 	if err != nil {
@@ -542,7 +542,7 @@ func TestCreateSessionDir(t *testing.T) {
 	}
 }
 
-func TestWriteSessionFile(t *testing.T) {
+func TestWriteSessionFile_WritesOwnerOnlyPermissions(t *testing.T) {
 	dir, err := CreateSessionDir(t.TempDir())
 	if err != nil {
 		t.Fatalf("CreateSessionDir: %v", err)
@@ -564,7 +564,7 @@ func TestWriteSessionFile(t *testing.T) {
 	}
 }
 
-func TestBuildShellEnv(t *testing.T) {
+func TestBuildShellEnv_ConfiguresSessionVariables(t *testing.T) {
 	base := []string{"PATH=/bin", "KUBECONFIG=/old/kubeconfig", "TALOSCONFIG=/old/talosconfig", "PLATFORM_CLUSTER=spire/child", "VAULT_TOKEN=s.tenant"}
 	original := slices.Clone(base)
 	target := operatorops.OperatorSubject{Service: "gitlab", Component: "praefect-patroni"}
@@ -606,7 +606,7 @@ func assertPathRemoved(t *testing.T, path string) {
 	}
 }
 
-func TestRunSessionRemovesTheDirectory(t *testing.T) {
+func TestRunSession_RemovesDirectoryAfterRun(t *testing.T) {
 	failure := errors.New("shell failed")
 	for name, runErr := range map[string]error{"success": nil, "failure": failure} {
 		t.Run(name, func(t *testing.T) {

@@ -98,7 +98,7 @@ func (f *workstationFixture) assertRuntimeEmpty(t *testing.T) {
 	}
 }
 
-func TestOpenSessionOnTheDownstreamVault(t *testing.T) {
+func TestOpenSession_AuthenticatesOnDownstreamVault(t *testing.T) {
 	f := newWorkstationFixture(t, reportNodes)
 
 	session, err := f.ws.OpenSession(context.Background(), "keycloak/frontend")
@@ -122,7 +122,7 @@ func TestOpenSessionOnTheDownstreamVault(t *testing.T) {
 	}
 }
 
-func TestOpenSessionOnTheBastionVault(t *testing.T) {
+func TestOpenSession_AuthenticatesOnBastionVault(t *testing.T) {
 	f := newWorkstationFixture(t, reportNodes)
 
 	_, err := f.ws.OpenSession(context.Background(), "vault-downstream/frontend")
@@ -135,7 +135,7 @@ func TestOpenSessionOnTheBastionVault(t *testing.T) {
 	}
 }
 
-func TestOpenSessionWithoutAPIServer(t *testing.T) {
+func TestOpenSession_RendersTalosconfigWithoutEndpointsWhenAPIServerUnreachable(t *testing.T) {
 	f := newWorkstationFixture(t, `echo "Unable to connect to the server" >&2; exit 1`)
 
 	session, err := f.ws.OpenSession(context.Background(), "keycloak/frontend")
@@ -151,7 +151,7 @@ func TestOpenSessionWithoutAPIServer(t *testing.T) {
 	}
 }
 
-func TestOpenSessionFailsWithoutSessionFiles(t *testing.T) {
+func TestOpenSession_FailsWithoutSessionFiles(t *testing.T) {
 	cases := []struct {
 		name    string
 		arg     string
@@ -179,8 +179,8 @@ func TestOpenSessionFailsWithoutSessionFiles(t *testing.T) {
 	}
 }
 
-// TestCreateSessionRemovesTheDirectoryOnWriteFailure covers a talosconfig which already exists in the session directory.
-func TestCreateSessionRemovesTheDirectoryOnWriteFailure(t *testing.T) {
+// TestCreateSession_RemovesDirectoryOnWriteFailure covers a talosconfig which already exists in the session directory.
+func TestCreateSession_RemovesDirectoryOnWriteFailure(t *testing.T) {
 	f := newWorkstationFixture(t, `touch "$(dirname "$2")/talosconfig"; printf '10.0.0.1 '`)
 
 	_, err := f.ws.CreateSession(context.Background(), operatorops.OperatorSubject{Service: "keycloak", Component: "frontend"},
@@ -191,7 +191,7 @@ func TestCreateSessionRemovesTheDirectoryOnWriteFailure(t *testing.T) {
 	f.assertRuntimeEmpty(t)
 }
 
-func TestCreateSessionWithoutRuntimeDir(t *testing.T) {
+func TestCreateSession_FailsWithoutRuntimeDir(t *testing.T) {
 	f := newWorkstationFixture(t, reportNodes)
 	f.env["XDG_RUNTIME_DIR"] = filepath.Join(f.runtime, "absent")
 
