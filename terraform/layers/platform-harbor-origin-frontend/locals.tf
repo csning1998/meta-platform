@@ -97,3 +97,11 @@ locals {
     operator_vault_auth_mount   = local.terraform_operator.auth_mount
   }
 }
+
+# Cluster names derive from the foundation topology, so no input carries the project code.
+locals {
+  target_clusters = {
+    for role, c in var.target_components :
+    role => local.state.foundation_libvirt_resources.foundation_topology.identity[c.service][c.component].cluster_name
+  }
+}

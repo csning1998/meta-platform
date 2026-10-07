@@ -1,6 +1,6 @@
 
 output "cilium_hubble_fronted_service_vips" {
-  description = "VIPs allocated via CiliumLoadBalancerIPPool for platform-foundation's own catalog entries."
+  description = "VIPs allocated via CiliumLoadBalancerIPPool for the catalog entries of this repository."
   value       = { for key, seg in local.fronted_segments : key => seg.lb_config.vip }
 }
 

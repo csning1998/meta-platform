@@ -155,3 +155,11 @@ check "haproxy_extra_network_offsets_safe" {
     error_message = "haproxy_extra_ip_offset collides with a fronted segment's own reserved node ip_range for: ${join(", ", local.extra_network_offset_conflicts)}."
   }
 }
+
+# Cluster names derive from the foundation topology, so no input carries the project code.
+locals {
+  target_clusters = {
+    for role, c in var.target_components :
+    role => local.state.foundation_libvirt_resources.foundation_topology.identity[c.service][c.component].cluster_name
+  }
+}

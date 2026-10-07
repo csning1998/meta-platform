@@ -9,7 +9,7 @@ module "terraform_layer_context" {
   infrastructure_map       = local.state.foundation_libvirt_resources.foundation_topology.infrastructure
   guest_usernames          = local.state.foundation_libvirt_resources.foundation_ssh.usernames
 
-  target_clusters = var.target_clusters
+  target_clusters = local.target_clusters
   primary_role    = var.primary_role
   service_config  = var.service_config
 }

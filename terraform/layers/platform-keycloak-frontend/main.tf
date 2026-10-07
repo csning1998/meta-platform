@@ -12,7 +12,7 @@ module "terraform_layer_context" {
   downstream_vault_service_vip = local.state.security_vault_downstream_tenants.downstream_vault_service_vip
   security_pki_outputs         = local.state.security_vault_downstream_pki
 
-  target_clusters = var.target_clusters
+  target_clusters = local.target_clusters
   primary_role    = var.primary_role
   service_config  = var.service_config
 }

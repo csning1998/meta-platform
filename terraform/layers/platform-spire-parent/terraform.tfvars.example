@@ -1,5 +1,5 @@
 
-target_clusters = { "spire-parent" = "platform-foundation-spire-parent" }
+target_components = { "spire-parent" = { service = "spire", component = "parent" } }
 primary_role    = "spire-parent"
 
 service_config = {

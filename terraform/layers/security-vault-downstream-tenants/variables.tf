@@ -1,9 +1,17 @@
 
 variable "tenants" {
-  description = "Tenant workloads, each mapping a SPIFFE ID to a JWT auth role and KV and PKI ACL policies. issuer child binds a workload attested by the SPIRE Child, such as a pod or a VM agent of the Child, and provision-spire-child creates its role. issuer parent binds a workload attested by the SPIRE Parent, and this layer creates its role."
+  description = "Tenant workloads keyed by the name below the owner code, each mapping a SPIFFE ID to a JWT auth role and KV and PKI ACL policies. owner defaults to the project code of the foundation layer. workload names a catalog service and component, and kubernetes names a namespace and a service account, and exactly one of the two MUST be set. kv_paths, kv_read_paths, and pki_roles are relative to the owner. issuer child binds a workload attested by the SPIRE Child, and provision-spire-child creates its role. issuer parent binds a workload attested by the SPIRE Parent, and this layer creates its role."
   type = map(object({
-    issuer        = optional(string, "child")
-    spiffe_id     = string
+    owner  = optional(string)
+    issuer = optional(string, "child")
+    workload = optional(object({
+      service   = string
+      component = string
+    }))
+    kubernetes = optional(object({
+      namespace       = string
+      service_account = string
+    }))
     kv_paths      = optional(list(string), [])
     kv_read_paths = optional(list(string), [])
     pki_roles     = optional(list(string), [])
@@ -11,8 +19,8 @@ variable "tenants" {
   default = {}
 
   validation {
-    condition     = alltrue([for t in var.tenants : startswith(t.spiffe_id, "spiffe://")])
-    error_message = "Every spiffe_id MUST be a full SPIFFE ID."
+    condition     = alltrue([for t in var.tenants : (t.workload == null) != (t.kubernetes == null)])
+    error_message = "Every tenant MUST set exactly one of workload and kubernetes."
   }
 
   validation {

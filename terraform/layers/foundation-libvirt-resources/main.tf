@@ -4,7 +4,7 @@ module "foundation_libvirt_resources" {
 
   domain_suffix    = var.domain_suffix
   network_baseline = var.network_baseline
-  service_catalog  = var.service_catalog
+  service_catalog  = local.service_catalog
 }
 
 # Local SSH client configuration resources MUST be materialized in this foundation layer
@@ -13,4 +13,9 @@ module "ssh_identity_bootstrap" {
   source = "git::https://gitlab.com/csning1998-lab/terraform/terraform-provider-sshclient.git//terraform/modules/ssh-identity-bootstrap?ref=49d7d402b9b40183649139fe0eba8be88856f29d"
 
   identity_hosts = module.foundation_libvirt_resources.ssh_identity.hosts
+}
+
+# The catalog module keys every entry by project_code, which this layer injects from a single input.
+locals {
+  service_catalog = { for name, s in var.service_catalog : name => merge(s, { project_code = var.project_code }) }
 }

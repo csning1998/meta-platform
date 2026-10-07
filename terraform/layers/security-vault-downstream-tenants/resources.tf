@@ -28,7 +28,7 @@ resource "vault_jwt_auth_backend" "spire_parent" {
 
 resource "vault_policy" "tenant" {
   provider = vault.downstream
-  for_each = var.tenants
+  for_each = local.tenants
 
   name   = each.key
   policy = jsonencode({ path = local.tenant_policy_paths[each.key] })
@@ -37,7 +37,7 @@ resource "vault_policy" "tenant" {
 # The roles of Child tenants live on the Child mount, which provision-spire-child creates after the SPIRE Child exists.
 resource "vault_jwt_auth_backend_role" "tenant" {
   provider = vault.downstream
-  for_each = { for name, t in var.tenants : name => t if t.issuer == "parent" }
+  for_each = { for name, t in local.tenants : name => t if t.issuer == "parent" }
 
   backend         = local.jwt_auth.parent.mount_path
   role_name       = each.key

@@ -5,7 +5,7 @@ node_config = {
 }
 
 talos_config = {
-  target_cluster_name = "platform-foundation-cilium-hubble"
+  target_component    = { service = "cilium", component = "hubble" }
   talos_version       = "v1.13.8"
   kubernetes_version  = "v1.36.5"
   gateway_api = {

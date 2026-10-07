@@ -1,5 +1,5 @@
 
-target_clusters = { "keycloak" = "platform-foundation-keycloak-frontend" }
+target_components = { "keycloak" = { service = "keycloak", component = "frontend" } }
 primary_role    = "keycloak"
 
 service_config = {

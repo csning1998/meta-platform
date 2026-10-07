@@ -77,3 +77,11 @@ locals {
     spire_parent_trust_domain_reinitialization = var.spire_trust_domain_reinitialization
   }
 }
+
+# Cluster names derive from the foundation topology, so no input carries the project code.
+locals {
+  target_clusters = {
+    for role, c in var.target_components :
+    role => local.state.foundation_libvirt_resources.foundation_topology.identity[c.service][c.component].cluster_name
+  }
+}

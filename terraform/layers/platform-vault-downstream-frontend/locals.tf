@@ -30,3 +30,11 @@ locals {
   foundation_kv_paths              = local.state.foundation_libvirt_resources.foundation_vault_path.kv_paths["vault-downstream"]["frontend"]
   is_runtime_talos                 = contains(local.state.foundation_libvirt_resources.foundation_topology.kubernetes_native_runtimes, local.vault_downstream_cluster_runtime)
 }
+
+# Cluster names derive from the foundation topology, so no input carries the project code.
+locals {
+  target_clusters = {
+    for role, c in var.target_components :
+    role => local.state.foundation_libvirt_resources.foundation_topology.identity[c.service][c.component].cluster_name
+  }
+}

@@ -3,7 +3,7 @@
 # Each leaf designates a single writer layer; consumers read centralized paths rather than composing strings.
 # The addon entry serves as a prefix completed by consumers as addon-<name>.
 locals {
-  foundation_project_code = one(distinct([for s in var.service_catalog : s.project_code]))
+  foundation_project_code = var.project_code
 
   kv_leaf = {
     ssh             = "ssh"

@@ -1,23 +1,25 @@
-# One entry per tenant workload.
+# One entry per tenant workload, keyed by the name below the owner code.
+# owner defaults to the project code of the foundation layer, and kv_paths, kv_read_paths, and pki_roles are relative to the owner.
+# workload names a catalog service and component, and kubernetes names a namespace and a service account.
 # issuer = "child": a workload attested by the SPIRE Child, such as a pod or a VM agent of the Child. provision-spire-child creates the role.
 # issuer = "parent": a workload attested by the SPIRE Parent. This layer creates the role.
 tenants = {
-  "platform-foundation-e2e-probe" = {
-    issuer    = "child"
-    spiffe_id = "spiffe://production.homelab-infra.dev/ns/e2e-probe/sa/e2e-probe"
-    kv_paths  = ["platform-foundation/e2e-probe"]
+  "e2e-probe" = {
+    issuer     = "child"
+    kubernetes = { namespace = "e2e-probe", service_account = "e2e-probe" }
+    kv_paths   = ["e2e-probe"]
   }
 
-  "platform-foundation-keycloak-frontend" = {
+  "keycloak-frontend" = {
     issuer        = "child"
-    spiffe_id     = "spiffe://production.homelab-infra.dev/platform-foundation/keycloak/frontend"
-    kv_read_paths = ["platform-foundation/keycloak/frontend"]
-    pki_roles     = ["platform-foundation-keycloak-frontend"]
+    workload      = { service = "keycloak", component = "frontend" }
+    kv_read_paths = ["keycloak/frontend"]
+    pki_roles     = ["keycloak-frontend"]
   }
 
-  "platform-foundation-harbor-origin-frontend" = {
+  "harbor-origin-frontend" = {
     issuer        = "child"
-    spiffe_id     = "spiffe://production.homelab-infra.dev/platform-foundation/harbor-origin/frontend"
-    kv_read_paths = ["platform-foundation/harbor-origin/frontend"]
+    workload      = { service = "harbor-origin", component = "frontend" }
+    kv_read_paths = ["harbor-origin/frontend"]
   }
 }

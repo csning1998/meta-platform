@@ -1,5 +1,5 @@
 
-target_clusters = { "harbor_origin" = "platform-foundation-harbor-origin-frontend" }
+target_components = { "harbor_origin" = { service = "harbor-origin", component = "frontend" } }
 primary_role    = "harbor_origin"
 
 service_config = {

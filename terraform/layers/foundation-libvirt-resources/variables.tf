@@ -48,9 +48,8 @@ variable "network_baseline" {
 variable "service_catalog" {
   description = "The Single Source of Truth (SSoT) for all services, component, ingress, and dependencies, passed through to the service_catalog module for validation."
   type = map(object({
-    owner        = string
-    project_code = string
-    stage        = string
+    owner = string
+    stage = string
 
     components = map(object({
       provider       = string
@@ -95,4 +94,14 @@ variable "service_catalog" {
       }), {})
     }))
   }))
+}
+
+variable "project_code" {
+  description = "Owner code of every catalog entry of this repository. The value prefixes the cluster names, the Vault KV paths, and the identity strings."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[a-z0-9]+(-[a-z0-9]+)*$", var.project_code))
+    error_message = "project_code must only contain lowercase letters, numbers, and single hyphens between words."
+  }
 }

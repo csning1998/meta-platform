@@ -1,7 +1,5 @@
 
-target_clusters = {
-  frontend = "platform-foundation-haproxy-frontend"
-}
+target_components = { "frontend" = { service = "haproxy", component = "frontend" } }
 
 primary_role = "frontend"
 
