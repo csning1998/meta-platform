@@ -4,8 +4,10 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 # Repository constants. The KV path and its field are frozen names of parent-group-governance.
+# The SonarQube project key is the GitLab project path with slashes replaced by hyphens.
 readonly cli="platform"
-readonly sonar_project_key="csning1998-lab-platform-engineering-lab-platform-foundation"
+sonar_project_key="$(git remote get-url origin | sed -E 's#^(git@[^:]+:|https?://[^/]+/)##; s#\.git$##; s#/#-#g')"
+readonly sonar_project_key
 readonly sonar_token_path="secret/parent-group-governance/sonarqube/ci-analysis-bot"
 readonly sonar_token_field="sonarqube_ci_token"
 readonly scanner_image="docker.io/sonarsource/sonar-scanner-cli:12.1.0.3225_8.0.1"
