@@ -34,9 +34,9 @@ const (
 	Input
 )
 
-// severityLabel covers Info/Warn/Error/Fatal/OK: the outcome axis. Returns ("", "") for a
+// resolveSeverityLabel covers Info/Warn/Error/Fatal/OK: the outcome axis. Returns ("", "") for a
 // Level outside this axis.
-func (l Level) severityLabel() (tag, color string) {
+func (l Level) resolveSeverityLabel() (tag, color string) {
 	switch l {
 	case Info:
 		return "INFO", colorGreen
@@ -53,9 +53,9 @@ func (l Level) severityLabel() (tag, color string) {
 	}
 }
 
-// narrativeLabel covers Step/Task: the progress-narration axis. Returns ("", "") for a Level
+// resolveNarrativeLabel covers Step/Task: the progress-narration axis. Returns ("", "") for a Level
 // outside this axis.
-func (l Level) narrativeLabel() (tag, color string) {
+func (l Level) resolveNarrativeLabel() (tag, color string) {
 	switch l {
 	case Step:
 		return "STEP", colorBlue
@@ -66,9 +66,9 @@ func (l Level) narrativeLabel() (tag, color string) {
 	}
 }
 
-// interactiveLabel covers Input: the user-prompt axis. Returns ("", "") for a Level outside
+// resolveInteractiveLabel covers Input: the user-prompt axis. Returns ("", "") for a Level outside
 // this axis.
-func (l Level) interactiveLabel() (tag, color string) {
+func (l Level) resolveInteractiveLabel() (tag, color string) {
 	if l == Input {
 		return "INPUT", colorPurple
 	}
@@ -78,13 +78,13 @@ func (l Level) interactiveLabel() (tag, color string) {
 // resolveLabel dispatches l to whichever single axis l belongs to. An unrecognized Level
 // falls back to the neutral Info label.
 func (l Level) resolveLabel() (tag, color string) {
-	if tag, color = l.severityLabel(); tag != "" {
+	if tag, color = l.resolveSeverityLabel(); tag != "" {
 		return tag, color
 	}
-	if tag, color = l.narrativeLabel(); tag != "" {
+	if tag, color = l.resolveNarrativeLabel(); tag != "" {
 		return tag, color
 	}
-	if tag, color = l.interactiveLabel(); tag != "" {
+	if tag, color = l.resolveInteractiveLabel(); tag != "" {
 		return tag, color
 	}
 	return "INFO", colorGreen
@@ -96,6 +96,7 @@ type Printer struct {
 	errOut io.Writer
 }
 
+// New returns a Printer configured with out and errOut.
 func New(out, errOut io.Writer) *Printer {
 	return &Printer{out: out, errOut: errOut}
 }
