@@ -28,7 +28,7 @@ func hostsSyncConfig(t *testing.T, current string, listErr error) hostsops.SyncC
 	}
 }
 
-func TestSyncHosts(t *testing.T) {
+func TestSyncHosts_PrintsDiffAndAppliesChanges(t *testing.T) {
 	current := hostsops.BeginMark + "\n172.16.125.250 meta-platform-spire-parent.dev\n" + hostsops.EndMark + "\n"
 	cases := []struct {
 		name    string
@@ -56,7 +56,7 @@ func TestSyncHosts(t *testing.T) {
 	}
 }
 
-func TestSyncHostsReturnsTheLibvirtFailure(t *testing.T) {
+func TestSyncHosts_ReturnsTheLibvirtFailure(t *testing.T) {
 	a, _ := newOperationsApp(t, "")
 	failure := errors.New("libvirt unavailable")
 	err := a.syncHosts(context.Background(), hostsSyncConfig(t, "127.0.0.1 localhost\n", failure), false)
@@ -65,7 +65,7 @@ func TestSyncHostsReturnsTheLibvirtFailure(t *testing.T) {
 	}
 }
 
-func TestNewHostsSyncConfig(t *testing.T) {
+func TestNewHostsSyncConfig_InitializesWithDefaults(t *testing.T) {
 	cfg := newHostsSyncConfig()
 	if cfg.HostsFile != "/etc/hosts" || len(cfg.Elevate) != 1 || cfg.Elevate[0] != "sudo" || cfg.Prefix != "meta-platform-" || cfg.ListNetworkXML == nil {
 		t.Errorf("newHostsSyncConfig = %+v, want /etc/hosts through sudo with prefix meta-platform-", cfg)
