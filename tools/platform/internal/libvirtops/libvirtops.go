@@ -10,11 +10,12 @@ import (
 
 	libvirt "libvirt.org/go/libvirt"
 
+	"platform/internal/config"
 	"platform/internal/ui"
 )
 
 // ProjectCode defines the target resource prefix used to filter libvirt entities during purge operations.
-const ProjectCode = "platform-foundation"
+const ProjectCode = config.ProjectCode
 
 func hasProjectPrefix(name string) bool {
 	return strings.HasPrefix(name, ProjectCode+"-")

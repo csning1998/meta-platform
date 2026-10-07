@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/spf13/cobra"
 
+	"platform/internal/config"
 	"platform/internal/libvirtops"
 	"platform/internal/packerops"
 	"platform/internal/terraformops"
@@ -36,7 +37,7 @@ func (a *app) sshCmd() *cobra.Command {
 		Short: "Generate an ed25519 SSH key for IaC automation",
 		RunE:  func(cmd *cobra.Command, args []string) error { return a.generateSSHKey(keyName, overwrite) },
 	}
-	genCmd.Flags().StringVar(&keyName, "name", "id_ed25519_platform-foundation", "key file name under $HOME/.ssh")
+	genCmd.Flags().StringVar(&keyName, "name", "id_ed25519_"+config.ProjectCode, "key file name under $HOME/.ssh")
 	genCmd.Flags().BoolVar(&overwrite, "overwrite", false, "overwrite an existing key")
 	cmd.AddCommand(genCmd)
 
@@ -123,7 +124,7 @@ func (a *app) hostsCmd() *cobra.Command {
 	var apply bool
 	syncCmd := &cobra.Command{
 		Use:         "sync",
-		Short:       "Print the diff of the platform-foundation block of /etc/hosts against the libvirt DNS records, and write it with --apply",
+		Short:       "Print the diff of the " + config.ProjectCode + " block of /etc/hosts against the libvirt DNS records, and write it with --apply",
 		Annotations: map[string]string{annotationSkipBootstrap: "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return a.syncHosts(cmd.Context(), newHostsSyncConfig(), apply)

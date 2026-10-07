@@ -107,7 +107,7 @@ func execute() int {
 	var rootCmd *cobra.Command
 	rootCmd = &cobra.Command{
 		Use:           "platform",
-		Short:         "IaC-driven Internal Developer Platform for platform-foundation",
+		Short:         "IaC-driven Internal Developer Platform for " + config.ProjectCode,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
