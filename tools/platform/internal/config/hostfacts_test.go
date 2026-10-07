@@ -2,7 +2,7 @@ package config
 
 import "testing"
 
-func TestParseOSRelease(t *testing.T) {
+func TestParseOSRelease_ParsesStandardDistributions(t *testing.T) {
 	cases := []struct {
 		name              string
 		data              string
@@ -21,7 +21,7 @@ func TestParseOSRelease(t *testing.T) {
 	}
 }
 
-func TestParseOSReleaseEdgeCases(t *testing.T) {
+func TestParseOSRelease_HandlesEdgeCases(t *testing.T) {
 	cases := []struct {
 		name              string
 		data              string
@@ -44,7 +44,7 @@ func TestParseOSReleaseEdgeCases(t *testing.T) {
 	}
 }
 
-func TestVerifyNativeEnvironment(t *testing.T) {
+func TestVerifyNativeEnvironment_ReturnsRequiredChecks(t *testing.T) {
 	checks := VerifyNativeEnvironment()
 	if len(checks) != 6 {
 		t.Fatalf("len(checks) = %d, want 6", len(checks))

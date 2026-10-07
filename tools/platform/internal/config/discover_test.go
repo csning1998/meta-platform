@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestDiscoverPackerBasesSortsAndExcludesValues(t *testing.T) {
+func TestDiscoverPackerBases_SortsAndExcludesValues(t *testing.T) {
 	dir := t.TempDir()
 	mustMkdirAll(t, filepath.Join(dir, "distro"))
 	mustMkdirAll(t, filepath.Join(dir, "services"))
@@ -23,7 +23,7 @@ func TestDiscoverPackerBasesSortsAndExcludesValues(t *testing.T) {
 	}
 }
 
-func TestDiscoverTerraformLayersMissingDirYieldsNil(t *testing.T) {
+func TestDiscoverTerraformLayers_ReturnsNilWhenDirMissing(t *testing.T) {
 	got, err := DiscoverTerraformLayers(filepath.Join(t.TempDir(), "no-such-terraform-dir"))
 	if err != nil {
 		t.Fatalf("DiscoverTerraformLayers: %v", err)
@@ -33,7 +33,7 @@ func TestDiscoverTerraformLayersMissingDirYieldsNil(t *testing.T) {
 	}
 }
 
-func TestDiscoverProdVaultInventory(t *testing.T) {
+func TestDiscoverProdVaultInventory_FindsInventoryFile(t *testing.T) {
 	t.Run("no match", func(t *testing.T) {
 		inv, err := DiscoverProdVaultInventory(t.TempDir())
 		if err != nil {
@@ -72,7 +72,7 @@ func TestDiscoverProdVaultInventory(t *testing.T) {
 	})
 }
 
-func TestDiscoverPackerBasesPartialDirs(t *testing.T) {
+func TestDiscoverPackerBases_HandlesPartialDirectories(t *testing.T) {
 	cases := []struct {
 		name  string
 		setup func(t *testing.T, dir string)
@@ -152,7 +152,7 @@ func assertDiscoverPackerBases(t *testing.T, dir string, want []string) {
 	}
 }
 
-func TestDiscoverTerraformLayersEmptyAndMixed(t *testing.T) {
+func TestDiscoverTerraformLayers_HandlesEmptyAndMixedDirectories(t *testing.T) {
 	t.Run("empty layers dir yields nil", func(t *testing.T) {
 		dir := t.TempDir()
 		mustMkdirAll(t, filepath.Join(dir, "layers"))
@@ -181,7 +181,7 @@ func TestDiscoverTerraformLayersEmptyAndMixed(t *testing.T) {
 	})
 }
 
-func TestDiscoverProdVaultInventoryEdgeCases(t *testing.T) {
+func TestDiscoverProdVaultInventory_HandlesEdgeCases(t *testing.T) {
 	t.Run("vault_vip line absent", func(t *testing.T) {
 		dir := t.TempDir()
 		path := filepath.Join(dir, "inventory-platform-vault-frontend.yaml")

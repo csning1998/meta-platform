@@ -11,7 +11,7 @@ import (
 	"platform/internal/ui"
 )
 
-func TestComputePackerNetConfigContainerStrategy(t *testing.T) {
+func TestComputePackerNetConfig_ContainerStrategy(t *testing.T) {
 	out := ui.New(io.Discard, io.Discard)
 	cfg := ComputePackerNetConfig(StrategyContainer, out)
 	if cfg.Bridge != "" {
@@ -22,7 +22,7 @@ func TestComputePackerNetConfigContainerStrategy(t *testing.T) {
 	}
 }
 
-func TestComputePackerNetConfigNativeAndUnknownStrategy(t *testing.T) {
+func TestComputePackerNetConfig_NativeAndUnknownStrategy(t *testing.T) {
 	out := ui.New(io.Discard, io.Discard)
 	for _, strategy := range []string{StrategyNative, "some-unrecognized-strategy"} {
 		t.Run(strategy, func(t *testing.T) {
@@ -37,7 +37,7 @@ func TestComputePackerNetConfigNativeAndUnknownStrategy(t *testing.T) {
 	}
 }
 
-func TestBootstrapEnvFirstRun(t *testing.T) {
+func TestBootstrapEnv_FirstRunInitializesDefaults(t *testing.T) {
 	root := t.TempDir()
 	packerDir := filepath.Join(root, "packer")
 	terraformDir := filepath.Join(root, "terraform")
@@ -84,7 +84,7 @@ func TestBootstrapEnvFirstRun(t *testing.T) {
 	}
 }
 
-func TestBootstrapEnvSecondRunPreservesCustomStrategyAndKeys(t *testing.T) {
+func TestBootstrapEnv_SecondRunPreservesCustomStrategyAndKeys(t *testing.T) {
 	root := t.TempDir()
 	packerDir := filepath.Join(root, "packer")
 	terraformDir := filepath.Join(root, "terraform")
@@ -130,7 +130,7 @@ func TestBootstrapEnvSecondRunPreservesCustomStrategyAndKeys(t *testing.T) {
 	}
 }
 
-func TestBootstrapEnvBackfillsMissingStrategyOnExistingFile(t *testing.T) {
+func TestBootstrapEnv_BackfillsMissingStrategyOnExistingFile(t *testing.T) {
 	root := t.TempDir()
 	packerDir := filepath.Join(root, "packer")
 	terraformDir := filepath.Join(root, "terraform")
@@ -154,7 +154,7 @@ func TestBootstrapEnvBackfillsMissingStrategyOnExistingFile(t *testing.T) {
 	}
 }
 
-func TestBootstrapEnvCACertIsRelocatable(t *testing.T) {
+func TestBootstrapEnv_CACertIsRelocatable(t *testing.T) {
 	root := t.TempDir()
 	out := ui.New(io.Discard, io.Discard)
 	e, err := BootstrapEnv(root, filepath.Join(root, "packer"), filepath.Join(root, "terraform"), filepath.Join(root, "ansible"), out)
