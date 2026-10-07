@@ -2,22 +2,22 @@
 # issuer = "child": a workload attested by the SPIRE Child, such as a pod or a VM agent of the Child. provision-spire-child creates the role.
 # issuer = "parent": a workload attested by the SPIRE Parent. This layer creates the role.
 tenants = {
-  "meta-platform-e2e-probe" = {
+  "platform-foundation-e2e-probe" = {
     issuer    = "child"
     spiffe_id = "spiffe://production.homelab-infra.dev/ns/e2e-probe/sa/e2e-probe"
-    kv_paths  = ["meta-platform/e2e-probe"]
+    kv_paths  = ["platform-foundation/e2e-probe"]
   }
 
-  "meta-platform-keycloak-frontend" = {
+  "platform-foundation-keycloak-frontend" = {
     issuer        = "child"
-    spiffe_id     = "spiffe://production.homelab-infra.dev/meta-platform/keycloak/frontend"
-    kv_read_paths = ["meta-platform/keycloak/frontend"]
-    pki_roles     = ["meta-platform-keycloak-frontend"]
+    spiffe_id     = "spiffe://production.homelab-infra.dev/platform-foundation/keycloak/frontend"
+    kv_read_paths = ["platform-foundation/keycloak/frontend"]
+    pki_roles     = ["platform-foundation-keycloak-frontend"]
   }
 
-  "meta-platform-harbor-origin-frontend" = {
+  "platform-foundation-harbor-origin-frontend" = {
     issuer        = "child"
-    spiffe_id     = "spiffe://production.homelab-infra.dev/meta-platform/harbor-origin/frontend"
-    kv_read_paths = ["meta-platform/harbor-origin/frontend"]
+    spiffe_id     = "spiffe://production.homelab-infra.dev/platform-foundation/harbor-origin/frontend"
+    kv_read_paths = ["platform-foundation/harbor-origin/frontend"]
   }
 }

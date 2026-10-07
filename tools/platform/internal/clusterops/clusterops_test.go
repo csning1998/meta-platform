@@ -69,17 +69,17 @@ const tenantsOutput = `{
   "downstream_vault_service_vip": {"sensitive": false, "type": "string", "value": "172.16.127.250"},
   "downstream_vault_operators": {"sensitive": false, "type": ["object", {}], "value": {
     "keycloak": {"frontend": {
-      "auth_mount": "spire-parent-jwt-svid-provider", "role_name": "meta-platform-terraform-operator-keycloak-frontend",
-      "audience": "vault", "wrapper_name": "spire-fetch-meta-platform-terraform-operator-keycloak-frontend",
-      "cluster_name": "meta-platform-keycloak-frontend", "cluster_issuer_policy": "p", "external_secrets_policy": null,
-      "cluster_config": {"vault": "downstream", "kv_mount": "secret", "kv_path": "meta-platform/keycloak/frontend/cluster-config"}}},
+      "auth_mount": "spire-parent-jwt-svid-provider", "role_name": "platform-foundation-terraform-operator-keycloak-frontend",
+      "audience": "vault", "wrapper_name": "spire-fetch-platform-foundation-terraform-operator-keycloak-frontend",
+      "cluster_name": "platform-foundation-keycloak-frontend", "cluster_issuer_policy": "p", "external_secrets_policy": null,
+      "cluster_config": {"vault": "downstream", "kv_mount": "secret", "kv_path": "platform-foundation/keycloak/frontend/cluster-config"}}},
     "vault-downstream": {"frontend": {
-      "auth_mount": "spire-parent-jwt-svid-provider", "role_name": "meta-platform-terraform-operator-vault-downstream-frontend",
+      "auth_mount": "spire-parent-jwt-svid-provider", "role_name": "platform-foundation-terraform-operator-vault-downstream-frontend",
       "audience": "vault", "wrapper_name": "w", "cluster_name": "c", "cluster_issuer_policy": null, "external_secrets_policy": null,
-      "cluster_config": {"vault": "bastion", "kv_mount": "secret", "kv_path": "meta-platform/vault-downstream/frontend/cluster-config"}}},
+      "cluster_config": {"vault": "bastion", "kv_mount": "secret", "kv_path": "platform-foundation/vault-downstream/frontend/cluster-config"}}},
     "gitlab": {
-      "praefect-patroni": {"auth_mount": "m", "role_name": "r", "cluster_config": {"vault": "downstream", "kv_mount": "secret", "kv_path": "meta-platform/gitlab/praefect-patroni/cluster-config"}},
-      "praefect": {"auth_mount": "m", "role_name": "r", "cluster_config": {"vault": "downstream", "kv_mount": "secret", "kv_path": "meta-platform/gitlab/praefect/cluster-config"}}
+      "praefect-patroni": {"auth_mount": "m", "role_name": "r", "cluster_config": {"vault": "downstream", "kv_mount": "secret", "kv_path": "platform-foundation/gitlab/praefect-patroni/cluster-config"}},
+      "praefect": {"auth_mount": "m", "role_name": "r", "cluster_config": {"vault": "downstream", "kv_mount": "secret", "kv_path": "platform-foundation/gitlab/praefect/cluster-config"}}
     }
   }}
 }`
@@ -94,9 +94,9 @@ func TestDecodeCoordinates_ExtractsOperators(t *testing.T) {
 	}
 	want := Operator{
 		AuthMount: "spire-parent-jwt-svid-provider",
-		RoleName:  "meta-platform-terraform-operator-keycloak-frontend",
+		RoleName:  "platform-foundation-terraform-operator-keycloak-frontend",
 		ClusterConfig: ClusterConfig{
-			Vault: "downstream", KVMount: "secret", KVPath: "meta-platform/keycloak/frontend/cluster-config",
+			Vault: "downstream", KVMount: "secret", KVPath: "platform-foundation/keycloak/frontend/cluster-config",
 		},
 	}
 	if got.Operators["keycloak"]["frontend"] != want {
@@ -126,9 +126,9 @@ func TestDecodeCoordinates_RejectsIncompleteOutput(t *testing.T) {
 		"no operators":      {replaceJSON(t, `"downstream_vault_operators"`, `"renamed_operators"`), "downstream_vault_operators"},
 		"no ca":             {replaceJSON(t, `"downstream_vault_ca_cert_path"`, `"renamed_ca"`), "downstream_vault_ca_cert_path"},
 		"unknown vault":     {replaceJSON(t, `"vault": "bastion"`, `"vault": "production"`), "production"},
-		"empty kv path":     {replaceJSON(t, `"kv_path": "meta-platform/keycloak/frontend/cluster-config"`, `"kv_path": ""`), "keycloak/frontend"},
-		"empty role":        {replaceJSON(t, `"role_name": "meta-platform-terraform-operator-keycloak-frontend"`, `"role_name": ""`), "keycloak/frontend"},
-		"no cluster config": {replaceJSON(t, `"cluster_config": {"vault": "downstream", "kv_mount": "secret", "kv_path": "meta-platform/gitlab/praefect/cluster-config"}`, `"cluster_config": null`), "gitlab/praefect"},
+		"empty kv path":     {replaceJSON(t, `"kv_path": "platform-foundation/keycloak/frontend/cluster-config"`, `"kv_path": ""`), "keycloak/frontend"},
+		"empty role":        {replaceJSON(t, `"role_name": "platform-foundation-terraform-operator-keycloak-frontend"`, `"role_name": ""`), "keycloak/frontend"},
+		"no cluster config": {replaceJSON(t, `"cluster_config": {"vault": "downstream", "kv_mount": "secret", "kv_path": "platform-foundation/gitlab/praefect/cluster-config"}`, `"cluster_config": null`), "gitlab/praefect"},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -146,7 +146,7 @@ func TestResolveOperator_ResolvesRegisteredOperator(t *testing.T) {
 		t.Fatalf("DecodeCoordinates: %v", err)
 	}
 	got, err := coordinates.ResolveOperator(operatorops.OperatorSubject{Service: "gitlab", Component: "praefect-patroni"})
-	if err != nil || got.ClusterConfig.KVPath != "meta-platform/gitlab/praefect-patroni/cluster-config" {
+	if err != nil || got.ClusterConfig.KVPath != "platform-foundation/gitlab/praefect-patroni/cluster-config" {
 		t.Errorf("ResolveOperator(gitlab/praefect-patroni) = %+v, %v", got, err)
 	}
 
@@ -252,7 +252,7 @@ func newVaultFixture(t *testing.T, secrets map[string]map[string]any) *vaultFixt
 		case r.URL.Path == "/v1/auth/spire-parent-jwt-svid-provider/login":
 			var body map[string]string
 			err := json.NewDecoder(r.Body).Decode(&body)
-			if err != nil || body["role"] != "meta-platform-terraform-operator-keycloak-frontend" || body["jwt"] != "eyJ.keycloak.sig" {
+			if err != nil || body["role"] != "platform-foundation-terraform-operator-keycloak-frontend" || body["jwt"] != "eyJ.keycloak.sig" {
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
@@ -310,9 +310,9 @@ func createForeignCA(t *testing.T) []byte {
 
 var keycloakOperator = Operator{
 	AuthMount: "spire-parent-jwt-svid-provider",
-	RoleName:  "meta-platform-terraform-operator-keycloak-frontend",
+	RoleName:  "platform-foundation-terraform-operator-keycloak-frontend",
 	ClusterConfig: ClusterConfig{
-		Vault: "downstream", KVMount: "secret", KVPath: "meta-platform/keycloak/frontend/cluster-config",
+		Vault: "downstream", KVMount: "secret", KVPath: "platform-foundation/keycloak/frontend/cluster-config",
 	},
 }
 
@@ -326,7 +326,7 @@ func clusterConfigSecret() map[string]any {
 }
 
 func TestLoginDownstream_AuthenticatesAndReadsCredential(t *testing.T) {
-	f := newVaultFixture(t, map[string]map[string]any{"meta-platform/keycloak/frontend/cluster-config": clusterConfigSecret()})
+	f := newVaultFixture(t, map[string]map[string]any{"platform-foundation/keycloak/frontend/cluster-config": clusterConfigSecret()})
 
 	client, err := LoginDownstream(context.Background(), f.server.URL, f.caFile, keycloakOperator, "eyJ.keycloak.sig")
 	if err != nil {
@@ -339,7 +339,7 @@ func TestLoginDownstream_AuthenticatesAndReadsCredential(t *testing.T) {
 	if string(got.Kubeconfig) != "apiVersion: v1\nkind: Config\n" || got.TalosCA != "Y2E=" || got.TalosCert != "Y3J0" || got.TalosKey != "a2V5" {
 		t.Errorf("ReadCredential = %+v", got)
 	}
-	wantRead := "GET /v1/secret/data/meta-platform/keycloak/frontend/cluster-config token=s.downstream"
+	wantRead := "GET /v1/secret/data/platform-foundation/keycloak/frontend/cluster-config token=s.downstream"
 	if !slices.Contains(f.recorded(), wantRead) {
 		t.Errorf("requests = %q, want %q", f.recorded(), wantRead)
 	}
@@ -377,7 +377,7 @@ func TestLoginDownstream_RejectsDeniedLogin(t *testing.T) {
 }
 
 func TestNewBastionClient_ReadsTenantSession(t *testing.T) {
-	f := newVaultFixture(t, map[string]map[string]any{"meta-platform/vault-downstream/frontend/cluster-config": clusterConfigSecret()})
+	f := newVaultFixture(t, map[string]map[string]any{"platform-foundation/vault-downstream/frontend/cluster-config": clusterConfigSecret()})
 	env := map[string]string{"VAULT_ADDR": f.server.URL, "VAULT_TOKEN": "s.tenant", "VAULT_CACERT": f.caFile}
 
 	client, err := NewBastionClient(func(key string) string { return env[key] })
@@ -385,12 +385,12 @@ func TestNewBastionClient_ReadsTenantSession(t *testing.T) {
 		t.Fatalf("NewBastionClient: %v", err)
 	}
 	_, err = ReadCredential(context.Background(), client, ClusterConfig{
-		Vault: "bastion", KVMount: "secret", KVPath: "meta-platform/vault-downstream/frontend/cluster-config",
+		Vault: "bastion", KVMount: "secret", KVPath: "platform-foundation/vault-downstream/frontend/cluster-config",
 	})
 	if err != nil {
 		t.Fatalf("ReadCredential: %v", err)
 	}
-	want := "GET /v1/secret/data/meta-platform/vault-downstream/frontend/cluster-config token=s.tenant"
+	want := "GET /v1/secret/data/platform-foundation/vault-downstream/frontend/cluster-config token=s.tenant"
 	if !slices.Contains(f.recorded(), want) {
 		t.Errorf("requests = %q, want %q", f.recorded(), want)
 	}
@@ -417,8 +417,8 @@ func TestReadCredential_RejectsIncompleteLeaf(t *testing.T) {
 	absentKey := clusterConfigSecret()
 	delete(absentKey, "talos_client_key_b64")
 	f := newVaultFixture(t, map[string]map[string]any{
-		"meta-platform/a/invalid/cluster-config":    invalid,
-		"meta-platform/a/absent-key/cluster-config": absentKey,
+		"platform-foundation/a/invalid/cluster-config":    invalid,
+		"platform-foundation/a/absent-key/cluster-config": absentKey,
 	})
 	env := map[string]string{"VAULT_ADDR": f.server.URL, "VAULT_TOKEN": "s.tenant", "VAULT_CACERT": f.caFile}
 	client, err := NewBastionClient(func(key string) string { return env[key] })
@@ -431,9 +431,9 @@ func TestReadCredential_RejectsIncompleteLeaf(t *testing.T) {
 		wantIs    error
 		wantField string
 	}{
-		"absent leaf":    {"meta-platform/a/vm-runtime/cluster-config", ErrClusterConfigMissing, ""},
-		"invalid base64": {"meta-platform/a/invalid/cluster-config", nil, "content_b64"},
-		"absent field":   {"meta-platform/a/absent-key/cluster-config", nil, "talos_client_key_b64"},
+		"absent leaf":    {"platform-foundation/a/vm-runtime/cluster-config", ErrClusterConfigMissing, ""},
+		"invalid base64": {"platform-foundation/a/invalid/cluster-config", nil, "content_b64"},
+		"absent field":   {"platform-foundation/a/absent-key/cluster-config", nil, "talos_client_key_b64"},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {

@@ -1,6 +1,6 @@
 # Platform CLI Architecture Specification
 
-`tools/platform` provides an integrated virtualization and infrastructure management tool for `meta-platform`. The compiled binary MUST reside at the repository root as `meta-platform/platform`.
+`tools/platform` provides an integrated virtualization and infrastructure management tool for `platform-foundation`. The compiled binary MUST reside at the repository root as `platform-foundation/platform`.
 
 ## Section 1. System Architecture and Interface Model
 
@@ -14,9 +14,9 @@
 
 ### Item B. Build and Execution Constraints
 
-1. The binary MUST be built with `build-platform.sh`, which runs the tests, builds `tools/platform` into `meta-platform/platform`, and runs the SonarQube scan.
+1. The binary MUST be built with `build-platform.sh`, which runs the tests, builds `tools/platform` into `platform-foundation/platform`, and runs the SonarQube scan.
 2. `build-platform.sh` MUST read the workstation values `BASTION_VAULT_ADDR` and `BASTION_VAULT_CACERT` through `platform env get` unless the caller exports them, and MUST hold the repository values as `readonly` constants.
-3. The executable MUST be invoked with the working directory inside the `meta-platform` repository. `platform terraform` MUST be invoked with the working directory set to a layer directory under `terraform/layers/`.
+3. The executable MUST be invoked with the working directory inside the `platform-foundation` repository. `platform terraform` MUST be invoked with the working directory set to a layer directory under `terraform/layers/`.
 4. Automatic environment initialization MUST determine `PROJECT_ROOT` from the current working directory.
 5. The compiled `platform` binary MUST NOT be tracked in version control and MUST be excluded by `.gitignore`.
 
@@ -36,7 +36,7 @@
 ### Item B. SSH Operations (`ssh`)
 
 1. `platform ssh keygen [--name <key>] [--overwrite]` MUST generate an unencrypted ed25519 keypair at `$HOME/.ssh/<key>` and persist `SSH_PRIVATE_KEY` in `.env`.
-2. `platform ssh keygen` MUST default the key name to `id_ed25519_meta-platform`.
+2. `platform ssh keygen` MUST default the key name to `id_ed25519_platform-foundation`.
 3. `platform ssh keygen` MUST fail if the target key file exists and `--overwrite` is not asserted.
 4. `platform ssh verify` MUST verify strict public-key connectivity to every `Host` declared in configuration files matching `$HOME/.ssh/ssh_*`.
 
@@ -76,9 +76,9 @@
 
 ### Item H. Workstation Host Resolution (`hosts`)
 
-1. `platform hosts sync` MUST read the DNS host records of every active network on `qemu:///system` and MUST keep the records which carry a host name with prefix `meta-platform-`.
+1. `platform hosts sync` MUST read the DNS host records of every active network on `qemu:///system` and MUST keep the records which carry a host name with prefix `platform-foundation-`.
 2. `platform hosts sync` MUST merge the records into one line per address, ordered by address.
-3. `platform hosts sync` MUST print the unified diff between `/etc/hosts` and the rewritten block between `# BEGIN meta-platform` and `# END meta-platform`, and MUST NOT write without `--apply`.
+3. `platform hosts sync` MUST print the unified diff between `/etc/hosts` and the rewritten block between `# BEGIN platform-foundation` and `# END platform-foundation`, and MUST NOT write without `--apply`.
 4. `platform hosts sync --apply` MUST back up `/etc/hosts` to `/etc/hosts.bak` and MUST write the file in place, which keeps its SELinux label.
 5. The backup and the write MUST run through `sudo`, and every other step MUST run unprivileged.
 6. `platform hosts sync` MUST fail without a write when libvirt returns no record or when the managed block lacks its end line or repeats.
@@ -105,7 +105,7 @@
 The interactive menu MUST present options in the following sequence:
 
 | Number | Menu Option Label                                          | Target Command                                                  |
-| :----- | :--------------------------------------------------------- | :-------------------------------------------------------------- |
+| ------ | ---------------------------------------------------------- | --------------------------------------------------------------- |
 | 1      | `[PROD] Unseal Production Vault via Ansible`               | `platform vault unseal-prod`                                    |
 | 2      | `Generate SSH Key`                                         | Interactive prompt for key name, then `platform ssh keygen`     |
 | 3      | `Verify IaC Environment`                                   | `platform env verify`                                           |
@@ -133,19 +133,19 @@ The interactive menu MUST present options in the following sequence:
 
 ### Item B. Component Implementation Classification
 
-| Subsystem                                         | Implementation Mechanism         | Architectural Rationale and Cost Analysis                                                                                            |
-| :------------------------------------------------ | :------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------- |
-| `internal/vaultops`                               | `github.com/hashicorp/vault/api` | Direct HTTP/TLS API communication without container execution overhead. Requires TLS CA certificate configuration.                   |
-| `internal/vaultops` (TLS)                         | `crypto/x509`, `crypto/rsa`      | Native standard library execution. Eliminates runtime dependencies on the `openssl` binary.                                          |
-| `internal/sshops` (Keygen/Scan)                   | `golang.org/x/crypto/ssh`        | In-memory key generation and concurrent TCP host key scanning. Eliminates external shell script forks.                               |
-| `internal/sshops` (Verify)                        | `ssh` CLI binary                 | Preserves full OpenSSH configuration compatibility (`Host`, `ProxyJump`, `UserKnownHostsFile`). Incurs child process execution cost. |
-| `internal/libvirtops` (Purge)                     | `libvirt.org/go/libvirt` (CGO)   | Direct RPC interaction with `libvirtd`. Requires system development headers at compile time.                                         |
-| `internal/packerops` (Build)                      | `packer` CLI binary              | Official CLI automation of HCL templates and plugins. Incurs subprocess management overhead.                                         |
-| `vaultops.UnsealProduction`                       | `ansible-playbook` CLI binary    | Playbook execution utilizing existing Ansible role collections. Incurs Python interpreter startup overhead.                          |
-| `internal/libvirtops.EnsureServices`              | `systemctl` CLI binary           | Systemd socket activation management. Avoids heavyweight D-Bus library bindings.                                                     |
-| `internal/clusterops`                             | `github.com/hashicorp/vault/api` | JWT login and KV reads with CA verification. Delegates `terraform output` and `kubectl get nodes` to the CLI binaries.               |
-| `internal/hostsops`                               | `diff`, `sudo cp`, `sudo tee`    | Unprivileged diff and an elevated backup and in-place write. Incurs one `sudo` prompt per applied rewrite.                           |
-| `internal/operatorops`                            | `terraform` CLI binary, `execve` | Process replacement keeps the JWT-SVID out of every child but `terraform`. Incurs one wrapper run per invocation of a JWT layer.     |
+| Subsystem                            | Implementation Mechanism         | Architectural Rationale and Cost Analysis                                                                                            |
+| ------------------------------------ | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `internal/vaultops`                  | `github.com/hashicorp/vault/api` | Direct HTTP/TLS API communication without container execution overhead. Requires TLS CA certificate configuration.                   |
+| `internal/vaultops` (TLS)            | `crypto/x509`, `crypto/rsa`      | Native standard library execution. Eliminates runtime dependencies on the `openssl` binary.                                          |
+| `internal/sshops` (Keygen/Scan)      | `golang.org/x/crypto/ssh`        | In-memory key generation and concurrent TCP host key scanning. Eliminates external shell script forks.                               |
+| `internal/sshops` (Verify)           | `ssh` CLI binary                 | Preserves full OpenSSH configuration compatibility (`Host`, `ProxyJump`, `UserKnownHostsFile`). Incurs child process execution cost. |
+| `internal/libvirtops` (Purge)        | `libvirt.org/go/libvirt` (CGO)   | Direct RPC interaction with `libvirtd`. Requires system development headers at compile time.                                         |
+| `internal/packerops` (Build)         | `packer` CLI binary              | Official CLI automation of HCL templates and plugins. Incurs subprocess management overhead.                                         |
+| `vaultops.UnsealProduction`          | `ansible-playbook` CLI binary    | Playbook execution utilizing existing Ansible role collections. Incurs Python interpreter startup overhead.                          |
+| `internal/libvirtops.EnsureServices` | `systemctl` CLI binary           | Systemd socket activation management. Avoids heavyweight D-Bus library bindings.                                                     |
+| `internal/clusterops`                | `github.com/hashicorp/vault/api` | JWT login and KV reads with CA verification. Delegates `terraform output` and `kubectl get nodes` to the CLI binaries.               |
+| `internal/hostsops`                  | `diff`, `sudo cp`, `sudo tee`    | Unprivileged diff and an elevated backup and in-place write. Incurs one `sudo` prompt per applied rewrite.                           |
+| `internal/operatorops`               | `terraform` CLI binary, `execve` | Process replacement keeps the JWT-SVID out of every child but `terraform`. Incurs one wrapper run per invocation of a JWT layer.     |
 
 ### Item C. Libvirt Resource Cleanup Invariant
 

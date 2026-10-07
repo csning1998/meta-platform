@@ -35,7 +35,7 @@ include:
 
 # internal/libvirtops uses cgo bindings against libvirt.org/go/libvirt. The lang-go component's
 # golang:*-alpine image ships CGO_ENABLED=0 and no libvirt headers by default; these overrides
-# are local to meta-platform until ported into gitlab-ci-with-code-reviewer's lang-go.yml.
+# are local to platform-foundation until ported into gitlab-ci-with-code-reviewer's lang-go.yml.
 build:go:
   variables:
     CGO_ENABLED: "1"

@@ -8,7 +8,7 @@ module "provisioner_gitlab_project" {
   source  = "gitlab.com/csning1998-lab/provisioner-gitlab-project/gitlab"
   version = "0.2.0"
 
-  name         = "meta-platform"
+  name         = "platform-foundation"
   description  = "Shared platform infrastructure and GitLab group governance for the csning1998-lab group."
   visibility   = "public"
   namespace_id = local.state.group_topology.subgroup_ids["platform-engineering-lab"]
@@ -24,7 +24,7 @@ module "workload_identity_federation" {
   gitlab_project = {
     id   = module.provisioner_gitlab_project.project_id
     path = module.provisioner_gitlab_project.full_path
-    code = "meta-platform"
+    code = "platform-foundation"
   }
 
   anthropic_federation = {
@@ -67,7 +67,7 @@ module "github_mirror" {
   gitlab_project_id = module.provisioner_gitlab_project.project_id
 
   github_repository = {
-    name  = "meta-platform"
+    name  = "platform-foundation"
     owner = var.github_owner
   }
 }

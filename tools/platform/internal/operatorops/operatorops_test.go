@@ -198,14 +198,14 @@ func TestReadOperatorSubject_MatchesRepositoryLayers(t *testing.T) {
 }
 
 func TestResolveWrapperPath_BuildsExpectedPath(t *testing.T) {
-	cfg := Config{WrapperDir: "/usr/local/bin", OwnerCode: "meta-platform"}
+	cfg := Config{WrapperDir: "/usr/local/bin", OwnerCode: "platform-foundation"}
 	cases := []struct {
 		subject OperatorSubject
 		want    string
 	}{
-		{OperatorSubject{"keycloak", "frontend"}, "/usr/local/bin/spire-fetch-meta-platform-terraform-operator-keycloak-frontend"},
-		{OperatorSubject{"harbor-origin", "frontend"}, "/usr/local/bin/spire-fetch-meta-platform-terraform-operator-harbor-origin-frontend"},
-		{OperatorSubject{"spire", "child"}, "/usr/local/bin/spire-fetch-meta-platform-terraform-operator-spire-child"},
+		{OperatorSubject{"keycloak", "frontend"}, "/usr/local/bin/spire-fetch-platform-foundation-terraform-operator-keycloak-frontend"},
+		{OperatorSubject{"harbor-origin", "frontend"}, "/usr/local/bin/spire-fetch-platform-foundation-terraform-operator-harbor-origin-frontend"},
+		{OperatorSubject{"spire", "child"}, "/usr/local/bin/spire-fetch-platform-foundation-terraform-operator-spire-child"},
 	}
 	for _, c := range cases {
 		got := ResolveWrapperPath(cfg, c.subject)
@@ -369,7 +369,7 @@ func newPrepareFixture(t *testing.T, locals string) prepareFixture {
 	t.Helper()
 	root := t.TempDir()
 	f := prepareFixture{
-		cfg:      Config{WrapperDir: filepath.Join(root, "wrappers"), OwnerCode: "meta-platform"},
+		cfg:      Config{WrapperDir: filepath.Join(root, "wrappers"), OwnerCode: "platform-foundation"},
 		layerDir: filepath.Join(root, "layers", "any-layer"),
 		marker:   filepath.Join(root, "wrapper-ran"),
 	}
@@ -384,7 +384,7 @@ func newPrepareFixture(t *testing.T, locals string) prepareFixture {
 	if err != nil {
 		t.Fatalf("write layer locals: %v", err)
 	}
-	writeFakeExecutable(t, f.cfg.WrapperDir, "spire-fetch-meta-platform-terraform-operator-keycloak-frontend",
+	writeFakeExecutable(t, f.cfg.WrapperDir, "spire-fetch-platform-foundation-terraform-operator-keycloak-frontend",
 		`touch "`+f.marker+`"; printf '{"jwt":"eyJ.keycloak.sig"}'`)
 	f.terraform = writeFakeExecutable(t, binDir, "terraform", "exit 0")
 	t.Setenv("PATH", binDir)

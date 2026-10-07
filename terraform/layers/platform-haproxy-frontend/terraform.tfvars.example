@@ -1,6 +1,6 @@
 
 target_clusters = {
-  frontend = "meta-platform-haproxy-frontend"
+  frontend = "platform-foundation-haproxy-frontend"
 }
 
 primary_role = "frontend"

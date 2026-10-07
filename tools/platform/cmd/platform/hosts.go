@@ -24,7 +24,7 @@ func (a *app) syncHosts(ctx context.Context, cfg hostsops.SyncConfig, apply bool
 		a.out.Print(ui.Info, "Dry run. Rerun with --apply to write "+cfg.HostsFile+".")
 		return nil
 	}
-	a.out.Print(ui.OK, "Replaced the meta-platform block, backup at "+cfg.HostsFile+".bak.")
+	a.out.Print(ui.OK, "Replaced the platform-foundation block, backup at "+cfg.HostsFile+".bak.")
 	return nil
 }
 

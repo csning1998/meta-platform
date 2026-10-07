@@ -1,6 +1,6 @@
 # Service Catalog and KVM Provisioning Pipeline
 
-This specification establishes the realization requirements from the `service_catalog` declaration to an operational guest virtual machine under the Libvirt provider. The execution flow traverses the module sequence comprising `helpers/service-catalog`, `configure/foundation-resources`, `helpers/terraform-layer-context`, `orchestrate/linux-generic-cluster`, `configure/linux-generic-domain`, and `configure/ansible-runner` under `terraform/modules/kvm-provisioning`, followed by Packer image assembly and Ansible role execution. The `platform-spire-parent` layer serves as the primary implementation reference across this specification. Identical structural requirements govern the companion consumers of `linux-generic-cluster`, including `platform-harbor-origin-frontend`, `platform-keycloak-frontend`, and `platform-vault-downstream-frontend`. Architectural rationale for SPIRE-specific security decisions resides in `documentation/architecture-decision-record/20260830_1530-spire-parent-bootstrap-security-posture.md` and `planning/architecture_meta-platform.md` Section 9.
+This specification establishes the realization requirements from the `service_catalog` declaration to an operational guest virtual machine under the Libvirt provider. The execution flow traverses the module sequence comprising `helpers/service-catalog`, `configure/foundation-resources`, `helpers/terraform-layer-context`, `orchestrate/linux-generic-cluster`, `configure/linux-generic-domain`, and `configure/ansible-runner` under `terraform/modules/kvm-provisioning`, followed by Packer image assembly and Ansible role execution. The `platform-spire-parent` layer serves as the primary implementation reference across this specification. Identical structural requirements govern the companion consumers of `linux-generic-cluster`, including `platform-harbor-origin-frontend`, `platform-keycloak-frontend`, and `platform-vault-downstream-frontend`. Architectural rationale for SPIRE-specific security decisions resides in `documentation/architecture-decision-record/20260830_1530-spire-parent-bootstrap-security-posture.md` and `planning/architecture_platform-foundation.md` Section 9.
 
 ## Section 1. Pipeline Topology and Governance Boundary
 
@@ -83,7 +83,7 @@ flowchart TD
 | -------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
 | Stage 1 to 2   | `helpers/service-catalog`             | `service_catalog`, `network_baseline`, `domain_suffix`                                                             | `_flat_catalog`, `identity_map`, `network_topology`, `_volume_topology_raw`                                     | `topology_identity`, `topology_network`, `pki_map`, `volume_map`, `dns_records`, `credential_paths`                                   | `foundation-resources`                                |
 | Stage 3        | `layers/foundation-libvirt-resources` | `service-catalog` outputs                                                                                          | `segments`, `global_volume_map`, `global_dns_hosts`                                                             | `foundation_topology`, `foundation_network_global`, `foundation_pki`, `foundation_storage`, `foundation_vault_path`, `foundation_ssh` | Consuming service layers via `terraform_remote_state` |
-| Stage 4        | `helpers/terraform-layer-context`     | Foundation remote state outputs, `target_clusters`, `primary_role`, `service_config`                               | `segments_map`, `components_context`, `primary_context`, `network_infrastructure_map`                           | `cluster_identity`, `cluster_network`, `cluster_fqdn`, `primary_network_config`, `topology_cluster`, `node_identities`                                | Layer `main.tf`, `locals.tf`, `linux-generic-cluster` |
+| Stage 4        | `helpers/terraform-layer-context`     | Foundation remote state outputs, `target_clusters`, `primary_role`, `service_config`                               | `segments_map`, `components_context`, `primary_context`, `network_infrastructure_map`                           | `cluster_identity`, `cluster_network`, `cluster_fqdn`, `primary_network_config`, `topology_cluster`, `node_identities`                | Layer `main.tf`, `locals.tf`, `linux-generic-cluster` |
 | Stage 5        | `orchestrate/linux-generic-cluster`   | `terraform-layer-context` outputs, `storage_infrastructure_map`, `ansible_template_config`, `ansible_extra_config` | `flat_node_map`, `attached_volumes` (auto-discovery), `ansible_inventory_data`, `hypervisor_kvm_infrastructure` | Provision triggers, rendered `inventory.yaml`, rendered `ansible.cfg`                                                                 | Modules `linux-generic-domain`, `ansible-runner`      |
 | Stage 6        | `configure/*` & Ansible               | Provision configurations, base QCOW2 image, Bastion Vault credentials                                              | Copy-on-write OS disk, deterministic MAC derivation, Cloud-init network template                                | Running KVM guest domain, active `spire-server` daemon                                                                                | Operational SPIRE Server, downstream SPIRE agents     |
 
@@ -95,8 +95,8 @@ flowchart TD
 
 ### Item E. Ownership Boundary of `service_catalog`
 
-1. The consuming project declaring a `service_catalog` entry MUST maintain ownership of that configuration schema. The `meta-platform` repository SHALL NOT aggregate distinct project catalogs into a single state file when composite `pki_map` keys risk name collisions across identical service and component pairs.
-2. The `meta-platform` repository MUST define two global parameters consumed across all catalog entries: `network_baseline` and `domain_suffix`. The first segment of every Vault KV path derives from the `project_code` of the catalog entry.
+1. The consuming project declaring a `service_catalog` entry MUST maintain ownership of that configuration schema. The `platform-foundation` repository SHALL NOT aggregate distinct project catalogs into a single state file when composite `pki_map` keys risk name collisions across identical service and component pairs.
+2. The `platform-foundation` repository MUST define two global parameters consumed across all catalog entries: `network_baseline` and `domain_suffix`. The first segment of every Vault KV path derives from the `project_code` of the catalog entry.
 3. Secret material MUST NOT traverse `terraform_remote_state` outputs. The `terraform-layer-context` module SHALL accept `guest_vm_data` and `security_pki_outputs` sourced from a `vault_generic_secret` data source or an authenticated Vault API response.
 
 ### Item F. Libvirt Provider Connection
@@ -370,8 +370,8 @@ Location: `terraform/layers/platform-spire-parent`.
 
 ### Item A. Remote State and Authentication Configuration
 
-1. The `data.tf` file MUST declare `terraform_remote_state` data sources named `foundation_libvirt_resources` and `foundation_vault_bastion`, and every layer SHALL read the outputs through `local.state.<layer directory name with underscores>`. The file SHALL declare a `vault_generic_secret.guest_vm` data source reading `secret/meta-platform/guest_vm`.
-2. The `providers.tf` file MUST authenticate the default `vault` provider via `auth/approle/login` using the `meta-platform` tenant AppRole, read from the objects `bastion_vault_tenant` and `bastion_vault_tenant_credential` that `foundation-vault-bastion` exports.
+1. The `data.tf` file MUST declare `terraform_remote_state` data sources named `foundation_libvirt_resources` and `foundation_vault_bastion`, and every layer SHALL read the outputs through `local.state.<layer directory name with underscores>`. The file SHALL declare a `vault_generic_secret.guest_vm` data source reading `secret/platform-foundation/guest_vm`.
+2. The `providers.tf` file MUST authenticate the default `vault` provider via `auth/approle/login` using the `platform-foundation` tenant AppRole, read from the objects `bastion_vault_tenant` and `bastion_vault_tenant_credential` that `foundation-vault-bastion` exports.
 
 ### Item B. Context and Middleware Invocation
 
@@ -387,7 +387,7 @@ Location: `terraform/layers/platform-spire-parent`.
 
 ### Item D. Compute Topology
 
-1. The `terraform.tfvars` file MUST configure role `spire-parent` targeting `cluster_name = "meta-platform-spire-parent"` with base image path `packer/output/base-baremetal-spire-parent/ubuntu-24-base-baremetal-spire-parent.qcow2`.
+1. The `terraform.tfvars` file MUST configure role `spire-parent` targeting `cluster_name = "platform-foundation-spire-parent"` with base image path `packer/output/base-baremetal-spire-parent/ubuntu-24-base-baremetal-spire-parent.qcow2`.
 2. The role MUST declare exactly one node (`00`) with `ip_suffix = 200`, `vcpu = 1`, `ram_size = 512`, and an extra interface on network `vault-bastion-publish` at `172.16.0.10/24`.
 
 ### Item E. Output Contract

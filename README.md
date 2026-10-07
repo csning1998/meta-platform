@@ -1,4 +1,4 @@
-# Meta-Platform Repository
+# Platform-Foundation Repository
 
 This repository provides group-scoped governance through several Terraform layers, container services, and shell entry points that provision the GitLab group topology, the shared runner, the SonarQube instance, and the Vault instance supporting this namespace.
 
@@ -23,7 +23,7 @@ This repository provides group-scoped governance through several Terraform layer
 | Keycloak        | Keycloak (Talos)         | 172.16.130.0/24        | Platform     | False    | No        | 172.16.130.250 |
 | HAProxy         | HAProxy (baremetal)      | 172.16.131.0/24        | Platform     | False    | Yes       | 172.16.131.250 |
 
-The segment number follows the deployment order of `planning/architecture_meta-platform_deployment-chain.md`, which allocates the third octet from 125 upward.
+The segment number follows the deployment order of `planning/architecture_platform-foundation_deployment-chain.md`, which allocates the third octet from 125 upward.
 
 > [!NOTE]
 > CoW-able indicates role compatibility with copy-on-write host filesystems. Raft-family consensus engines (such as etcd and Vault Raft) enforce strict fsync latency and quorum-timeout budgets. Intermittent I/O stalls on copy-on-write filesystems risk consensus failures. Kubeadm Master and MicroK8s embed etcd and dqlite with liveness-probe tolerances sufficient to absorb transient I/O latency without hard failures. Copy-on-write storage for these two roles remains permissible subject to operational discretion rather than strict prohibition.
@@ -75,8 +75,8 @@ Only `gitlab_runner_podman.te` is tracked in version control. The compiled `.mod
 1. Each container MUST report a non-empty process label. An empty value indicates that label separation is disabled.
 
     ```bash
-    for c in meta-platform-vault-server meta-platform-sonarqube-db \
-            meta-platform-sonarqube meta-platform-gitlab-runner; do
+    for c in platform-foundation-vault-server platform-foundation-sonarqube-db \
+            platform-foundation-sonarqube platform-foundation-gitlab-runner; do
         printf '%s\t' "$c"
         podman inspect "$c" --format '{{.ProcessLabel}}'
     done
@@ -91,7 +91,7 @@ Only `gitlab_runner_podman.te` is tracked in version control. The compiled `.mod
 3. The runner MUST be able to reach the Podman socket. The following request confirms access through an HTTP status of 200.
 
     ```bash
-    podman exec meta-platform-gitlab-runner \
+    podman exec platform-foundation-gitlab-runner \
         curl -s -o /dev/null -w '%{http_code}\n' \
         --unix-socket /run/podman/podman.sock http://d/v1.41/_ping
     ```
@@ -159,8 +159,8 @@ The conventions specified in Items A through G SHALL apply universally to all lo
 
 | Repository                              | Registered Path Pattern                                                                               | SELinux Type       | Consumed By                                                  |
 | --------------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------ | ------------------------------------------------------------ |
-| `meta-platform`                         | `` `(vault\|sonarqube\|runner-config)(/.*)?` ``                                                       | `container_file_t` | `vault-server`, `sonarqube`, `sonarqube-db`, `gitlab-runner` |
-| `meta-platform`                         | `.git(/.*)?`                                                                                          | `container_file_t` | `.githooks/pre-commit`, `.githooks/commit-msg`               |
+| `platform-foundation`                   | `` `(vault\|sonarqube\|runner-config)(/.*)?` ``                                                       | `container_file_t` | `vault-server`, `sonarqube`, `sonarqube-db`, `gitlab-runner` |
+| `platform-foundation`                   | `.git(/.*)?`                                                                                          | `container_file_t` | `.githooks/pre-commit`, `.githooks/commit-msg`               |
 | `gitlab-ci-with-code-reviewer`          | `runner-config(/.*)?`                                                                                 | `container_file_t` | `gitlab-runner`                                              |
 | `gitlab-ci-with-code-reviewer`          | `.git(/.*)?`                                                                                          | `container_file_t` | `.githooks/pre-commit`, `.githooks/commit-msg`               |
 | `personal/on-premise-gitlab-deployment` | `vault(/.*)?`                                                                                         | `container_file_t` | `iac-vault-server`                                           |
@@ -176,7 +176,7 @@ The conventions specified in Items A through G SHALL apply universally to all lo
 | `template/template-project-fullstack`   | `.git(/.*)?`                                                                                          | `container_file_t` | `.githooks/pre-commit`, `.githooks/commit-msg`               |
 | N/A, system-wide                        | `/run/user/1000/podman/podman.sock`                                                                   | `container_file_t` | Rootless Podman socket, independent of any single repository |
 
-Two repositories (`meta-platform` and `gitlab-ci-with-code-reviewer`) declare the `gitlab_runner_podman` policy module defined in Item C. Each repository MUST maintain an identical module name and version to guarantee standalone deployability independent of pre-existing host-level modules. Accordingly, the `gitlab-runner` service in both repositories SHALL configure `label=type:container_engine_t` rather than disabling security labels.
+Two repositories (`platform-foundation` and `gitlab-ci-with-code-reviewer`) declare the `gitlab_runner_podman` policy module defined in Item C. Each repository MUST maintain an identical module name and version to guarantee standalone deployability independent of pre-existing host-level modules. Accordingly, the `gitlab-runner` service in both repositories SHALL configure `label=type:container_engine_t` rather than disabling security labels.
 
 Repositories lacking a `compose.yml` file SHALL limit context registrations exclusively to `.git(/.*)?`, restricting container execution scope solely to ephemeral Git lifecycle hooks.
 
@@ -186,7 +186,7 @@ Omission of an explicit `restorecon` execution upon removing dynamic relabel fla
 
 ## Section 3. Terraform Operations
 
-`planning/architecture_meta-platform_deployment-chain.md` defines the apply order of the layers. This section defines how an operator runs one layer of that order. `documentation/lexicon.md` defines the names which the layers use.
+`planning/architecture_platform-foundation_deployment-chain.md` defines the apply order of the layers. This section defines how an operator runs one layer of that order. `documentation/lexicon.md` defines the names which the layers use.
 
 ### Item A. Operator Shell
 
@@ -204,29 +204,29 @@ printf 'Enter ANSIBLE_BECOME_PASS: '; read -s ANSIBLE_BECOME_PASS; export ANSIBL
 ```
 
 1. The operator MUST open a tenant session after the exports.
-2. The tenant session is a child shell whose `VAULT_TOKEN` belongs to the AppRole `meta-platform-terraform-operator`.
+2. The tenant session is a child shell whose `VAULT_TOKEN` belongs to the AppRole `platform-foundation-terraform-operator`.
 3. The child shell inherits only the exported variables of the parent shell.
 4. Shell variables and shell functions of the parent shell MUST be defined again inside the child shell.
 5. Leaving the child shell revokes the token of the tenant session.
 
 ```bash
-cd "$HOME/GitLab/csning1998-lab/parent-group-governance" && ./governance vault tenant-session meta-platform
-cd "$HOME/GitLab/csning1998-lab/platform-engineering-lab/meta-platform"
+cd "$HOME/GitLab/csning1998-lab/parent-group-governance" && ./governance vault tenant-session platform-foundation
+cd "$HOME/GitLab/csning1998-lab/platform-engineering-lab/platform-foundation"
 vault token lookup -format=json | jq -r '.data.display_name, .data.policies'
 ```
 
-The lookup MUST print `approle` and the policy `meta-platform-terraform-operator`.
+The lookup MUST print `approle` and the policy `platform-foundation-terraform-operator`.
 
 ### Item B. Login per Layer
 
 Every layer of the deployment chain runs correctly inside one tenant session. A layer whose Downstream Vault provider logs in with a JWT-SVID MUST run through `platform terraform`, which fetches the JWT-SVID of the operator which the layer declares in `terraform_operator_subject`.
 
-| Layer                                                                                                                                                                                            | Login                       | Command, run in the layer directory    |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------- | -------------------------------------- |
-| `foundation-libvirt-resources`                                                                                                                                                                   | State backend only          | `terraform`                            |
-| `platform-spire-parent`, `provision-spire-parent`, `platform-haproxy-frontend`, `platform-vault-downstream-frontend`, `provision-vault-downstream-frontend`, `security-vault-downstream-tenants` | Tenant session              | `terraform`                            |
-| `security-vault-downstream-pki`                                                                                                                                                                  | Tenant session and JWT-SVID | `../../../platform terraform`          |
-| Every other layer of the deployment chain                                                                                                                                                        | JWT-SVID                    | `../../../platform terraform`          |
+| Layer                                                                                                                                                                                            | Login                       | Command, run in the layer directory |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------- | ----------------------------------- |
+| `foundation-libvirt-resources`                                                                                                                                                                   | State backend only          | `terraform`                         |
+| `platform-spire-parent`, `provision-spire-parent`, `platform-haproxy-frontend`, `platform-vault-downstream-frontend`, `provision-vault-downstream-frontend`, `security-vault-downstream-tenants` | Tenant session              | `terraform`                         |
+| `security-vault-downstream-pki`                                                                                                                                                                  | Tenant session and JWT-SVID | `../../../platform terraform`       |
+| Every other layer of the deployment chain                                                                                                                                                        | JWT-SVID                    | `../../../platform terraform`       |
 
 A plain `terraform` run in a JWT-SVID layer fails with `required fields are unset: [jwt]`. The `state` subcommands use the state backend only, and plain `terraform state` works in every layer.
 

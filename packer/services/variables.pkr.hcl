@@ -54,5 +54,5 @@ variable "net_device" {
 
 variable "secrets_path" {
   type    = string
-  default = "secret/data/meta-platform/guest_vm"
+  default = "secret/data/platform-foundation/guest_vm"
 }

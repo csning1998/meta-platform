@@ -13,7 +13,7 @@ network_baseline = {
 service_catalog = {
   "spire" = {
     owner        = "secops"
-    project_code = "meta-platform"
+    project_code = "platform-foundation"
     stage        = "production"
     components = {
       "parent" = {
@@ -59,7 +59,7 @@ service_catalog = {
   },
   "vault-downstream" = {
     owner        = "secops"
-    project_code = "meta-platform"
+    project_code = "platform-foundation"
     stage        = "production"
     components = {
       "frontend" = {
@@ -89,7 +89,7 @@ service_catalog = {
   },
   "harbor-origin" = {
     owner        = "devops"
-    project_code = "meta-platform"
+    project_code = "platform-foundation"
     stage        = "production"
     components = {
       "frontend" = {
@@ -118,7 +118,7 @@ service_catalog = {
   },
   "cilium" = {
     owner        = "devops"
-    project_code = "meta-platform"
+    project_code = "platform-foundation"
     stage        = "production"
     components = {
       "hubble" = {
@@ -139,7 +139,7 @@ service_catalog = {
   },
   "keycloak" = {
     owner        = "secops"
-    project_code = "meta-platform"
+    project_code = "platform-foundation"
     stage        = "production"
     components = {
       "frontend" = {
@@ -174,7 +174,7 @@ service_catalog = {
   },
   "haproxy" = {
     owner        = "devops"
-    project_code = "meta-platform"
+    project_code = "platform-foundation"
     stage        = "production"
     components = {
       "frontend" = {

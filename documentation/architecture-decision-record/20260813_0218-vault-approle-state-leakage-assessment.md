@@ -9,7 +9,7 @@
 
 1. **Context and Problem Statement**
 
-    Review feedback on [MR !26](https://gitlab.com/csning1998-lab/meta-platform/-/merge_requests/26) postulated potential credential exposure of `vault_approle_role_id` and `vault_approle_secret_id` into Terraform state via `ansible_extra_vars`. Investigation disproved the premise: the `ansible-runner` module employs Terraform 1.14+ action blocks, through which `extra_vars` values bypass state persistence entirely.
+    Review feedback on [MR !26](https://gitlab.com/csning1998-lab/platform-foundation/-/merge_requests/26) postulated potential credential exposure of `vault_approle_role_id` and `vault_approle_secret_id` into Terraform state via `ansible_extra_vars`. Investigation disproved the premise: the `ansible-runner` module employs Terraform 1.14+ action blocks, through which `extra_vars` values bypass state persistence entirely.
 
     The true exposure path resides within the `terraform_remote_state` data source cached from upstream `security-vault-approle` outputs. Consequently, any downstream consuming layer referencing the remote state unconditionally persists `role_id` and `secret_id` within the state file of the consuming layer. The persistence behavior occurs independently of `ansible_extra_vars` utilization.
 

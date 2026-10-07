@@ -20,9 +20,9 @@ import (
 func bastionOperator(service, component string) map[string]any {
 	return map[string]any{
 		"auth_mount": "spire-parent-jwt-svid-provider",
-		"role_name":  "meta-platform-terraform-operator-" + service + "-" + component,
+		"role_name":  "platform-foundation-terraform-operator-" + service + "-" + component,
 		"cluster_config": map[string]any{
-			"vault": "bastion", "kv_mount": "secret", "kv_path": "meta-platform/" + service + "/" + component + "/cluster-config",
+			"vault": "bastion", "kv_mount": "secret", "kv_path": "platform-foundation/" + service + "/" + component + "/cluster-config",
 		},
 	}
 }
@@ -47,7 +47,7 @@ func newClusterEnvironment(t *testing.T) string {
 		"talos_client_key_b64":         "a2V5",
 	}
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v1/secret/data/meta-platform/vault-downstream/frontend/cluster-config" || r.Header.Get("X-Vault-Token") != "s.tenant" {
+		if r.URL.Path != "/v1/secret/data/platform-foundation/vault-downstream/frontend/cluster-config" || r.Header.Get("X-Vault-Token") != "s.tenant" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}

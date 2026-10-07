@@ -14,7 +14,7 @@ import (
 )
 
 // ProjectCode defines the target resource prefix used to filter libvirt entities during purge operations.
-const ProjectCode = "meta-platform"
+const ProjectCode = "platform-foundation"
 
 func hasProjectPrefix(name string) bool {
 	return strings.HasPrefix(name, ProjectCode+"-")

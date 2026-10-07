@@ -5,7 +5,7 @@ cd "$(dirname "$0")"
 
 # Repository constants. The KV path and its field are frozen names of parent-group-governance.
 readonly cli="platform"
-readonly sonar_project_key="csning1998-lab-platform-engineering-lab-meta-platform"
+readonly sonar_project_key="csning1998-lab-platform-engineering-lab-platform-foundation"
 readonly sonar_token_path="secret/parent-group-governance/sonarqube/ci-analysis-bot"
 readonly sonar_token_field="sonarqube_ci_token"
 readonly scanner_image="docker.io/sonarsource/sonar-scanner-cli:12.1.0.3225_8.0.1"
