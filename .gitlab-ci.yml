@@ -4,8 +4,9 @@ include:
     inputs:
       reviewer_image: $CI_REGISTRY/csning1998-lab/gitlab-ci-with-code-reviewer/reviewer:1.7.3
       review_models:
-        - "claude-sonnet-5"
-        - "gemini-3.7-flash"
+        - "claude-sonnet-5.5"
+        - "claude-opus-5.5"
+        - "gemini-3.8-flash"
         - "azure-gpt-5.4-mini"
       enable_sonarqube: true
   - component: $CI_SERVER_FQDN/csning1998-lab/gitlab-ci-with-code-reviewer/iac-terraform@1.7.3
