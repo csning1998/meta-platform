@@ -190,43 +190,35 @@ Omission of an explicit `restorecon` execution upon removing dynamic relabel fla
 
 ### Item A. Operator Shell
 
-1. The operator shell MUST export the Bastion Vault address and the Bastion Vault listener CA.
-2. The operator shell MUST export the state backend token, which the Bastion Vault holds at `secret/parent-group-governance/terraform/state-backend` in the field `token`.
-3. The operator shell MUST export `ANSIBLE_BECOME_PASS` through `read -s`, because a value typed on the command line enters the shell history.
-4. Every command of this section MUST NOT print a token or a password.
+1. The host MUST run the Vault Proxies of `parent-group-governance`, which the first menu item `[Host] Apply All Workstation Prerequisites` of `./governance` installs.
+2. The file `.envrc` at the repository root MUST load the environment of the identity `platform-foundation` through `vault-proxy-env`.
+3. The environment routes `VAULT_ADDR` to the Proxy of the identity, presents the client certificate of the identity, and exports `TF_HTTP_USERNAME` and `TF_HTTP_PASSWORD`, which the governance Proxy reads from the Bastion Vault.
+4. `parent-group-governance/workstation-topology.yaml` declares the port of each Proxy and the path of the state backend token.
+5. Each `.envrc` MUST be approved once with `direnv allow`, and direnv loads the environment on every later entry into the directory.
+6. The layer `meta-gitlab-project` holds its own `.envrc`, which loads the identity `governance`, since direnv loads the nearest `.envrc` alone.
+7. The operator shell MUST export `ANSIBLE_BECOME_PASS` through `read -s`, because a value typed on the command line enters the shell history.
+8. Every command of this section MUST NOT print a token or a password.
 
 ```bash
-export VAULT_ADDR='https://172.16.0.1:8200'
-export VAULT_CACERT="$HOME/GitLab/csning1998-lab/parent-group-governance/vault/tls/ca.pem"
-export TF_HTTP_USERNAME='gitlab-ci-token'
-export TF_HTTP_PASSWORD=$(VAULT_TOKEN=$(cat "$HOME/.vault-token") vault kv get -field=token secret/parent-group-governance/terraform/state-backend)
-printf 'Enter ANSIBLE_BECOME_PASS: '; read -s ANSIBLE_BECOME_PASS; export ANSIBLE_BECOME_PASS; echo
-```
-
-1. The operator MUST open a tenant session after the exports.
-2. The tenant session is a child shell whose `VAULT_TOKEN` belongs to the AppRole `platform-foundation-terraform-operator`.
-3. The child shell inherits only the exported variables of the parent shell.
-4. Shell variables and shell functions of the parent shell MUST be defined again inside the child shell.
-5. Leaving the child shell revokes the token of the tenant session.
-
-```bash
-cd "$HOME/GitLab/csning1998-lab/parent-group-governance" && ./governance vault tenant-session platform-foundation
 cd "$HOME/GitLab/csning1998-lab/platform-engineering-lab/platform-foundation"
+direnv allow
+printf 'Enter ANSIBLE_BECOME_PASS: '; read -s ANSIBLE_BECOME_PASS; export ANSIBLE_BECOME_PASS; echo
 vault token lookup -format=json | jq -r '.data.display_name, .data.policies'
 ```
 
-The lookup MUST print `approle` and the policy `platform-foundation-terraform-operator`.
+The lookup MUST print `cert-operator-platform-foundation` and the policies `platform-foundation-terraform-operator` and `registry-reader-platform-foundation`. A shell without the Proxy environment fails before any Bastion Vault request, and `vault-proxy-env` prints the step which restores the environment.
 
 ### Item B. Login per Layer
 
-Every layer of the deployment chain runs correctly inside one tenant session. A layer whose Downstream Vault provider logs in with a JWT-SVID MUST run through `platform terraform`, which fetches the JWT-SVID of the operator which the layer declares in `terraform_operator_subject`.
+Every layer of the deployment chain runs correctly inside the Proxy environment of Item A. A layer whose Downstream Vault provider logs in with a JWT-SVID MUST run through `platform terraform`, which fetches the JWT-SVID of the operator which the layer declares in `terraform_operator_subject`.
 
-| Layer                                                                                                                                                                                            | Login                       | Command, run in the layer directory |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------- | ----------------------------------- |
-| `foundation-libvirt-resources`                                                                                                                                                                   | State backend only          | `terraform`                         |
-| `platform-spire-parent`, `provision-spire-parent`, `platform-haproxy-frontend`, `platform-vault-downstream-frontend`, `provision-vault-downstream-frontend`, `security-vault-downstream-tenants` | Tenant session              | `terraform`                         |
-| `security-vault-downstream-pki`                                                                                                                                                                  | Tenant session and JWT-SVID | `../../../platform terraform`       |
-| Every other layer of the deployment chain                                                                                                                                                        | JWT-SVID                    | `../../../platform terraform`       |
+| Layer                                                                                                                                                                                            | Login                                  | Command, run in the layer directory |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------- | ----------------------------------- |
+| `foundation-libvirt-resources`                                                                                                                                                                   | State backend only                     | `terraform`                         |
+| `meta-gitlab-project`                                                                                                                                                                            | Governance Proxy                       | `terraform`                         |
+| `platform-spire-parent`, `provision-spire-parent`, `platform-haproxy-frontend`, `platform-vault-downstream-frontend`, `provision-vault-downstream-frontend`, `security-vault-downstream-tenants` | platform-foundation Proxy              | `terraform`                         |
+| `security-vault-downstream-pki`                                                                                                                                                                  | platform-foundation Proxy and JWT-SVID | `../../../platform terraform`       |
+| Every other layer of the deployment chain                                                                                                                                                        | JWT-SVID                               | `../../../platform terraform`       |
 
 A plain `terraform` run in a JWT-SVID layer fails with `required fields are unset: [jwt]`. The `state` subcommands use the state backend only, and plain `terraform state` works in every layer.
 

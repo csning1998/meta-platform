@@ -24,7 +24,7 @@ locals {
 locals {
   # Components whose Terraform operator layers run from the local machine and log in to the Downstream Vault with a JWT-SVID,
   # keyed by the name which consumer layers look up in output terraform_operator.
-  # The vault-downstream operator administers the Downstream Vault alone, since a tenant session carries every Bastion change.
+  # The vault-downstream operator administers the Downstream Vault alone, since the platform-foundation Vault Proxy carries every Bastion change.
   _spire_operator_targets = {
     "cilium"           = { service = "cilium", component = "hubble" }
     "harbor-origin"    = { service = "harbor-origin", component = "frontend" }
@@ -80,7 +80,7 @@ locals {
     }
   }
 
-  # The plays take the Vault address, the CA path, and the token from the tenant session.
+  # The plays take the Vault address, the CA path, and the client certificate from the platform-foundation Vault Proxy environment.
   ansible_extra_vars = {
     operator_vault_use_ambient_token               = true
     spire_jwt_issuer                               = local.state.platform_spire_parent.spire_oidc.discovery_url
