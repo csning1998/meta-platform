@@ -46,11 +46,11 @@
       changed_when: false
       failed_when: false
 
-    # The workstation issues the certificate with the tenant token, and the private key never enters a Terraform state.
+    # The workstation issues the certificate through the Vault Proxy, and the private key never enters a Terraform state.
     - name: "D1e. Issue the listener certificate from pki-platform"
       when: _platform_spire_parent_oidc_cert_chain.rc != 0 or _platform_spire_parent_oidc_cert_expiry.rc != 0
       block:
-        - name: "D1e-i. Take the token of the tenant session"
+        - name: "D1e-i. Take the Vault Proxy route of identity {{ project_code }}"
           ansible.builtin.include_role:
             name: utils_vault_operator_login
           vars:
@@ -69,6 +69,8 @@
               ip_sans: "{{ spire_oidc_ip_sans }}"
               ttl: "{{ platform_spire_parent_oidc_cert_ttl }}"
             ca_path: "{{ operator_vault_ca_cert_path }}"
+            client_cert: "{{ operator_vault_client_cert | default(omit, true) }}"
+            client_key: "{{ operator_vault_client_key | default(omit, true) }}"
             validate_certs: true
             status_code: 200
             return_content: true

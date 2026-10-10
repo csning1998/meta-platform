@@ -12,16 +12,19 @@
             and utils_vault_operator_login_ca_cert_path | length > 0)
     fail_msg: >-
       The caller MUST supply utils_vault_operator_login_wrapper, _role, _auth_mount, _endpoint, and _ca_cert_path.
-      Only a layer which runs inside a tenant session MAY set utils_vault_operator_login_use_ambient.
+      Only a play which reaches the Bastion Vault through the Vault Proxy MAY set utils_vault_operator_login_use_ambient.
 
-# The hashi_vault modules read ~/.vault-token when the caller does not pass a token, and that file holds the root token.
-- name: "Assert the session supplies the ambient token"
+# The Proxy overwrites the placeholder token, and accepts a caller which presents the client certificate of the identity.
+- name: "Assert the environment routes the calls through the Vault Proxy"
   ansible.builtin.assert:
     that:
+      - lookup('ansible.builtin.env', 'VAULT_ADDR') | length > 0
       - lookup('ansible.builtin.env', 'VAULT_TOKEN') | length > 0
+      - lookup('ansible.builtin.env', 'VAULT_CLIENT_CERT') | length > 0
+      - lookup('ansible.builtin.env', 'VAULT_CLIENT_KEY') | length > 0
     fail_msg: >-
-      Ambient mode MUST run inside a tenant session, which exports VAULT_TOKEN.
-      Open the session with ./governance vault tenant-session in parent-group-governance.
+      Ambient mode MUST run in the environment of the {{ project_code }} Vault Proxy.
+      Allow the .envrc of the layer with direnv allow, or run eval "$(vault-proxy-env {{ project_code }})".
   when: utils_vault_operator_login_use_ambient | bool
 
 - name: "Fetch a JWT-SVID through the wrapper of the operator"

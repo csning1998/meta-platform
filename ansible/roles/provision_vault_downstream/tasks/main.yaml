@@ -1,5 +1,5 @@
 ---
-# Initializes Downstream Vault on Kubernetes through the API server from within a tenant session.
+# Initializes Downstream Vault on Kubernetes through the API server, with the Bastion Vault reached through the Vault Proxy.
 # Stores root token and recovery/unseal keys in the Bastion Vault init leaf; transit seal manages automatic unseal.
 
 - name: "Section 0. Assert the caller supplied the coordinates"
@@ -16,8 +16,9 @@
       - provision_vault_downstream_ca_cert_path | default('') | length > 0
       - provision_vault_downstream_seal in ['transit', 'shamir']
     fail_msg: >-
-      provision-vault-downstream-frontend MUST run inside a tenant session, which supplies the Bastion Vault coordinates,
-      and MUST supply the KV paths, the server coordinates, and the health check endpoint.
+      provision-vault-downstream-frontend MUST run in the {{ project_code }} Vault Proxy environment,
+      which supplies the Bastion Vault coordinates, and MUST supply the KV paths, the server coordinates,
+      and the health check endpoint.
 
 - name: "Section 0. Decode the server list"
   ansible.builtin.set_fact:
@@ -116,7 +117,7 @@
     - name: "A8. Persist the root token and the unseal keys"
       when: _provision_vault_downstream_init is not skipped
       block:
-        - name: "A8a. Take the token of the tenant session"
+        - name: "A8a. Take the Vault Proxy route of identity {{ project_code }}"
           ansible.builtin.include_role:
             name: utils_vault_operator_login
           vars:
@@ -126,26 +127,30 @@
         - name: "A8b. Write the init leaf"
           vars:
             _init: "{{ _provision_vault_downstream_init.stdout | from_json }}"
-          community.hashi_vault.vault_kv2_write:
-            url: "{{ operator_vault_url }}"
-            engine_mount_point: "secret"
-            path: "{{ provision_vault_downstream_init_kv_path }}"
-            auth_method: "token"
-            token: "{{ utils_vault_operator_login_token }}"
+          ansible.builtin.uri:
+            url: "{{ operator_vault_url }}/v1/secret/data/{{ provision_vault_downstream_init_kv_path }}"
+            method: POST
+            headers:
+              X-Vault-Token: "{{ utils_vault_operator_login_token }}"
+            ca_path: "{{ operator_vault_ca_cert_path }}"
+            client_cert: "{{ operator_vault_client_cert | default(omit, true) }}"
+            client_key: "{{ operator_vault_client_key | default(omit, true) }}"
             validate_certs: true
-            ca_cert: "{{ operator_vault_ca_cert_path }}"
-            data: >-
-              {{
-                {
-                  'prod_vault_root_token': _init.root_token,
-                  'prod_vault_recovery_keys': _init.recovery_keys_b64 | to_json
-                }
-                if provision_vault_downstream_seal == 'transit' else
-                {
-                  'prod_vault_root_token': _init.root_token,
-                  'prod_vault_unseal_keys': _init.unseal_keys_b64 | to_json
-                }
-              }}
+            body_format: json
+            status_code: [200, 204]
+            body:
+              data: >-
+                {{
+                  {
+                    'prod_vault_root_token': _init.root_token,
+                    'prod_vault_recovery_keys': _init.recovery_keys_b64 | to_json
+                  }
+                  if provision_vault_downstream_seal == 'transit' else
+                  {
+                    'prod_vault_root_token': _init.root_token,
+                    'prod_vault_unseal_keys': _init.unseal_keys_b64 | to_json
+                  }
+                }}
           no_log: true
 
       rescue:
