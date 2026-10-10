@@ -29,14 +29,29 @@
     utils_vault_operator_login_use_ambient: "{{ utils_vault_kv2_read_use_ambient }}"
 
 - name: "Section B. Read each secret"
-  community.hashi_vault.vault_kv2_get:
-    url: "{{ utils_vault_kv2_read_access.endpoint }}"
-    engine_mount_point: "{{ item.mount | default(utils_vault_kv2_read_engine_mount) }}"
-    path: "{{ item.path }}"
-    auth_method: token
-    token: "{{ utils_vault_operator_login_token }}"
+  ansible.builtin.uri:
+    url: >-
+      {{
+        utils_vault_kv2_read_access.endpoint ~ '/v1/'
+        ~ (item.mount | default(utils_vault_kv2_read_engine_mount))
+        ~ '/data/' ~ item.path
+      }}
+    method: GET
+    headers:
+      X-Vault-Token: "{{ utils_vault_operator_login_token }}"
+    ca_path: "{{ utils_vault_kv2_read_access.ca_cert_path }}"
+    client_cert: >-
+      {{
+        (utils_vault_kv2_read_use_ambient | bool)
+        | ternary(operator_vault_client_cert, '') | default(omit, true)
+      }}
+    client_key: >-
+      {{
+        (utils_vault_kv2_read_use_ambient | bool)
+        | ternary(operator_vault_client_key, '') | default(omit, true)
+      }}
     validate_certs: true
-    ca_cert: "{{ utils_vault_kv2_read_access.ca_cert_path }}"
+    return_content: true
   loop: "{{ utils_vault_kv2_read_secrets }}"
   loop_control:
     label: "{{ item.as }}"
@@ -51,7 +66,7 @@
     _utils_vault_kv2_read_missing: >-
       {% set ns = namespace(missing=[]) %}
       {% for response in _utils_vault_kv2_read_responses.results %}
-      {% for field in response.item.fields | default([]) if field not in response.secret %}
+      {% for field in response.item.fields | default([]) if field not in response.json.data.data %}
       {% set ns.missing = ns.missing + [response.item.path ~ '#' ~ field] %}
       {% endfor %}
       {% endfor %}
@@ -70,7 +85,10 @@
       {{
         dict(
           utils_vault_kv2_read_secrets | map(attribute='as')
-          | zip(_utils_vault_kv2_read_responses.results | map(attribute='secret'))
+          | zip(
+            _utils_vault_kv2_read_responses.results
+            | map(attribute='json') | map(attribute='data') | map(attribute='data')
+          )
         )
       }}
   no_log: true

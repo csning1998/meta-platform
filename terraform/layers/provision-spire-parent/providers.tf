@@ -1,5 +1,5 @@
 
-# The layer does not declare a Vault provider. The plays write the join tokens to the Bastion KV with the token of the tenant session.
+# The layer does not declare a Vault provider. The plays write the join tokens to the Bastion KV through the platform-foundation Vault Proxy.
 terraform {
   required_providers {
     ansible = {

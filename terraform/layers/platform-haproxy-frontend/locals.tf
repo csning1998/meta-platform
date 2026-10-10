@@ -121,18 +121,19 @@ locals {
     access_scope = module.terraform_layer_context.primary_network_config.network.hostonly.cidr
   }
 
-  # Every value is public. The play issues the stats certificate and mints the credentials with the tenant token, outside the state.
+  # Every value is public. The play issues the stats certificate and mints the credentials through the Vault Proxy, outside the state.
   ansible_extra_config = {
-    lb_service_segments            = jsonencode(local.lb_service_segments)
-    haproxy_stats_port             = module.terraform_layer_context.primary_network_config.lb_config.ports["stats"].frontend_port
-    haproxy_listen_address         = local.haproxy_listen_address
-    haproxy_credential_kv_path     = local.state.foundation_libvirt_resources.foundation_vault_path.kv_paths["haproxy"]["frontend"].app
-    platform_haproxy_ca_bundle_b64 = base64encode(local.backend_ca_bundle_pem)
-    platform_haproxy_pki_mount     = vault_pki_secret_backend_role.stats.backend
-    platform_haproxy_pki_role      = vault_pki_secret_backend_role.stats.name
-    platform_haproxy_common_name   = local.state.foundation_libvirt_resources.foundation_pki.map[module.terraform_layer_context.primary_context.pki_key].dns_san[0]
-    platform_haproxy_alt_names     = join(",", local.state.foundation_libvirt_resources.foundation_pki.map[module.terraform_layer_context.primary_context.pki_key].dns_san)
-    platform_haproxy_ip_sans       = join(",", module.terraform_layer_context.cluster_network.node_ips)
+    lb_service_segments                   = jsonencode(local.lb_service_segments)
+    haproxy_stats_port                    = module.terraform_layer_context.primary_network_config.lb_config.ports["stats"].frontend_port
+    haproxy_listen_address                = local.haproxy_listen_address
+    haproxy_credential_kv_path            = local.state.foundation_libvirt_resources.foundation_vault_path.kv_paths["haproxy"]["frontend"].app
+    platform_haproxy_ca_bundle_b64        = base64encode(local.backend_ca_bundle_pem)
+    platform_haproxy_pki_mount            = vault_pki_secret_backend_role.stats.backend
+    platform_haproxy_pki_role             = vault_pki_secret_backend_role.stats.name
+    platform_haproxy_common_name          = local.state.foundation_libvirt_resources.foundation_pki.map[module.terraform_layer_context.primary_context.pki_key].dns_san[0]
+    platform_haproxy_alt_names            = join(",", local.state.foundation_libvirt_resources.foundation_pki.map[module.terraform_layer_context.primary_context.pki_key].dns_san)
+    platform_haproxy_ip_sans              = join(",", module.terraform_layer_context.cluster_network.node_ips)
+    platform_haproxy_metrics_source_cidrs = jsonencode(var.observability_config.scraper_cidrs)
   }
 
   haproxy_pki_role_name = module.terraform_layer_context.cluster_identity.cluster_name

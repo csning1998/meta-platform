@@ -7,7 +7,11 @@ terraform {
     }
     harbor = {
       source  = "goharbor/harbor"
-      version = "3.10.1"
+      version = "3.12.5"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "3.9.1"
     }
   }
   backend "http" {
@@ -19,7 +23,6 @@ terraform {
     retry_wait_min = 5
   }
 }
-
 
 # Downstream Provider, authenticated as the local Terraform operator through its SPIRE JWT-SVID
 provider "vault" {

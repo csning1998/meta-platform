@@ -15,7 +15,7 @@
 ### Item B. Build and Execution Constraints
 
 1. The binary MUST be built with `build-platform.sh`, which runs the tests, builds `tools/platform` into `platform-foundation/platform`, and runs the SonarQube scan.
-2. `build-platform.sh` MUST read the workstation values `BASTION_VAULT_ADDR` and `BASTION_VAULT_CACERT` through `platform env get` unless the caller exports them, and MUST hold the repository values as `readonly` constants.
+2. `build-platform.sh` MUST read the SonarQube analysis token through the governance Vault Proxy of `parent-group-governance` inside a subshell, and MUST hold the repository values as `readonly` constants.
 3. The executable MUST be invoked with the working directory inside the `platform-foundation` repository. `platform terraform` MUST be invoked with the working directory set to a layer directory under `terraform/layers/`.
 4. Automatic environment initialization MUST determine `PROJECT_ROOT` from the current working directory.
 5. The compiled `platform` binary MUST NOT be tracked in version control and MUST be excluded by `.gitignore`.
@@ -86,11 +86,11 @@
 
 ### Item J. Talos Cluster Sessions (`cluster`)
 
-1. `platform cluster shell <service>/<component>` and `platform cluster status <service>/<component>|all` MUST run inside a tenant session, which supplies the backend credentials and the Bastion Vault login.
+1. `platform cluster shell <service>/<component>` and `platform cluster status <service>/<component>|all` MUST run in the environment of the platform-foundation Vault Proxy, which supplies the backend credentials and the Bastion Vault route.
 2. The target MUST be one `/` between two catalog names of lowercase words joined by single hyphens, and the command MUST reject every other argument without an alias.
 3. The commands MUST read the Vault coordinates from one `terraform output -json` of `security-vault-downstream-tenants`, whose output `downstream_vault_operators` names the Vault instance, the KV mount, and the KV path of each `cluster-config` leaf.
 4. For a leaf on the Downstream Vault, the commands MUST log in with the JWT-SVID of the operator of the target and MUST verify the listener against `downstream_vault_ca_cert_path`.
-5. For a leaf on the Bastion Vault, the commands MUST use `VAULT_ADDR`, `VAULT_TOKEN`, and `VAULT_CACERT` of the tenant session.
+5. For a leaf on the Bastion Vault, the commands MUST use `VAULT_ADDR`, `VAULT_CACERT`, `VAULT_CLIENT_CERT`, and `VAULT_CLIENT_KEY` of the Proxy environment.
 6. The Downstream Vault token MUST stay inside the process and MUST NOT enter the environment of the session shell.
 7. The session files MUST reside in a new directory of mode `0700` below `XDG_RUNTIME_DIR`, or below the temporary directory without `XDG_RUNTIME_DIR`, with mode `0600` for each file.
 8. The talosconfig MUST take its endpoints from the InternalIP of the nodes which the API server reports, and MUST omit the endpoints when the API server does not answer.

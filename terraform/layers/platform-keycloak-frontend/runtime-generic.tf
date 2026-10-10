@@ -62,9 +62,12 @@ locals {
     # The join tokens and the registrar kubeconfig of the SPIRE Child live in the Downstream KV.
     operator_vault_url          = local.state.security_vault_downstream_tenants.downstream_vault_endpoint
     operator_vault_ca_cert_path = local.state.security_vault_downstream_tenants.downstream_vault_ca_cert_path
-    operator_vault_wrapper      = local.terraform_operator.wrapper_name
-    operator_vault_role         = local.terraform_operator.role_name
-    operator_vault_auth_mount   = local.terraform_operator.auth_mount
+    # The Downstream Vault takes no Proxy client certificate.
+    operator_vault_client_cert = ""
+    operator_vault_client_key  = ""
+    operator_vault_wrapper     = local.terraform_operator.wrapper_name
+    operator_vault_role        = local.terraform_operator.role_name
+    operator_vault_auth_mount  = local.terraform_operator.auth_mount
   }
 }
 

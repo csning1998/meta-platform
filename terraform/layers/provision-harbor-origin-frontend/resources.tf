@@ -25,8 +25,10 @@ resource "harbor_project" "proxy_oci" {
 resource "harbor_robot_account" "helm_puller" {
   name        = "helm-puller"
   description = "System level Robot account for Helm Provider to pull from local and proxy caches"
+  level       = "system"
 
-  level = "system"
+  secret_wo         = ephemeral.random_password.robot_secret["helm_puller"].result
+  secret_wo_version = local.robot_secret_version
 
   permissions {
     kind      = "project"
@@ -48,12 +50,20 @@ resource "harbor_robot_account" "helm_puller" {
       }
     }
   }
+
+  # Replacing the Vault secret triggers recreation of the robot account to prevent authentication drift.
+  lifecycle {
+    replace_triggered_by = [vault_kv_secret_v2.robot_helm_creds]
+  }
 }
 
 resource "harbor_robot_account" "helm_pusher" {
   name        = "helm-pusher"
   description = "Robot account for pushing Helm charts to OCI registry"
   level       = "project"
+
+  secret_wo         = ephemeral.random_password.robot_secret["helm_pusher"].result
+  secret_wo_version = local.robot_secret_version
   permissions {
     kind      = "project"
     namespace = harbor_project.proxy_oci["helm_charts"].name
@@ -66,17 +76,23 @@ resource "harbor_robot_account" "helm_pusher" {
       resource = "repository"
     }
   }
+
+  # Replacing the Vault secret triggers recreation of the robot account to prevent authentication drift.
+  lifecycle {
+    replace_triggered_by = [vault_kv_secret_v2.robot_helm_creds]
+  }
 }
 
+# Untracked write-only credentials require a unified secret resource to maintain rotation parity between Harbor and Vault.
 resource "vault_kv_secret_v2" "robot_helm_creds" {
   provider = vault.downstream
   mount    = "secret"
   name     = local.downstream_kv_paths["harbor-origin"]["frontend"].robot
-  data_json = jsonencode({
-    username_puller = harbor_robot_account.helm_puller.full_name
-    password_puller = harbor_robot_account.helm_puller.secret
-    username_pusher = harbor_robot_account.helm_pusher.full_name
-    password_pusher = harbor_robot_account.helm_pusher.secret
+  data_json_wo = jsonencode({
+    username_puller = "robot$helm-puller"
+    password_puller = ephemeral.random_password.robot_secret["helm_puller"].result
+    username_pusher = format("robot$%s+helm-pusher", harbor_project.proxy_oci["helm_charts"].name)
+    password_pusher = ephemeral.random_password.robot_secret["helm_pusher"].result
   })
+  data_json_wo_version = local.robot_secret_version
 }
-

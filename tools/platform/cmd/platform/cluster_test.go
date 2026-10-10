@@ -2,16 +2,23 @@ package main
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"platform/internal/clusterops"
 )
@@ -36,8 +43,43 @@ func writeFakeBin(t *testing.T, dir, name, body string) {
 	}
 }
 
+// writeClientCertificate writes a self-signed client certificate and its key below dir, and returns both paths.
+func writeClientCertificate(t *testing.T, dir string) (certFile, keyFile string) {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("generate client key: %v", err)
+	}
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: "operator-platform-foundation"},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(time.Hour),
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+	}
+	der, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("create client certificate: %v", err)
+	}
+	keyDER, err := x509.MarshalECPrivateKey(key)
+	if err != nil {
+		t.Fatalf("marshal client key: %v", err)
+	}
+	certFile, keyFile = filepath.Join(dir, "client.pem"), filepath.Join(dir, "client-key.pem")
+	for path, block := range map[string]*pem.Block{
+		certFile: {Type: "CERTIFICATE", Bytes: der},
+		keyFile:  {Type: "EC PRIVATE KEY", Bytes: keyDER},
+	} {
+		err := os.WriteFile(path, pem.EncodeToMemory(block), 0o600)
+		if err != nil {
+			t.Fatalf("write %s: %v", path, err)
+		}
+	}
+	return certFile, keyFile
+}
+
 // newClusterEnvironment starts a Bastion Vault double which holds the leaf of vault-downstream/frontend alone, and
-// points terraform, kubectl, the tenant session, and XDG_RUNTIME_DIR of the process at test doubles.
+// points terraform, kubectl, the Vault Proxy environment, and XDG_RUNTIME_DIR of the process at test doubles.
 func newClusterEnvironment(t *testing.T) string {
 	t.Helper()
 	leaf := map[string]any{
@@ -86,6 +128,9 @@ func newClusterEnvironment(t *testing.T) string {
 	t.Setenv("VAULT_ADDR", server.URL)
 	t.Setenv("VAULT_TOKEN", "s.tenant")
 	t.Setenv("VAULT_CACERT", caFile)
+	certFile, keyFile := writeClientCertificate(t, root)
+	t.Setenv("VAULT_CLIENT_CERT", certFile)
+	t.Setenv("VAULT_CLIENT_KEY", keyFile)
 	t.Setenv("XDG_RUNTIME_DIR", runtime)
 	return runtime
 }

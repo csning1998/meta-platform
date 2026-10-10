@@ -238,7 +238,7 @@
           - operator_vault_ca_cert_path | default('') | length > 0
         fail_msg: >-
           operator_vault_url and operator_vault_ca_cert_path MUST name the operator Vault and the CA file of its listener.
-          A tenant session exports both values, and a layer which targets another Vault passes both values.
+          vault-proxy-env exports both values, and a layer which targets another Vault passes both values.
 
     - name: "Step E0a. Log in to the operator Vault"
       ansible.builtin.include_role:
@@ -265,16 +265,20 @@
       no_log: true
 
     - name: "Step E3. Persist join_token to the operator Vault for audit"
-      community.hashi_vault.vault_kv2_write:
-        url: "{{ operator_vault_url }}"
-        engine_mount_point: "secret"
-        auth_method: token
-        token: "{{ utils_vault_operator_login_token }}"
-        path: "{{ utils_spire_agent_join_token_vault_path }}"
-        data:
-          join_token: "{{ utils_spire_agent_join_token }}"
+      ansible.builtin.uri:
+        url: "{{ operator_vault_url }}/v1/secret/data/{{ utils_spire_agent_join_token_vault_path }}"
+        method: POST
+        headers:
+          X-Vault-Token: "{{ utils_vault_operator_login_token }}"
+        ca_path: "{{ operator_vault_ca_cert_path }}"
+        client_cert: "{{ operator_vault_client_cert | default(omit, true) }}"
+        client_key: "{{ operator_vault_client_key | default(omit, true) }}"
         validate_certs: true
-        ca_cert: "{{ operator_vault_ca_cert_path }}"
+        body_format: json
+        body:
+          data:
+            join_token: "{{ utils_spire_agent_join_token }}"
+        status_code: [200, 204]
       delegate_to: localhost
       become: false
       no_log: true

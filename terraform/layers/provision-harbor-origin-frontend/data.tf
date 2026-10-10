@@ -16,3 +16,15 @@ ephemeral "vault_kv_secret_v2" "harbor_origin" {
   mount    = "secret"
   name     = local.downstream_kv_paths["harbor-origin"]["frontend"].app
 }
+
+# Downstream consumers authenticate private OCI chart operations through credentials stored in the Downstream Vault.
+# This layer MUST choose the robot passwords to synchronize authentication state across Harbor and Vault simultaneously.
+ephemeral "random_password" "robot_secret" {
+  for_each = toset(["helm_puller", "helm_pusher"])
+
+  length      = 32
+  special     = false
+  min_upper   = 1
+  min_lower   = 1
+  min_numeric = 1
+}

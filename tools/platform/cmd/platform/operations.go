@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -172,18 +173,18 @@ func appendKVs(target map[string]string, kvs []string) {
 	}
 }
 
-func buildPackerExecutionEnv(ctx context.Context, a *app) ([]string, error) {
-	addr, token, caCert, err := vaultops.ResolveContext(ctx, a.newVaultPaths(), "dev", "")
-	if err != nil {
-		return nil, err
-	}
+// errVaultProxyEnvironmentMissing reports a shell which has not loaded the environment of the platform-foundation Vault Proxy.
+var errVaultProxyEnvironmentMissing = errors.New(`VAULT_ADDR is empty: allow the .envrc with direnv allow, or run eval "$(vault-proxy-env platform-foundation)"`)
 
+// buildPackerExecutionEnv hands Packer the environment of the platform-foundation Vault Proxy, which the vault()
+// function of the templates reads, and the variables of .env.
+func buildPackerExecutionEnv(_ context.Context, a *app) ([]string, error) {
+	if os.Getenv("VAULT_ADDR") == "" {
+		return nil, errVaultProxyEnvironmentMissing
+	}
 	merged := make(map[string]string)
 	appendKVs(merged, os.Environ())
 	appendKVs(merged, a.env.Environ())
-	merged["VAULT_ADDR"] = addr
-	merged["VAULT_TOKEN"] = token
-	merged["VAULT_CACERT"] = caCert
 
 	out := make([]string, 0, len(merged))
 	for k, v := range merged {

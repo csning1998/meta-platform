@@ -137,7 +137,7 @@ func (a *app) hostsCmd() *cobra.Command {
 }
 
 func (a *app) clusterCmd() *cobra.Command {
-	cmd := &cobra.Command{Use: "cluster", Short: "Operator sessions on the Talos clusters, inside a tenant session"}
+	cmd := &cobra.Command{Use: "cluster", Short: "Operator sessions on the Talos clusters, in the platform-foundation Vault Proxy environment"}
 	skipBootstrap := map[string]string{annotationSkipBootstrap: "true"}
 
 	cmd.AddCommand(&cobra.Command{

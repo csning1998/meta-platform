@@ -1,6 +1,6 @@
 
 # The role name equals the identity string of the service, which the tenant ACL scopes by the owner code prefix.
-# The play issues the certificate with the tenant token, hence the private key never enters a Terraform state.
+# The play issues the certificate through the Vault Proxy, hence the private key never enters a Terraform state.
 resource "vault_pki_secret_backend_role" "stats" {
   backend = local.bastion_pki_platform.mount_path
   name    = local.haproxy_pki_role_name

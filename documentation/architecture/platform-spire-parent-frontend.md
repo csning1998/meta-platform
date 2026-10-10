@@ -44,7 +44,7 @@ This specification states the coordination contract between the SPIRE trust doma
 
 1. The `upstreamauthority/vault` plugin does not support the `PublishJWTKey` RPC, a limitation that would normally block global JWT-SVID interoperability across a Nested topology.
 2. Global JWT interoperability is not required across the Nested SPIRE topology since JWT-SVID authentication follows a one-issuer-one-mount convention already established for `gitlab-saas-ci-job-jwt-provider`.
-3. The Bastion Vault does not mount any SPIRE JWT backend. The layers which change the Bastion Vault run inside a tenant session of `parent-group-governance`.
+3. The Bastion Vault does not mount any SPIRE JWT backend. The layers which change the Bastion Vault run through the platform-foundation Vault Proxy of `parent-group-governance`.
 4. SPIRE Parent's workload authentication mounts on the `auth/jwt` backend `platform-foundation-spire-parent-jwt-svid-provider` of the Downstream Vault, fronted by SPIRE Parent's own `spire-oidc-discovery-provider` instance. Layer `security-vault-downstream-tenants` binds the role of every operator to the exact SPIFFE ID of that operator.
 5. SPIRE Child's workload authentication mounts on an independent `auth/jwt` backend of the Downstream Vault, fronted by SPIRE Child's own OIDC Discovery Provider instance. Layer `provision-spire-child` creates the backend and the roles of the Child tenants after the chart runs, and each role carries the tenant policy which `security-vault-downstream-tenants` declares.
 6. X.509-SVID authentication follows the PKI certificate chain established in Item C and carries no dependency on the `PublishJWTKey` RPC.
@@ -177,13 +177,12 @@ flowchart TD
 
 ### Item E. Cross-Tenant Grants
 
-1. The tenant policy grants read on `secret/data/parent-group-governance/terraform/state-backend`, which holds the credential of the Terraform state backend.
-2. The tenant policy grants read on `secret/data/parent-group-governance/github/publication`, which the project governance layer requires.
-3. The tenant policy grants create and update on `pki-downstream/root/sign-intermediate`, which layer `security-vault-downstream-pki` uses inside a tenant session.
-4. The SPIRE upstream authority AppRole holds the policy `pki-spire-signer-platform-foundation`, which grants create and update on `pki-spire/root/sign-intermediate` only.
-5. The layers `platform-spire-parent`, `provision-spire-parent`, `platform-vault-downstream-frontend`, `provision-vault-downstream-frontend`, `security-vault-downstream-tenants`, and `security-vault-downstream-pki` run inside a tenant session. The tenant session exports `VAULT_ADDR`, `VAULT_CACERT`, and `VAULT_TOKEN`, and the Ansible plays of these layers take the same token.
-6. The tenant AppRole binds its secret ID and its token to `127.0.0.1/32` and the first address of the Bastion publish network. The SPIRE upstream authority AppRole binds both to the addresses of the SPIRE Parent nodes on `vault-bastion-publish`.
-7. The registry of `parent-group-governance` records each cross-tenant grant together with its reason.
+1. The tenant policy does not grant `secret/data/parent-group-governance/terraform/state-backend` or `secret/data/parent-group-governance/github/publication`, which the governance Vault Proxy reads alone.
+2. The tenant policy grants create and update on `pki-downstream/root/sign-intermediate`, which layer `security-vault-downstream-pki` uses through the platform-foundation Vault Proxy.
+3. The SPIRE upstream authority AppRole holds the policy `pki-spire-signer-platform-foundation`, which grants create and update on `pki-spire/root/sign-intermediate` only.
+4. The layers `platform-spire-parent`, `provision-spire-parent`, `platform-vault-downstream-frontend`, `provision-vault-downstream-frontend`, `security-vault-downstream-tenants`, and `security-vault-downstream-pki` run through the platform-foundation Vault Proxy. The Proxy logs in with the client certificate of the identity, and the Ansible plays of these layers present the same certificate.
+5. The cert role of the identity binds its token to `127.0.0.1/32`. The SPIRE upstream authority AppRole binds its secret ID and its token to the addresses of the SPIRE Parent nodes on `vault-bastion-publish`.
+6. The registry of `parent-group-governance` records each cross-tenant grant together with its reason.
 
 ## Section 5. Per-Consumer Role Provisioning
 

@@ -9,7 +9,7 @@
           - operator_vault_ca_cert_path | default('') | length > 0
         fail_msg: >-
           operator_vault_url and operator_vault_ca_cert_path MUST name the operator Vault and the CA file of its listener.
-          A tenant session exports both values, and a layer which targets another Vault passes both values.
+          vault-proxy-env exports both values, and a layer which targets another Vault passes both values.
 
     # Documentation: documentation/architecture/platform-spire-parent-frontend.md Section 8 Item A.
     - name: "Step A1. Read inventory_hostname's join_token from the operator Vault"

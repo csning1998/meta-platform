@@ -16,7 +16,7 @@ terraform {
   }
 }
 
-# The tenant session supplies VAULT_ADDR, VAULT_CACERT, and VAULT_TOKEN, and the token reads the init leaf alone.
+# The .envrc of the layer routes VAULT_ADDR to the platform-foundation Vault Proxy, whose token reads the init leaf alone.
 provider "vault" {
   alias            = "bastion"
   skip_child_token = true

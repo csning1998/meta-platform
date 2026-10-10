@@ -114,7 +114,10 @@ locals {
 
   # Execution variables contain non-sensitive coordinates. The runner retrieves secrets directly from the Downstream Vault.
   ansible_extra_vars = {
-    operator_vault_ca_cert_path                    = local.state.security_vault_downstream_tenants.downstream_vault_ca_cert_path
+    operator_vault_ca_cert_path = local.state.security_vault_downstream_tenants.downstream_vault_ca_cert_path
+    # The Downstream Vault takes no Proxy client certificate.
+    operator_vault_client_cert                     = ""
+    operator_vault_client_key                      = ""
     operator_vault_url                             = local.state.security_vault_downstream_tenants.downstream_vault_endpoint
     provision_spire_child_cluster_name             = local.spire_child_cluster_name
     provision_spire_child_kubeconfig_vault_path    = local.spire_child_kv_paths.parent_attestor
