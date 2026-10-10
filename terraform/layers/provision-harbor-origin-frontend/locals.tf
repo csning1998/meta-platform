@@ -21,6 +21,12 @@ locals {
 }
 
 locals {
+  # Terraform chooses both robot secrets, which reach Harbor and the Downstream Vault through write-only arguments alone.
+  # Incrementing robot_secret_version rotates both secrets in one apply.
+  robot_secret_version = 1
+}
+
+locals {
   proxy_oci = {
     helm_charts = {
       name = "helm-charts"
