@@ -26,3 +26,16 @@ variable "service_config" {
     }))
   }))
 }
+
+variable "observability_config" {
+  description = "Observability scraper segments, which read /metrics of the stats listener without the stats login. An empty list keeps the login on every path."
+  type = object({
+    scraper_cidrs = optional(list(string), [])
+  })
+  default = {}
+
+  validation {
+    condition     = alltrue([for cidr in var.observability_config.scraper_cidrs : can(cidrnetmask(cidr))])
+    error_message = "observability_config.scraper_cidrs MUST hold IPv4 CIDR blocks."
+  }
+}

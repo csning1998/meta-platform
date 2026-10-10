@@ -27,3 +27,6 @@ platform_haproxy_stats_renew_before_seconds: 2592000
 # The stats listener and its metrics path require this login.
 # The play reads the password from the Bastion KV of the tenant, or mints the password on the first run.
 platform_haproxy_stats_user: "stats"
+
+# Observability scraper segments which read /metrics of the stats listener without the stats login.
+platform_haproxy_metrics_source_cidrs: []

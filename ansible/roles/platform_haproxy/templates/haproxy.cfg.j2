@@ -36,6 +36,13 @@ userlist stats_users
 listen stats
     bind {{ haproxy_listen_address }}:{{ haproxy_stats_port }} ssl crt /etc/haproxy/certs/vault.pem
     mode http
+{% set _metrics_sources = (platform_haproxy_metrics_source_cidrs is string)
+    | ternary(platform_haproxy_metrics_source_cidrs | from_json, platform_haproxy_metrics_source_cidrs) %}
+{% if _metrics_sources | length > 0 %}
+    # The observability scrapers read /metrics without the stats login, and every other path keeps the login.
+    acl metrics_scraper src {{ _metrics_sources | join(' ') }}
+    http-request use-service prometheus-exporter if { path /metrics } metrics_scraper
+{% endif %}
     http-request auth realm HAProxy-Stats unless { http_auth(stats_users) }
     http-request use-service prometheus-exporter if { path /metrics }
     stats enable

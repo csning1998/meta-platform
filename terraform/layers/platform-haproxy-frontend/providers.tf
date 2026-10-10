@@ -24,8 +24,8 @@ provider "libvirt" {
   uri = "qemu:///system?socket=/var/run/libvirt/virtqemud-sock"
 }
 
-# The tenant session supplies VAULT_ADDR, VAULT_CACERT, and VAULT_TOKEN, hence the layer does not hold any Bastion credential.
-# The tenant token cannot create a child token, since the tenant ACL does not grant any auth/token path.
+# The .envrc of the layer routes VAULT_ADDR to the platform-foundation Vault Proxy, hence the layer holds no Bastion credential.
+# The Proxy overwrites the token of every request, hence the provider skips the child token.
 provider "vault" {
   skip_child_token = true
 }

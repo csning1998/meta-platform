@@ -12,3 +12,8 @@ service_config = {
     }
   }
 }
+
+# The frontend segment of platform-observability, cidr_index 155 of the platform network.
+observability_config = {
+  scraper_cidrs = ["172.16.155.0/24"]
+}
