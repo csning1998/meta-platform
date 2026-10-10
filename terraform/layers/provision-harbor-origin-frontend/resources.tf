@@ -50,6 +50,11 @@ resource "harbor_robot_account" "helm_puller" {
       }
     }
   }
+
+  # Replacing the Vault secret triggers recreation of the robot account to prevent authentication drift.
+  lifecycle {
+    replace_triggered_by = [vault_kv_secret_v2.robot_helm_creds]
+  }
 }
 
 resource "harbor_robot_account" "helm_pusher" {
@@ -71,22 +76,23 @@ resource "harbor_robot_account" "helm_pusher" {
       resource = "repository"
     }
   }
+
+  # Replacing the Vault secret triggers recreation of the robot account to prevent authentication drift.
+  lifecycle {
+    replace_triggered_by = [vault_kv_secret_v2.robot_helm_creds]
+  }
 }
 
+# Untracked write-only credentials require a unified secret resource to maintain rotation parity between Harbor and Vault.
 resource "vault_kv_secret_v2" "robot_helm_creds" {
   provider = vault.downstream
   mount    = "secret"
   name     = local.downstream_kv_paths["harbor-origin"]["frontend"].robot
   data_json_wo = jsonencode({
-    username_puller = harbor_robot_account.helm_puller.full_name
+    username_puller = "robot$helm-puller"
     password_puller = ephemeral.random_password.robot_secret["helm_puller"].result
-    username_pusher = harbor_robot_account.helm_pusher.full_name
+    username_pusher = format("robot$%s+helm-pusher", harbor_project.proxy_oci["helm_charts"].name)
     password_pusher = ephemeral.random_password.robot_secret["helm_pusher"].result
   })
   data_json_wo_version = local.robot_secret_version
-
-  # A replaced robot receives a fresh secret in the same apply, hence the Vault copy follows the replacement.
-  lifecycle {
-    replace_triggered_by = [harbor_robot_account.helm_puller, harbor_robot_account.helm_pusher]
-  }
 }
