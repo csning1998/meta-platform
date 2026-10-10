@@ -38,6 +38,7 @@ func newOperationsApp(t *testing.T, input string) (*app, *bytes.Buffer) {
 }
 
 func TestBuildPackerExecutionEnv_DoesNotDuplicateNetVars(t *testing.T) {
+	t.Setenv("VAULT_ADDR", "https://127.0.0.1:18211")
 	dir := t.TempDir()
 	env, err := config.Load(filepath.Join(dir, ".env"))
 	if err != nil {
@@ -63,6 +64,7 @@ func TestBuildPackerExecutionEnv_DoesNotDuplicateNetVars(t *testing.T) {
 }
 
 func TestBuildPackerImage_RejectsUnknownBaseAndPreservesStaleOutput(t *testing.T) {
+	t.Setenv("VAULT_ADDR", "https://127.0.0.1:18211")
 	dir := t.TempDir()
 	packerDir := filepath.Join(dir, "packer")
 	if err := os.MkdirAll(filepath.Join(packerDir, "distro"), 0o755); err != nil {
@@ -121,6 +123,8 @@ func TestBuildPackerExecutionEnv_SetsExpectedNetVars(t *testing.T) {
 			}
 			env.Set(config.KeyPKRVarNetBridge, c.bridge)
 			env.Set(config.KeyPKRVarNetDevice, c.device)
+			t.Setenv("VAULT_ADDR", "https://127.0.0.1:18211")
+			t.Setenv("VAULT_CLIENT_CERT", "/example/client.pem")
 
 			a := &app{root: dir, home: dir, env: env, out: ui.New(io.Discard, io.Discard)}
 
@@ -131,8 +135,23 @@ func TestBuildPackerExecutionEnv_SetsExpectedNetVars(t *testing.T) {
 
 			assertSingleEnvEntry(t, got, config.KeyPKRVarNetBridge, c.wantBridge)
 			assertSingleEnvEntry(t, got, config.KeyPKRVarNetDevice, c.wantDevice)
-			assertSingleEnvEntry(t, got, "VAULT_ADDR", "VAULT_ADDR=https://172.16.0.1:8200")
+			assertSingleEnvEntry(t, got, "VAULT_ADDR", "VAULT_ADDR=https://127.0.0.1:18211")
+			assertSingleEnvEntry(t, got, "VAULT_CLIENT_CERT", "VAULT_CLIENT_CERT=/example/client.pem")
 		})
+	}
+}
+
+func TestBuildPackerExecutionEnv_RequiresTheVaultProxyEnvironment(t *testing.T) {
+	dir := t.TempDir()
+	env, err := config.Load(filepath.Join(dir, ".env"))
+	if err != nil {
+		t.Fatalf("config.Load: %v", err)
+	}
+	t.Setenv("VAULT_ADDR", "")
+	a := &app{root: dir, home: dir, env: env, out: ui.New(io.Discard, io.Discard)}
+
+	if _, err := buildPackerExecutionEnv(context.Background(), a); !errors.Is(err, errVaultProxyEnvironmentMissing) {
+		t.Errorf("buildPackerExecutionEnv error = %v, want errVaultProxyEnvironmentMissing", err)
 	}
 }
 
@@ -253,6 +272,7 @@ func TestSwitchStrategy_TogglesNativeAndContainer(t *testing.T) {
 }
 
 func TestBuildPackerImage_CleansAndBuildsAllWhenEmpty(t *testing.T) {
+	t.Setenv("VAULT_ADDR", "https://127.0.0.1:18211")
 	a, _ := newOperationsApp(t, "")
 	if err := os.MkdirAll(filepath.Join(a.packerDir, "distro"), 0o755); err != nil {
 		t.Fatal(err)
@@ -264,6 +284,7 @@ func TestBuildPackerImage_CleansAndBuildsAllWhenEmpty(t *testing.T) {
 }
 
 func TestBuildPackerImage_FailsWhenBaseVarFileMissing(t *testing.T) {
+	t.Setenv("VAULT_ADDR", "https://127.0.0.1:18211")
 	a, _ := newOperationsApp(t, "")
 	if err := os.MkdirAll(filepath.Join(a.packerDir, "distro"), 0o755); err != nil {
 		t.Fatal(err)

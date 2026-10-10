@@ -66,8 +66,5 @@ provider "gitlab" {
 }
 
 provider "vault" {
-  alias        = "bastion"
-  address      = module.contexts_local_credential.bastion_vault_config.endpoint
-  ca_cert_file = module.contexts_local_credential.bastion_vault_config.ca_cert_path
-  token        = module.contexts_local_credential.bastion_vault_config.token_path
+  alias = "bastion"
 }

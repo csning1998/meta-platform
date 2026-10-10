@@ -153,17 +153,3 @@ func UnsealProduction(ctx context.Context, p Paths, inventoryFile string, out *u
 func ReadKVv2Field(ctx context.Context, client *vaultapi.Client, mountPath, secretPath, field string) (value string, ok bool) {
 	return vaultclient.ReadKVv2Field(ctx, client, mountPath, secretPath, field)
 }
-
-// ResolveContext resolves the Vault address, token, and CA certificate paths for the target environment.
-func ResolveContext(ctx context.Context, p Paths, target, prodVaultAddr string) (addr, token, caCert string, err error) {
-	bastionCfg := vaultclient.Config{
-		Address:    p.resolveBastionAddr(),
-		CACertPath: p.resolveCACertFile(),
-		Token:      vaultclient.ReadTokenFile(p.Home),
-	}
-	prodCfg := vaultclient.Config{
-		Address:    prodVaultAddr,
-		CACertPath: p.resolveProdCACertFile(),
-	}
-	return vaultclient.ResolveTargetContext(ctx, target, bastionCfg, prodCfg, p.resolveProdTokenRef())
-}

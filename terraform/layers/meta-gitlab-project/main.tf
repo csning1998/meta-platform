@@ -4,10 +4,6 @@ locals {
   project_code = "platform-foundation"
 }
 
-module "contexts_local_credential" {
-  source  = "gitlab.com/csning1998-lab/contexts-local-credential/gitlab"
-  version = "0.4.0"
-}
 
 module "provisioner_gitlab_project" {
   source  = "gitlab.com/csning1998-lab/provisioner-gitlab-project/gitlab"
@@ -22,9 +18,8 @@ module "provisioner_gitlab_project" {
 }
 
 module "workload_identity_federation" {
-  source    = "gitlab.com/csning1998-lab/provisioner-workload-identity-federation/gitlab"
-  version   = "0.3.1"
-  providers = { vault = vault.bastion }
+  source  = "gitlab.com/csning1998-lab/provisioner-workload-identity-federation/gitlab"
+  version = "0.4.0"
 
   gitlab_project = {
     id   = module.provisioner_gitlab_project.project_id
