@@ -226,7 +226,7 @@ module "helm_chart_vault" {
 }
 
 # The play initializes the first server and writes the root token and the recovery keys to the init leaf of the
-# Bastion Vault with the token of the tenant session. The servers unseal through the transit seal.
+# Bastion Vault through the platform-foundation Vault Proxy. The servers unseal through the transit seal.
 # The play reruns on a new release revision.
 module "vault_bootstrap" {
   count  = local.is_runtime_talos ? 1 : 0

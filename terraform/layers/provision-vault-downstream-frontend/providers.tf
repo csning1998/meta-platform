@@ -29,7 +29,7 @@ terraform {
 }
 
 # The Bastion Vault holds the kubeconfig of the cluster and signs the listener certificate of the Downstream Vault.
-# The tenant session supplies VAULT_ADDR, VAULT_CACERT, and VAULT_TOKEN, and the tenant token cannot create a child token.
+# The .envrc of the layer routes VAULT_ADDR to the platform-foundation Vault Proxy, which overwrites the token of every request.
 provider "vault" {
   alias            = "bastion"
   skip_child_token = true

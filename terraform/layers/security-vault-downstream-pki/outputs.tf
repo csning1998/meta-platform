@@ -34,3 +34,8 @@ output "downstream_pki_issuer_chain_pem" {
   description = "Certificate chain which a leaf of the Downstream issuer appends: the Downstream issuer, pki-downstream, and the Bastion root."
   value       = "${trimspace(base64decode(module.vault_pki_setup.pki_issuer_cert_b64))}\n${trimspace(local.bastion_pki_downstream.cert_pem)}\n${trimspace(local.registry_bastion.pki.root_cert_pem)}\n"
 }
+
+output "trust_bundle_pem" {
+  description = "Public certificates which verify every platform endpoint, including the Bastion listener and the Bastion root, for consumers which verify Bastion side endpoints without a Bastion Vault identity."
+  value       = local.trust_bundle_pem
+}
