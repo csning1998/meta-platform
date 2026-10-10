@@ -2,7 +2,7 @@
 # GitLab HTTP backend base URL. Authentication credentials must be supplied via
 # `TF_HTTP_USERNAME` and `TF_HTTP_PASSWORD` environment variables.
 locals {
-  _state_base_meta_platform = "https://gitlab.com/api/v4/projects/84608830/terraform/state"
+  _state_base_platform_foundation = "https://gitlab.com/api/v4/projects/84608830/terraform/state"
 }
 
 locals {
@@ -42,4 +42,20 @@ locals {
   workstation_cluster_name = "host-terraform-operator"
   tenant_operator          = local.terraform_operators["vault-downstream"]
   component_operators      = { for key, operator in local.terraform_operators : key => operator if key != "vault-downstream" }
+}
+
+# Tenant names, SPIFFE IDs, KV paths, and PKI roles derive from the owner code, so no input repeats the project code.
+locals {
+  tenants = {
+    for key, t in var.tenants : "${coalesce(t.owner, local.foundation_project_code)}-${key}" => {
+      issuer = t.issuer
+      spiffe_id = (t.workload != null
+        ? "spiffe://${local.spiffe_trust_domain}/${coalesce(t.owner, local.foundation_project_code)}/${t.workload.service}/${t.workload.component}"
+        : "spiffe://${local.spiffe_trust_domain}/ns/${t.kubernetes.namespace}/sa/${t.kubernetes.service_account}"
+      )
+      kv_paths      = [for p in t.kv_paths : "${coalesce(t.owner, local.foundation_project_code)}/${p}"]
+      kv_read_paths = [for p in t.kv_read_paths : "${coalesce(t.owner, local.foundation_project_code)}/${p}"]
+      pki_roles     = [for r in t.pki_roles : "${coalesce(t.owner, local.foundation_project_code)}-${r}"]
+    }
+  }
 }

@@ -42,7 +42,7 @@
       ansible.builtin.fail:
         msg: "{{ ansible_failed_result.msg | default('see task output above') }}"
 
-# The workstation issues the certificate with the tenant token, and the private key never enters a Terraform state.
+# The workstation issues the certificate through the Vault Proxy, and the private key never enters a Terraform state.
 # A certificate from a rebuilt pki-platform fails the chain check,
 # and a certificate inside the renewal window fails checkend.
 - name: "Block A2: Issue the Listener Certificate from pki-platform"
@@ -81,7 +81,7 @@
     - name: "A2d. Issue the listener certificate of this node"
       when: _platform_vault_listener_chain.rc != 0 or _platform_vault_listener_expiry.rc != 0
       block:
-        - name: "A2d-i. Take the token of the tenant session"
+        - name: "A2d-i. Take the Vault Proxy route of identity {{ project_code }}"
           ansible.builtin.include_role:
             name: utils_vault_operator_login
           vars:
@@ -105,6 +105,8 @@
               ip_sans: "{{ advertise_ip ~ ',' ~ vault_vip }}"
               ttl: "{{ platform_vault_listener_cert_ttl }}"
             ca_path: "{{ operator_vault_ca_cert_path }}"
+            client_cert: "{{ operator_vault_client_cert | default(omit, true) }}"
+            client_key: "{{ operator_vault_client_key | default(omit, true) }}"
             validate_certs: true
             status_code: 200
             return_content: true
@@ -117,8 +119,10 @@
           ansible.builtin.copy:
             content: >-
               {{
-                _platform_vault_listener_issue.json.data.certificate ~ '\n'
-                ~ _platform_vault_listener_issue.json.data.issuing_ca ~ '\n'
+                _platform_vault_listener_issue.json.data.certificate
+                ~ ('%c' | format(10))
+                ~ _platform_vault_listener_issue.json.data.issuing_ca
+                ~ ('%c' | format(10))
               }}
             dest: "{{ vault_dir_tls }}/vault.crt"
             owner: "{{ vault_owner }}"

@@ -1,4 +1,9 @@
 
+# The project code is the identity of this repository: the GitLab project, the WIF owner code, and the GitHub mirror share it.
+locals {
+  project_code = "platform-foundation"
+}
+
 module "contexts_local_credential" {
   source  = "gitlab.com/csning1998-lab/contexts-local-credential/gitlab"
   version = "0.4.0"
@@ -8,7 +13,7 @@ module "provisioner_gitlab_project" {
   source  = "gitlab.com/csning1998-lab/provisioner-gitlab-project/gitlab"
   version = "0.2.0"
 
-  name         = "meta-platform"
+  name         = local.project_code
   description  = "Shared platform infrastructure and GitLab group governance for the csning1998-lab group."
   visibility   = "public"
   namespace_id = local.state.group_topology.subgroup_ids["platform-engineering-lab"]
@@ -24,7 +29,7 @@ module "workload_identity_federation" {
   gitlab_project = {
     id   = module.provisioner_gitlab_project.project_id
     path = module.provisioner_gitlab_project.full_path
-    code = "meta-platform"
+    code = local.project_code
   }
 
   anthropic_federation = {
@@ -67,7 +72,7 @@ module "github_mirror" {
   gitlab_project_id = module.provisioner_gitlab_project.project_id
 
   github_repository = {
-    name  = "meta-platform"
+    name  = local.project_code
     owner = var.github_owner
   }
 }

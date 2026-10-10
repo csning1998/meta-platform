@@ -6,13 +6,15 @@ import (
 	"os"
 
 	"gitlab.com/csning1998-lab/parent-group-governance/tools/governance/pkg/vaultclient"
+
+	"platform/internal/config"
 )
 
 const (
 	// DefaultTokenMount is the default KV-v2 engine mount path for credentials in Bastion Vault.
 	DefaultTokenMount = "secret"
 	// DefaultTokenPath is the default KV-v2 secret path holding Production Vault credentials.
-	DefaultTokenPath = "meta-platform/credentials"
+	DefaultTokenPath = config.ProjectCode + "/credentials"
 	// DefaultTokenField is the default field key inside the secret for the Production Vault root token.
 	DefaultTokenField = "prod_vault_root_token"
 )

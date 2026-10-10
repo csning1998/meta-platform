@@ -30,7 +30,7 @@ locals {
     }
   }
 
-  child_tenants = { for name, t in var.tenants : name => t if t.issuer == "child" }
+  child_tenants = { for name, t in local.tenants : name => t if t.issuer == "child" }
 
   # The JWT mount of the SPIRE Child carries the cluster name of the Child, which the owned auth scope of the Child operator covers.
   spire_child_jwt_auth = {

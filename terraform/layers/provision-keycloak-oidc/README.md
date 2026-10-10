@@ -13,7 +13,7 @@ This layer automatically provisions OIDC clients for the following services and 
 - **Harbor**: For container image registry.
 - **MinIO**: For object storage console.
 
-All `Client ID` and `Client Secret` pairs are automatically synced to **Vault** under the path `secret/meta-platform/keycloak/oidc/clients/` of the Downstream Vault, allowing downstream layers to read them automatically.
+All `Client ID` and `Client Secret` pairs are automatically synced to **Vault** under the path `secret/platform-foundation/keycloak/oidc/clients/` of the Downstream Vault, allowing downstream layers to read them automatically.
 
 ### Hierarchical Group Management (RBAC)
 

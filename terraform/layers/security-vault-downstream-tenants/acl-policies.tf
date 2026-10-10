@@ -2,7 +2,7 @@
 # Tenant ACL policy definitions map least-privilege KV and PKI paths keyed by tenant identifier.
 locals {
   tenant_policy_paths = {
-    for name, t in var.tenants : name => merge(
+    for name, t in local.tenants : name => merge(
       merge([
         for kv_path in t.kv_paths : {
           "${vault_mount.kv.path}/data/${kv_path}/*" = {

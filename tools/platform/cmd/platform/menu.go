@@ -125,7 +125,7 @@ func (a *app) printVaultStatusBanner(ctx context.Context) {
 }
 
 func (a *app) sshKeygenMenu() error {
-	name := a.out.PromptInput(a.in, "Enter the desired key name (default: id_ed25519_meta-platform): ", "id_ed25519_meta-platform")
+	name := a.out.PromptInput(a.in, "Enter the desired key name (default: id_ed25519_"+config.ProjectCode+"): ", "id_ed25519_"+config.ProjectCode)
 	overwrite := true // The legacy bash script's own y/n overwrite prompt already gates entry to this path.
 	return a.generateSSHKey(name, overwrite)
 }

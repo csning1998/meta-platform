@@ -13,7 +13,7 @@ locals {
 
   bastion_network_addresses = merge([
     for s_name, s in var.service_catalog : {
-      for c_name, c in s.components : "${s.project_code}-${s_name}-${c_name}" => [
+      for c_name, c in s.components : "${var.project_code}-${s_name}-${c_name}" => [
         for i in range(c.ip_range.end_ip - c.ip_range.start_ip + 1) : format("%s/%d",
           cidrhost(
             local.bastion_network_cidr,

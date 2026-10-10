@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 
+	"platform/internal/config"
 	"platform/internal/hostsops"
 	"platform/internal/libvirtops"
 	"platform/internal/ui"
@@ -24,7 +25,7 @@ func (a *app) syncHosts(ctx context.Context, cfg hostsops.SyncConfig, apply bool
 		a.out.Print(ui.Info, "Dry run. Rerun with --apply to write "+cfg.HostsFile+".")
 		return nil
 	}
-	a.out.Print(ui.OK, "Replaced the meta-platform block, backup at "+cfg.HostsFile+".bak.")
+	a.out.Print(ui.OK, "Replaced the "+config.ProjectCode+" block, backup at "+cfg.HostsFile+".bak.")
 	return nil
 }
 

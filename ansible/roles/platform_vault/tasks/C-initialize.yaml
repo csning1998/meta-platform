@@ -21,7 +21,7 @@
         - platform_vault_init_result.rc != 0
         - "'Vault is already initialized' not in platform_vault_init_result.stderr"
 
-    - name: "C1c. Take the token of the tenant session"
+    - name: "C1c. Take the Vault Proxy route of identity {{ project_code }}"
       ansible.builtin.include_role:
         name: utils_vault_operator_login
       vars:
@@ -30,17 +30,21 @@
 
     # Encodes unseal keys as JSON string to satisfy provider schema constraints requiring scalar string values.
     - name: "C1d. Persist the root token and unseal keys to the Bastion Vault"
-      community.hashi_vault.vault_kv2_write:
-        url: "{{ operator_vault_url }}"
-        engine_mount_point: "secret"
-        path: "{{ platform_vault_init_kv_path }}"
-        auth_method: "token"
-        token: "{{ utils_vault_operator_login_token }}"
+      ansible.builtin.uri:
+        url: "{{ operator_vault_url }}/v1/secret/data/{{ platform_vault_init_kv_path }}"
+        method: POST
+        headers:
+          X-Vault-Token: "{{ utils_vault_operator_login_token }}"
+        ca_path: "{{ operator_vault_ca_cert_path }}"
+        client_cert: "{{ operator_vault_client_cert | default(omit, true) }}"
+        client_key: "{{ operator_vault_client_key | default(omit, true) }}"
         validate_certs: true
-        ca_cert: "{{ operator_vault_ca_cert_path }}"
-        data:
-          prod_vault_root_token: "{{ (platform_vault_init_result.stdout | from_json).root_token }}"
-          prod_vault_unseal_keys: "{{ (platform_vault_init_result.stdout | from_json).unseal_keys_b64 | to_json }}"
+        body_format: json
+        body:
+          data:
+            prod_vault_root_token: "{{ (platform_vault_init_result.stdout | from_json).root_token }}"
+            prod_vault_unseal_keys: "{{ (platform_vault_init_result.stdout | from_json).unseal_keys_b64 | to_json }}"
+        status_code: [200, 204]
       delegate_to: localhost
       become: false
       no_log: true
@@ -65,7 +69,7 @@
           could not be persisted to the Bastion Vault, and they have been saved to
           vault-init-emergency.json at the repository root on the Ansible control
           machine (mode 0600). Retrieve them manually, complete the write to the
-          Bastion Vault from inside a tenant session, then delete that file.
+          Bastion Vault through the {{ project_code }} Vault Proxy, then delete that file.
       ansible.builtin.fail:
         msg: >-
           {{ ansible_failed_result.msg | default('see task output above') }}

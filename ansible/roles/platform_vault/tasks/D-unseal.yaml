@@ -10,7 +10,7 @@
       changed_when: false
       failed_when: false
 
-    - name: "D1b. Take the token of the tenant session"
+    - name: "D1b. Take the Vault Proxy route of identity {{ project_code }}"
       ansible.builtin.include_role:
         name: utils_vault_operator_login
       vars:
@@ -21,14 +21,16 @@
         - (platform_vault_vault_status_check.stdout | from_json).sealed
 
     - name: "D1c. Fetch Unseal Keys from the Bastion Vault"
-      community.hashi_vault.vault_kv2_get:
-        url: "{{ operator_vault_url }}"
-        engine_mount_point: "secret"
-        path: "{{ platform_vault_init_kv_path }}"
-        auth_method: "token"
-        token: "{{ utils_vault_operator_login_token }}"
+      ansible.builtin.uri:
+        url: "{{ operator_vault_url }}/v1/secret/data/{{ platform_vault_init_kv_path }}"
+        method: GET
+        headers:
+          X-Vault-Token: "{{ utils_vault_operator_login_token }}"
+        ca_path: "{{ operator_vault_ca_cert_path }}"
+        client_cert: "{{ operator_vault_client_cert | default(omit, true) }}"
+        client_key: "{{ operator_vault_client_key | default(omit, true) }}"
         validate_certs: true
-        ca_cert: "{{ operator_vault_ca_cert_path }}"
+        return_content: true
       register: platform_vault_unseal_secrets
       delegate_to: localhost
       become: false
@@ -40,7 +42,8 @@
 
     - name: "D1e. Parse Unseal Keys"
       ansible.builtin.set_fact:
-        platform_vault_vault_unseal_keys: "{{ platform_vault_unseal_secrets.secret.prod_vault_unseal_keys | from_json }}"
+        platform_vault_vault_unseal_keys: >-
+          {{ platform_vault_unseal_secrets.json.data.data.prod_vault_unseal_keys | from_json }}
       when: platform_vault_unseal_secrets is not skipped
       no_log: true
 
@@ -75,7 +78,7 @@
       changed_when: false
       failed_when: platform_vault_vault_init_check.rc not in [0, 2]
 
-    - name: "D2b. Take the token of the tenant session"
+    - name: "D2b. Take the Vault Proxy route of identity {{ project_code }}"
       ansible.builtin.include_role:
         name: utils_vault_operator_login
       vars:
@@ -86,14 +89,16 @@
         - (platform_vault_vault_init_check.stdout | from_json).sealed
 
     - name: "D2c. Fetch Unseal Keys from the Bastion Vault"
-      community.hashi_vault.vault_kv2_get:
-        url: "{{ operator_vault_url }}"
-        engine_mount_point: "secret"
-        path: "{{ platform_vault_init_kv_path }}"
-        auth_method: "token"
-        token: "{{ utils_vault_operator_login_token }}"
+      ansible.builtin.uri:
+        url: "{{ operator_vault_url }}/v1/secret/data/{{ platform_vault_init_kv_path }}"
+        method: GET
+        headers:
+          X-Vault-Token: "{{ utils_vault_operator_login_token }}"
+        ca_path: "{{ operator_vault_ca_cert_path }}"
+        client_cert: "{{ operator_vault_client_cert | default(omit, true) }}"
+        client_key: "{{ operator_vault_client_key | default(omit, true) }}"
         validate_certs: true
-        ca_cert: "{{ operator_vault_ca_cert_path }}"
+        return_content: true
       register: platform_vault_unseal_secrets
       delegate_to: localhost
       become: false
@@ -105,7 +110,8 @@
 
     - name: "D2e. Parse Unseal Keys"
       ansible.builtin.set_fact:
-        platform_vault_vault_unseal_keys: "{{ platform_vault_unseal_secrets.secret.prod_vault_unseal_keys | from_json }}"
+        platform_vault_vault_unseal_keys: >-
+          {{ platform_vault_unseal_secrets.json.data.data.prod_vault_unseal_keys | from_json }}
       when: platform_vault_unseal_secrets is not skipped
       no_log: true
 

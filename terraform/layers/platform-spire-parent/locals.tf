@@ -2,7 +2,7 @@
 # GitLab HTTP backend base URL. Authentication credentials must be supplied via
 # `TF_HTTP_USERNAME` and `TF_HTTP_PASSWORD` environment variables.
 locals {
-  _state_base_meta_platform = "https://gitlab.com/api/v4/projects/84608830/terraform/state"
+  _state_base_platform_foundation = "https://gitlab.com/api/v4/projects/84608830/terraform/state"
 }
 
 locals {
@@ -75,5 +75,13 @@ locals {
     spire_oidc_ip_sans                         = join(",", module.terraform_layer_context.cluster_network.node_ips)
     spire_oidc_ca_chain_b64                    = base64encode(local.oidc_ca_chain_pem)
     spire_parent_trust_domain_reinitialization = var.spire_trust_domain_reinitialization
+  }
+}
+
+# Cluster names derive from the foundation topology, so no input carries the project code.
+locals {
+  target_clusters = {
+    for role, c in var.target_components :
+    role => local.state.foundation_libvirt_resources.foundation_topology.identity[c.service][c.component].cluster_name
   }
 }

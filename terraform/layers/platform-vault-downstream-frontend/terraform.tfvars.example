@@ -1,4 +1,4 @@
-target_clusters = { "vault" = "meta-platform-vault-downstream-frontend" }
+target_components = { "vault" = { service = "vault-downstream", component = "frontend" } }
 primary_role    = "vault"
 
 service_config = {

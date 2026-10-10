@@ -51,12 +51,12 @@
       ansible.builtin.fail:
         msg: "{{ ansible_failed_result.msg | default('see task output above') }}"
 
-# The workstation issues the secret ID with the tenant token, and the secret ID never enters a Terraform state.
+# The workstation issues the secret ID through the Vault Proxy, and the secret ID never enters a Terraform state.
 # A held secret ID stays while the operator Vault still knows the secret ID under the current role.
 - name: "Block B2: Upstream Authority Secret ID"
   become: true
   block:
-    - name: "B2a. Take the token of the tenant session"
+    - name: "B2a. Take the Vault Proxy route of identity {{ project_code }}"
       ansible.builtin.include_role:
         name: utils_vault_operator_login
       vars:
@@ -88,6 +88,8 @@
               | regex_replace('^VAULT_APPROLE_SECRET_ID=', '') | trim
             }}
         ca_path: "{{ operator_vault_ca_cert_path }}"
+        client_cert: "{{ operator_vault_client_cert | default(omit, true) }}"
+        client_key: "{{ operator_vault_client_key | default(omit, true) }}"
         validate_certs: true
         # Vault answers 204 for a secret ID which the role does not know, and 400 for an orphaned or empty secret ID.
         status_code: [200, 204, 400]
@@ -109,6 +111,8 @@
         headers:
           X-Vault-Token: "{{ utils_vault_operator_login_token }}"
         ca_path: "{{ operator_vault_ca_cert_path }}"
+        client_cert: "{{ operator_vault_client_cert | default(omit, true) }}"
+        client_key: "{{ operator_vault_client_key | default(omit, true) }}"
         validate_certs: true
         status_code: 200
         return_content: true

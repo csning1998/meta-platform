@@ -9,12 +9,15 @@ variable "node_config" {
 }
 
 variable "talos_config" {
-  description = "Talos settings: the target cluster name from the SSoT mapping, the Talos release, which MUST match the boot ISO under packer/output/talos-<version>/, the Kubernetes version, the KubePrism port, and the Gateway API CRD release pinned by digest."
+  description = "Talos settings: the service and the component of the target cluster in the SSoT catalog, the Talos release, which MUST match the boot ISO under packer/output/talos-<version>/, the Kubernetes version, the KubePrism port, and the Gateway API CRD release pinned by digest."
   type = object({
-    target_cluster_name = string
-    talos_version       = string
-    kubernetes_version  = string
-    kubeprism_port      = optional(number, 7445)
+    target_component = object({
+      service   = string
+      component = string
+    })
+    talos_version      = string
+    kubernetes_version = string
+    kubeprism_port     = optional(number, 7445)
     gateway_api = object({
       version = string
       sha256  = string

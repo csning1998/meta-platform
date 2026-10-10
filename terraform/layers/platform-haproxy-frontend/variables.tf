@@ -1,11 +1,14 @@
 
-variable "target_clusters" {
-  description = "Map of role to physical cluster names from SSoT."
-  type        = map(string)
+variable "target_components" {
+  description = "Map of role to the service and the component of the SSoT catalog. The layer resolves each pair to the cluster name of the foundation topology."
+  type = map(object({
+    service   = string
+    component = string
+  }))
 }
 
 variable "primary_role" {
-  description = "Primary role key within target_clusters."
+  description = "Primary role key within target_components."
   type        = string
 }
 

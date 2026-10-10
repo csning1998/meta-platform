@@ -2,7 +2,7 @@
 # GitLab HTTP backend base URL. Authentication credentials must be supplied via
 # `TF_HTTP_USERNAME` and `TF_HTTP_PASSWORD` environment variables.
 locals {
-  _state_base_meta_platform = "https://gitlab.com/api/v4/projects/84608830/terraform/state"
+  _state_base_platform_foundation = "https://gitlab.com/api/v4/projects/84608830/terraform/state"
 }
 
 locals {
@@ -45,7 +45,7 @@ locals {
 
   network_map = { for k, v in local.network_segments_map : k => v.network }
 
-  cilium_hubble_cluster_name     = var.talos_config.target_cluster_name
+  cilium_hubble_cluster_name     = local.state.foundation_libvirt_resources.foundation_topology.identity[var.talos_config.target_component.service][var.talos_config.target_component.component].cluster_name
   cilium_hubble_cluster_context  = local.network_segments_map[local.cilium_hubble_cluster_name]
   cilium_hubble_cluster_identity = local.cilium_hubble_cluster_context.identity
   cilium_hubble_cluster_pki      = local.state.foundation_libvirt_resources.foundation_pki.map["${local.cilium_hubble_cluster_context.s_name}-${local.cilium_hubble_cluster_context.c_name}"]

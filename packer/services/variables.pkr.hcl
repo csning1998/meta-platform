@@ -53,6 +53,6 @@ variable "net_device" {
 }
 
 variable "secrets_path" {
-  type    = string
-  default = "secret/data/meta-platform/guest_vm"
+  description = "KV-v2 data path of the guest VM credentials, passed by the platform CLI from the project code."
+  type        = string
 }

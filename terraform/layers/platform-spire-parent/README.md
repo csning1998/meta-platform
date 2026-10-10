@@ -2,11 +2,11 @@
 
 The layer provisions the SPIRE Parent VM, the AppRole of the upstream authority on `pki-spire`, and the PKI role of the OIDC listener on `pki-platform`.
 
-The layer MUST run inside a tenant session, which `./governance vault tenant-session meta-platform` of `parent-group-governance` opens.
+The layer MUST run inside a tenant session, which `./governance vault tenant-session platform-foundation` of `parent-group-governance` opens.
 
 The tenant session exports `VAULT_ADDR`, `VAULT_CACERT`, and `VAULT_TOKEN`, and the `vault` provider of the layer reads the three variables alone.
 
-The layer reads the Bastion facts from `registry/meta-platform/bastion` and `registry/platform/trust`.
+The layer reads the Bastion facts from `registry/platform-foundation/bastion` and `registry/platform/trust`.
 
 The plan stops when the SPIRE trust domain is absent from `spire_trust_domains` of `registry/platform/trust`.
 
@@ -25,7 +25,7 @@ The play of the layer keeps a secret ID which the Bastion Vault still knows unde
 The play keeps a listener certificate which chains to the current `pki-platform` and stays valid beyond 30 days, and the play issues a new certificate otherwise.
 
 ```bash
-./governance vault tenant-session meta-platform   # in parent-group-governance
+./governance vault tenant-session platform-foundation   # in parent-group-governance
 terraform -chdir=terraform/layers/platform-spire-parent apply
 ```
 
@@ -57,8 +57,8 @@ LISTENER_CA=$VAULT_CACERT
 DOWNSTREAM_ADDR=$(terraform -chdir=terraform/layers/platform-vault-downstream-frontend output -json vault_endpoint | jq -r .address)
 DOWNSTREAM_CA=terraform/layers/platform-vault-downstream-frontend/tls/listener-ca-chain.crt
 PARENT=172.16.125.200
-ROLE=meta-platform-terraform-operator-cilium-hubble
-MOUNT=meta-platform-spire-parent-jwt-svid-provider
+ROLE=platform-foundation-terraform-operator-cilium-hubble
+MOUNT=platform-foundation-spire-parent-jwt-svid-provider
 ```
 
 ### Task B. Test the network path to SPIRE Parent
@@ -115,11 +115,11 @@ curl -s --cacert "$CHAIN" "https://$PARENT:8443/keys" | python3 -c 'import json,
 
 ### Task E. Verify the JWT-SVID and the Vault login of the Cilium operator
 
-The wrapper `spire-fetch-meta-platform-terraform-operator-cilium-hubble` prints a JSON document with the field `jwt`.
+The wrapper `spire-fetch-platform-foundation-terraform-operator-cilium-hubble` prints a JSON document with the field `jwt`.
 
-The subject MUST be `spiffe://<trust domain>/meta-platform/terraform-operator/cilium/hubble`, and the audience MUST be `vault`.
+The subject MUST be `spiffe://<trust domain>/platform-foundation/terraform-operator/cilium/hubble`, and the audience MUST be `vault`.
 
-The login at the Downstream Vault MUST return the policy `meta-platform-terraform-operator-cilium-hubble`, after `security-vault-downstream-tenants` is applied.
+The login at the Downstream Vault MUST return the policy `platform-foundation-terraform-operator-cilium-hubble`, after `security-vault-downstream-tenants` is applied.
 
 The command prints the claims and the policy names only.
 
@@ -145,8 +145,8 @@ The server MUST report `Server is healthy`.
 The list MUST hold at least the agent of the operator workstation.
 
 ```bash
-ssh meta-platform-spire-parent-node-00 'sudo spire-server healthcheck -socketPath /opt/spire/server/data/private/api.sock'
-ssh meta-platform-spire-parent-node-00 'sudo spire-server agent list -socketPath /opt/spire/server/data/private/api.sock' | grep 'SPIFFE ID'
+ssh platform-foundation-spire-parent-node-00 'sudo spire-server healthcheck -socketPath /opt/spire/server/data/private/api.sock'
+ssh platform-foundation-spire-parent-node-00 'sudo spire-server agent list -socketPath /opt/spire/server/data/private/api.sock' | grep 'SPIFFE ID'
 ```
 
 ### Task G. Test the path from SPIRE Parent to the Cilium nodes
@@ -155,7 +155,7 @@ The node addresses MUST come from `kubectl get nodes -o wide`, column `INTERNAL-
 
 The range `ip_range` of the service catalog is not the node address.
 
-The kubeconfig lives in the Downstream Vault at `meta-platform/cilium/hubble/cluster-config`, field `content_b64`.
+The kubeconfig lives in the Downstream Vault at `platform-foundation/cilium/hubble/cluster-config`, field `content_b64`.
 
 The Cilium operator reads the kubeconfig with the token of the login of Task E.
 
@@ -168,13 +168,13 @@ DOWNSTREAM_TOKEN=$(curl -s --cacert "$DOWNSTREAM_CA" -X POST "$DOWNSTREAM_ADDR/v
   -d "{\"role\":\"$ROLE\",\"jwt\":\"$(/usr/local/bin/spire-fetch-$ROLE | jq -r .jwt)\"}" | jq -r .auth.client_token)
 KUBECONFIG_FILE=$(mktemp)
 VAULT_ADDR=$DOWNSTREAM_ADDR VAULT_CACERT=$DOWNSTREAM_CA VAULT_TOKEN=$DOWNSTREAM_TOKEN \
-  vault kv get -mount=secret -field=content_b64 meta-platform/cilium/hubble/cluster-config | base64 -d > "$KUBECONFIG_FILE"
+  vault kv get -mount=secret -field=content_b64 platform-foundation/cilium/hubble/cluster-config | base64 -d > "$KUBECONFIG_FILE"
 NODES=$(kubectl --kubeconfig "$KUBECONFIG_FILE" get nodes -o jsonpath='{.items[*].status.addresses[?(@.type=="InternalIP")].address}')
 for h in $NODES
 do
   for p in 6443 50000
   do
-    ssh meta-platform-spire-parent-node-00 "timeout 4 bash -c 'exec 3<>/dev/tcp/$h/$p' && echo $h:$p open || echo $h:$p CLOSED"
+    ssh platform-foundation-spire-parent-node-00 "timeout 4 bash -c 'exec 3<>/dev/tcp/$h/$p' && echo $h:$p open || echo $h:$p CLOSED"
   done
 done
 rm -f "$KUBECONFIG_FILE" "$CHAIN"; unset DOWNSTREAM_TOKEN
@@ -186,12 +186,12 @@ The direction from the nodes to SPIRE Parent needs a temporary pod in the cluste
 
 ### Task H. Read the result
 
-| Symptom                                                       | Cause                                                                                | Action                                                                                                                                    |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Task C prints a count other than `2`                          | The Bastion Vault answered with an error, or the listener CA is wrong                | Check `VAULT_CACERT` of the tenant session and the mount names `pki-root` and `pki-platform` in `registry/meta-platform/bastion`          |
-| Task D fails with `unable to get local issuer certificate`    | The trust anchor lacks the intermediate, or the PEM files lack the newline separator | Rebuild the chain file with Task C                                                                                                        |
-| Task D shows no key                                           | The OIDC discovery provider runs without a JWT key                                   | Check `systemctl status spire-oidc-discovery-provider` on SPIRE Parent                                                                    |
-| Task E prints no JWT                                          | The agent of the workstation holds no valid identity for the current SPIRE Parent    | Replace the inventory file of `provision-spire-parent`, as `README.md` Section 3 Item D.1 describes                                        |
-| Task E login answers `permission denied` or an audience error | The mount or the role is missing, or the audience differs from `vault`               | Apply `provision-spire-parent` and then `security-vault-downstream-tenants`                                                               |
-| Task F lists no agent                                         | The workstation agent never attested to this SPIRE Parent                            | Replace the inventory file of `provision-spire-parent`, as `README.md` Section 3 Item D.1 describes                                        |
-| Task G reports `CLOSED` for every node                        | The addresses come from the wrong source, or the route between the segments is down  | Use the `INTERNAL-IP` column and check the route `172.16.0.0/16` on SPIRE Parent                                                          |
+| Symptom                                                       | Cause                                                                                | Action                                                                                                                                 |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Task C prints a count other than `2`                          | The Bastion Vault answered with an error, or the listener CA is wrong                | Check `VAULT_CACERT` of the tenant session and the mount names `pki-root` and `pki-platform` in `registry/platform-foundation/bastion` |
+| Task D fails with `unable to get local issuer certificate`    | The trust anchor lacks the intermediate, or the PEM files lack the newline separator | Rebuild the chain file with Task C                                                                                                     |
+| Task D shows no key                                           | The OIDC discovery provider runs without a JWT key                                   | Check `systemctl status spire-oidc-discovery-provider` on SPIRE Parent                                                                 |
+| Task E prints no JWT                                          | The agent of the workstation holds no valid identity for the current SPIRE Parent    | Replace the inventory file of `provision-spire-parent`, as `README.md` Section 3 Item D.1 describes                                    |
+| Task E login answers `permission denied` or an audience error | The mount or the role is missing, or the audience differs from `vault`               | Apply `provision-spire-parent` and then `security-vault-downstream-tenants`                                                            |
+| Task F lists no agent                                         | The workstation agent never attested to this SPIRE Parent                            | Replace the inventory file of `provision-spire-parent`, as `README.md` Section 3 Item D.1 describes                                    |
+| Task G reports `CLOSED` for every node                        | The addresses come from the wrong source, or the route between the segments is down  | Use the `INTERNAL-IP` column and check the route `172.16.0.0/16` on SPIRE Parent                                                       |

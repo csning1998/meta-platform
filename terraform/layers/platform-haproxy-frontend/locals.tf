@@ -1,7 +1,7 @@
 # GitLab HTTP backend base URL. Authentication credentials must be supplied via
 # `TF_HTTP_USERNAME` and `TF_HTTP_PASSWORD` environment variables.
 locals {
-  _state_base_meta_platform = "https://gitlab.com/api/v4/projects/84608830/terraform/state"
+  _state_base_platform_foundation = "https://gitlab.com/api/v4/projects/84608830/terraform/state"
 }
 
 locals {
@@ -153,5 +153,13 @@ check "haproxy_extra_network_offsets_safe" {
   assert {
     condition     = length(local.extra_network_offset_conflicts) == 0
     error_message = "haproxy_extra_ip_offset collides with a fronted segment's own reserved node ip_range for: ${join(", ", local.extra_network_offset_conflicts)}."
+  }
+}
+
+# Cluster names derive from the foundation topology, so no input carries the project code.
+locals {
+  target_clusters = {
+    for role, c in var.target_components :
+    role => local.state.foundation_libvirt_resources.foundation_topology.identity[c.service][c.component].cluster_name
   }
 }

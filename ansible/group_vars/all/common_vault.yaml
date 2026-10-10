@@ -21,8 +21,6 @@ vault_port_cluster: 8201
 vault_ca_subject_common_name: "Vault Root CA"
 vault_cluster_name: "vault-ha-cluster"
 
-vault_kv_namespace: "meta-platform"
-
 # The operator Vault defaults to the Vault of the calling session. A layer which targets another Vault passes both values.
 operator_vault_url: "{{ lookup('ansible.builtin.env', 'VAULT_ADDR') }}"
 operator_vault_ca_cert_path: "{{ lookup('ansible.builtin.env', 'VAULT_CACERT') }}"
