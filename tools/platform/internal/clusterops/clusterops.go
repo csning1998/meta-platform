@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -29,8 +30,8 @@ var (
 	ErrUnknownTarget = errors.New("clusterops: the target has no Terraform operator")
 	// ErrClusterConfigMissing reports a cluster without a cluster-config leaf, for example a cluster of the VM runtime.
 	ErrClusterConfigMissing = errors.New("clusterops: the Vault holds no cluster-config of the target")
-	// ErrTenantSessionMissing reports a shell without the Bastion Vault login of a tenant session.
-	ErrTenantSessionMissing = errors.New("clusterops: VAULT_ADDR and VAULT_TOKEN are empty, open a tenant session first")
+	// ErrProxyEnvironmentMissing reports a shell without the environment of the platform-foundation Vault Proxy.
+	ErrProxyEnvironmentMissing = errors.New("clusterops: VAULT_ADDR, VAULT_TOKEN, VAULT_CLIENT_CERT, or VAULT_CLIENT_KEY is empty, allow the .envrc with direnv allow or run eval \"$(vault-proxy-env platform-foundation)\"")
 )
 
 // catalogWordsRe matches a service or component name of the service catalog.
@@ -204,16 +205,18 @@ func (c Coordinates) ListTargets() []operatorops.OperatorSubject {
 }
 
 // newVaultClient returns a client of address which trusts caCertPath alone. The client drops the token and the
-// namespace which the Vault SDK reads from the environment, keeping the tenant token off another Vault.
-func newVaultClient(address, caCertPath string) (*vaultapi.Client, error) {
+// namespace which the Vault SDK reads from the environment, keeping the Proxy placeholder token off another Vault.
+func newVaultClient(address string, tlsConfig vaultapi.TLSConfig) (*vaultapi.Client, error) {
 	cfg := vaultapi.DefaultConfig()
 	if cfg.Error != nil {
 		return nil, fmt.Errorf("clusterops: Vault client configuration: %w", cfg.Error)
 	}
 	cfg.Address = address
-	err := cfg.ConfigureTLS(&vaultapi.TLSConfig{CACert: caCertPath})
+	// DefaultConfig loads VAULT_CLIENT_CERT of the process, which the Downstream Vault MUST NOT receive.
+	cfg.HttpClient.Transport.(*http.Transport).TLSClientConfig.GetClientCertificate = nil
+	err := cfg.ConfigureTLS(&tlsConfig)
 	if err != nil {
-		return nil, fmt.Errorf("clusterops: Vault CA %s: %w", caCertPath, err)
+		return nil, fmt.Errorf("clusterops: Vault TLS of %s: %w", address, err)
 	}
 	client, err := vaultapi.NewClient(cfg)
 	if err != nil {
@@ -226,7 +229,7 @@ func newVaultClient(address, caCertPath string) (*vaultapi.Client, error) {
 
 // LoginDownstream logs in to the Downstream Vault at address with jwt, verifying the listener against caCertPath.
 func LoginDownstream(ctx context.Context, address, caCertPath string, op Operator, jwt string) (*vaultapi.Client, error) {
-	client, err := newVaultClient(address, caCertPath)
+	client, err := newVaultClient(address, vaultapi.TLSConfig{CACert: caCertPath})
 	if err != nil {
 		return nil, err
 	}
@@ -244,13 +247,15 @@ func LoginDownstream(ctx context.Context, address, caCertPath string, op Operato
 	return client, nil
 }
 
-// NewBastionClient returns a Bastion Vault client of the tenant session which getenv reads.
+// NewBastionClient returns a Bastion Vault client of the Vault Proxy environment which getenv reads.
+// The Proxy listener admits a request with the client certificate of the identity alone.
 func NewBastionClient(getenv func(string) string) (*vaultapi.Client, error) {
 	address, token := getenv("VAULT_ADDR"), getenv("VAULT_TOKEN")
-	if address == "" || token == "" {
-		return nil, ErrTenantSessionMissing
+	clientCert, clientKey := getenv("VAULT_CLIENT_CERT"), getenv("VAULT_CLIENT_KEY")
+	if address == "" || token == "" || clientCert == "" || clientKey == "" {
+		return nil, ErrProxyEnvironmentMissing
 	}
-	client, err := newVaultClient(address, getenv("VAULT_CACERT"))
+	client, err := newVaultClient(address, vaultapi.TLSConfig{CACert: getenv("VAULT_CACERT"), ClientCert: clientCert, ClientKey: clientKey})
 	if err != nil {
 		return nil, err
 	}

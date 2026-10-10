@@ -2,9 +2,9 @@
 
 The layer provisions the SPIRE Parent VM, the AppRole of the upstream authority on `pki-spire`, and the PKI role of the OIDC listener on `pki-platform`.
 
-The layer MUST run inside a tenant session, which `./governance vault tenant-session platform-foundation` of `parent-group-governance` opens.
+The layer MUST run in the environment of the platform-foundation Vault Proxy, which the `.envrc` at the repository root loads.
 
-The tenant session exports `VAULT_ADDR`, `VAULT_CACERT`, and `VAULT_TOKEN`, and the `vault` provider of the layer reads the three variables alone.
+The environment exports `VAULT_ADDR`, `VAULT_CACERT`, `VAULT_CLIENT_CERT`, `VAULT_CLIENT_KEY`, and the placeholder `VAULT_TOKEN`, and the `vault` provider of the layer reads these variables alone.
 
 The layer reads the Bastion facts from `registry/platform-foundation/bastion` and `registry/platform/trust`.
 
@@ -16,7 +16,7 @@ A state loss is the removal of the remote state of the layer while the Bastion V
 
 The Bastion Vault objects of the layer are the AppRole role `<cluster_name>-upstream-authority` and the PKI role `<cluster_name>` on `pki-platform`.
 
-An apply inside a tenant session overwrites both roles in place, and neither role requires an import.
+An apply in the Proxy environment overwrites both roles in place, and neither role requires an import.
 
 The secret ID of the upstream authority and the OIDC listener certificate reside on the VM and never in the state.
 
@@ -25,7 +25,7 @@ The play of the layer keeps a secret ID which the Bastion Vault still knows unde
 The play keeps a listener certificate which chains to the current `pki-platform` and stays valid beyond 30 days, and the play issues a new certificate otherwise.
 
 ```bash
-./governance vault tenant-session platform-foundation   # in parent-group-governance
+# The .envrc at the repository root loads the platform-foundation Vault Proxy environment.
 terraform -chdir=terraform/layers/platform-spire-parent apply
 ```
 
@@ -41,7 +41,7 @@ The commands MUST run on the operator workstation in the account of the operator
 
 ### Task A. Set the variables
 
-The commands run inside a tenant session, which exports the Bastion Vault address and the Bastion Vault listener CA.
+The commands run in the environment of the platform-foundation Vault Proxy, which exports the Proxy address, the listener CA, and the client certificate.
 
 The Downstream Vault address is the field `address` of the output `vault_endpoint` of `platform-vault-downstream-frontend`.
 
@@ -188,7 +188,7 @@ The direction from the nodes to SPIRE Parent needs a temporary pod in the cluste
 
 | Symptom                                                       | Cause                                                                                | Action                                                                                                                                 |
 | ------------------------------------------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Task C prints a count other than `2`                          | The Bastion Vault answered with an error, or the listener CA is wrong                | Check `VAULT_CACERT` of the tenant session and the mount names `pki-root` and `pki-platform` in `registry/platform-foundation/bastion` |
+| Task C prints a count other than `2`                          | The Bastion Vault answered with an error, or the listener CA is wrong                | Check `VAULT_CACERT` of the Proxy environment and the mount names `pki-root` and `pki-platform` in `registry/platform-foundation/bastion` |
 | Task D fails with `unable to get local issuer certificate`    | The trust anchor lacks the intermediate, or the PEM files lack the newline separator | Rebuild the chain file with Task C                                                                                                     |
 | Task D shows no key                                           | The OIDC discovery provider runs without a JWT key                                   | Check `systemctl status spire-oidc-discovery-provider` on SPIRE Parent                                                                 |
 | Task E prints no JWT                                          | The agent of the workstation holds no valid identity for the current SPIRE Parent    | Replace the inventory file of `provision-spire-parent`, as `README.md` Section 3 Item D.1 describes                                    |

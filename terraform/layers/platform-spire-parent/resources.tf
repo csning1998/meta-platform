@@ -9,7 +9,7 @@ locals {
   ]
 }
 
-# Ansible issues the secret ID with the tenant token and writes the secret ID to the host, outside the state.
+# Ansible issues the secret ID through the Vault Proxy and writes the secret ID to the host, outside the state.
 resource "vault_approle_auth_backend_role" "spire_parent_upstream_authority" {
   backend               = local.registry_bastion.vault.approle_mount_path
   role_name             = "${module.terraform_layer_context.cluster_identity.cluster_name}-upstream-authority"

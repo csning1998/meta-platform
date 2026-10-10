@@ -1,6 +1,6 @@
 ---
 # Executed via ansible-runner or manual tag selection, using ANSIBLE_BECOME_PASS for privilege escalation.
-# The plays run inside a tenant session, whose VAULT_TOKEN writes the join tokens to the Bastion KV.
+# The plays reach the Bastion KV through the tenant Vault Proxy, which writes the join tokens.
 - name: "Play [Setup]: Dynamic Grouping based on node_role"
   hosts: all
   gather_facts: false

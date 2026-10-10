@@ -59,7 +59,7 @@ locals {
     spire_oidc_domain = local.spire_parent_node_ip
   }
 
-  # Every value is public. Ansible issues the secret ID and the listener key with the tenant token, outside the state.
+  # Every value is public. Ansible issues the secret ID and the listener key through the Vault Proxy, outside the state.
   ansible_extra_config = {
     ansible_user = module.terraform_layer_context.security_vm_credentials.username
 

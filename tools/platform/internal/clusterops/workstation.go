@@ -22,7 +22,7 @@ type Workstation struct {
 	TenantsLayerDir string
 	// Operator locates the JWT-SVID wrappers of the Terraform operators.
 	Operator operatorops.Config
-	// Getenv reads the tenant session and XDG_RUNTIME_DIR.
+	// Getenv reads the Vault Proxy environment and XDG_RUNTIME_DIR.
 	Getenv func(string) string
 }
 

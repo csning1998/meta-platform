@@ -73,11 +73,14 @@ func newWorkstationFixture(t *testing.T, kubectlBody string) *workstationFixture
 	writeExecutable(t, wrappers, keycloakWrapper, `printf '{"jwt":"eyJ.keycloak.sig"}'`)
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 
+	certFile, keyFile := writeClientCertificate(t, "operator-platform-foundation")
 	f.env = map[string]string{
-		"XDG_RUNTIME_DIR": f.runtime,
-		"VAULT_ADDR":      f.vault.server.URL,
-		"VAULT_TOKEN":     "s.tenant",
-		"VAULT_CACERT":    f.vault.caFile,
+		"XDG_RUNTIME_DIR":   f.runtime,
+		"VAULT_ADDR":        f.vault.server.URL,
+		"VAULT_TOKEN":       "s.tenant",
+		"VAULT_CACERT":      f.vault.caFile,
+		"VAULT_CLIENT_CERT": certFile,
+		"VAULT_CLIENT_KEY":  keyFile,
 	}
 	f.ws = Workstation{
 		TenantsLayerDir: "/repo/terraform/layers/security-vault-downstream-tenants",
@@ -162,7 +165,7 @@ func TestOpenSession_FailsWithoutSessionFiles(t *testing.T) {
 		{"unknown target", "gitlab/praefect", nil, ErrUnknownTarget},
 		{"absent leaf", "harbor-origin/frontend", nil, ErrClusterConfigMissing},
 		{"absent wrapper", "keycloak/frontend", func(f *workstationFixture) { f.ws.Operator.WrapperDir = f.runtime }, operatorops.ErrWrapperMissing},
-		{"no tenant session", "vault-downstream/frontend", func(f *workstationFixture) { delete(f.env, "VAULT_TOKEN") }, ErrTenantSessionMissing},
+		{"no vault proxy environment", "vault-downstream/frontend", func(f *workstationFixture) { delete(f.env, "VAULT_TOKEN") }, ErrProxyEnvironmentMissing},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

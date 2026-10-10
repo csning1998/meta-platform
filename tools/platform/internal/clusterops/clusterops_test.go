@@ -5,12 +5,14 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
+	"maps"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -228,10 +230,18 @@ func TestReadCoordinates_ReportsTerraformFailure(t *testing.T) {
 
 // vaultFixture is a TLS Vault double and the PEM file of its certificate.
 type vaultFixture struct {
-	server   *httptest.Server
-	caFile   string
-	mu       sync.Mutex
-	requests []string
+	server    *httptest.Server
+	caFile    string
+	mu        sync.Mutex
+	requests  []string
+	clientCNs []string
+}
+
+// presented returns the CN of the client certificate of each request, or an empty string for a request without one.
+func (f *vaultFixture) presented() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.clientCNs)
 }
 
 // recorded returns the requests which the double received so far.
@@ -244,9 +254,14 @@ func (f *vaultFixture) recorded() []string {
 func newVaultFixture(t *testing.T, secrets map[string]map[string]any) *vaultFixture {
 	t.Helper()
 	f := &vaultFixture{}
-	f.server = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	f.server = httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cn := ""
+		if len(r.TLS.PeerCertificates) > 0 {
+			cn = r.TLS.PeerCertificates[0].Subject.CommonName
+		}
 		f.mu.Lock()
 		f.requests = append(f.requests, r.Method+" "+r.URL.Path+" token="+r.Header.Get("X-Vault-Token"))
+		f.clientCNs = append(f.clientCNs, cn)
 		f.mu.Unlock()
 		switch {
 		case r.URL.Path == "/v1/auth/spire-parent-jwt-svid-provider/login":
@@ -269,9 +284,57 @@ func newVaultFixture(t *testing.T, secrets map[string]map[string]any) *vaultFixt
 			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
+	f.server.TLS = &tls.Config{ClientAuth: tls.RequestClientCert}
+	f.server.StartTLS()
 	t.Cleanup(f.server.Close)
 	f.caFile = writePEM(t, f.server.Certificate().Raw)
 	return f
+}
+
+// newProxyEnvironment returns the Vault Proxy environment of the identity operator-platform-foundation against f.
+func newProxyEnvironment(t *testing.T, f *vaultFixture) map[string]string {
+	t.Helper()
+	certFile, keyFile := writeClientCertificate(t, "operator-platform-foundation")
+	return map[string]string{
+		"VAULT_ADDR": f.server.URL, "VAULT_TOKEN": "s.tenant", "VAULT_CACERT": f.caFile,
+		"VAULT_CLIENT_CERT": certFile, "VAULT_CLIENT_KEY": keyFile,
+	}
+}
+
+// writeClientCertificate writes a self-signed client certificate of commonName and its key, and returns both paths.
+func writeClientCertificate(t *testing.T, commonName string) (certFile, keyFile string) {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("generate client key: %v", err)
+	}
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(2),
+		Subject:      pkix.Name{CommonName: commonName},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(time.Hour),
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+	}
+	der, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("create client certificate: %v", err)
+	}
+	keyDER, err := x509.MarshalECPrivateKey(key)
+	if err != nil {
+		t.Fatalf("marshal client key: %v", err)
+	}
+	dir := t.TempDir()
+	certFile, keyFile = filepath.Join(dir, "client.pem"), filepath.Join(dir, "client-key.pem")
+	for path, block := range map[string]*pem.Block{
+		certFile: {Type: "CERTIFICATE", Bytes: der},
+		keyFile:  {Type: "EC PRIVATE KEY", Bytes: keyDER},
+	} {
+		err := os.WriteFile(path, pem.EncodeToMemory(block), 0o600)
+		if err != nil {
+			t.Fatalf("write %s: %v", path, err)
+		}
+	}
+	return certFile, keyFile
 }
 
 func writePEM(t *testing.T, der []byte) string {
@@ -368,6 +431,21 @@ func TestLoginDownstream_VerifiesListenerAgainstCACert(t *testing.T) {
 	}
 }
 
+func TestLoginDownstream_PresentsNoClientCertificate(t *testing.T) {
+	certFile, keyFile := writeClientCertificate(t, "operator-platform-foundation")
+	t.Setenv("VAULT_CLIENT_CERT", certFile)
+	t.Setenv("VAULT_CLIENT_KEY", keyFile)
+	f := newVaultFixture(t, nil)
+
+	_, err := LoginDownstream(context.Background(), f.server.URL, f.caFile, keycloakOperator, "eyJ.keycloak.sig")
+	if err != nil {
+		t.Fatalf("LoginDownstream: %v", err)
+	}
+	if got := f.presented(); !slices.Equal(got, []string{""}) {
+		t.Errorf("client certificates = %q, want none on the Downstream Vault", got)
+	}
+}
+
 func TestLoginDownstream_RejectsDeniedLogin(t *testing.T) {
 	f := newVaultFixture(t, nil)
 	_, err := LoginDownstream(context.Background(), f.server.URL, f.caFile, keycloakOperator, "eyJ.other.sig")
@@ -376,9 +454,9 @@ func TestLoginDownstream_RejectsDeniedLogin(t *testing.T) {
 	}
 }
 
-func TestNewBastionClient_ReadsTenantSession(t *testing.T) {
+func TestNewBastionClient_ReadsProxyEnvironment(t *testing.T) {
 	f := newVaultFixture(t, map[string]map[string]any{"example-platform/vault-downstream/frontend/cluster-config": clusterConfigSecret()})
-	env := map[string]string{"VAULT_ADDR": f.server.URL, "VAULT_TOKEN": "s.tenant", "VAULT_CACERT": f.caFile}
+	env := newProxyEnvironment(t, f)
 
 	client, err := NewBastionClient(func(key string) string { return env[key] })
 	if err != nil {
@@ -394,18 +472,32 @@ func TestNewBastionClient_ReadsTenantSession(t *testing.T) {
 	if !slices.Contains(f.recorded(), want) {
 		t.Errorf("requests = %q, want %q", f.recorded(), want)
 	}
+	if got := f.presented(); !slices.Equal(got, []string{"operator-platform-foundation"}) {
+		t.Errorf("client certificates = %q, want the certificate of the Proxy identity", got)
+	}
 }
 
-func TestNewBastionClient_RequiresTenantSession(t *testing.T) {
+func TestNewBastionClient_RequiresProxyEnvironment(t *testing.T) {
+	complete := map[string]string{
+		"VAULT_ADDR": "https://127.0.0.1:8211", "VAULT_TOKEN": "proxy-supplied",
+		"VAULT_CLIENT_CERT": "/run/client.pem", "VAULT_CLIENT_KEY": "/run/client-key.pem",
+	}
+	without := func(key string) map[string]string {
+		env := maps.Clone(complete)
+		delete(env, key)
+		return env
+	}
 	for name, env := range map[string]map[string]string{
-		"no address": {"VAULT_TOKEN": "s.tenant"},
-		"no token":   {"VAULT_ADDR": "https://172.16.0.1:8200"},
-		"empty":      {},
+		"no address":            without("VAULT_ADDR"),
+		"no token":              without("VAULT_TOKEN"),
+		"no client certificate": without("VAULT_CLIENT_CERT"),
+		"no client key":         without("VAULT_CLIENT_KEY"),
+		"empty":                 {},
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, err := NewBastionClient(func(key string) string { return env[key] })
-			if !errors.Is(err, ErrTenantSessionMissing) {
-				t.Errorf("NewBastionClient error = %v, want ErrTenantSessionMissing", err)
+			if !errors.Is(err, ErrProxyEnvironmentMissing) {
+				t.Errorf("NewBastionClient error = %v, want ErrProxyEnvironmentMissing", err)
 			}
 		})
 	}
@@ -420,7 +512,7 @@ func TestReadCredential_RejectsIncompleteLeaf(t *testing.T) {
 		"example-platform/a/invalid/cluster-config":    invalid,
 		"example-platform/a/absent-key/cluster-config": absentKey,
 	})
-	env := map[string]string{"VAULT_ADDR": f.server.URL, "VAULT_TOKEN": "s.tenant", "VAULT_CACERT": f.caFile}
+	env := newProxyEnvironment(t, f)
 	client, err := NewBastionClient(func(key string) string { return env[key] })
 	if err != nil {
 		t.Fatalf("NewBastionClient: %v", err)
